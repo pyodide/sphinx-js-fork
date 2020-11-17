@@ -78,7 +78,8 @@ def version_to_str(t: Sequence[int]) -> str:
 def typedoc_output(
     abs_source_paths: list[str],
     sphinx_conf_dir: str | pathlib.Path,
-    config_path: str,
+    config_path: str | None,
+    tsconfig_path: str | None,
     base_dir: str,
 ) -> "Project":
     """Return the loaded JSON output of the TypeDoc command run over the given
@@ -96,8 +97,12 @@ def typedoc_output(
     command.add("--entryPointStrategy", "expand")
 
     if config_path:
-        tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
-        command.add("--tsconfig", tsconfig_path)
+        config_path = str((Path(sphinx_conf_dir) / config_path).absolute())
+        command.add("--options", config_path)
+
+    if tsconfig_path:
+        tsconfig_path = str((Path(sphinx_conf_dir) / tsconfig_path).absolute())
+        command.add('--tsconfig', tsconfig_path)
 
     command.add("--basePath", base_dir)
 
@@ -311,7 +316,7 @@ class Analyzer:
         cls, abs_source_paths: list[str], app: Sphinx, base_dir: str
     ) -> "Analyzer":
         json = typedoc_output(
-            abs_source_paths, app.confdir, app.config.jsdoc_config_path, base_dir
+            abs_source_paths, app.confdir, app.config.jsdoc_config_path, app.config.jsdoc_tsconfig_path, base_dir
         )
         return cls(
             json,
