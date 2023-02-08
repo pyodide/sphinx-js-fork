@@ -34,3 +34,11 @@ jobs:
           pip install tox tox-gh-actions
       - name: Test
         run: tox
+
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: pytest results ${{ matrix.version }}
+          path: test-results.xml
+          reporter: java-junit
