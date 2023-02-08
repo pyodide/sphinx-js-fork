@@ -1,12 +1,12 @@
 """Converter from TypeDoc output to IR format"""
 
+import re
+import subprocess
 from codecs import getreader
 from errno import ENOENT
 from json import load
 from os.path import basename, join, normpath, relpath, sep, splitext
 from platform import node
-import re
-import subprocess
 from tempfile import NamedTemporaryFile
 from typing import Iterator, List, Optional, Tuple, Union
 
@@ -14,11 +14,11 @@ from sphinx.errors import SphinxError
 
 from .analyzer_utils import Command, is_explicitly_rooted
 from .ir import (
+    NO_DEFAULT,
     Attribute,
     Class,
     Function,
     Interface,
-    NO_DEFAULT,
     Param,
     Pathname,
     Return,

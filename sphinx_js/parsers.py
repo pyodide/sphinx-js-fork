@@ -2,7 +2,6 @@ from re import sub
 
 from parsimonious import Grammar, NodeVisitor
 
-
 path_and_formal_params = Grammar(
     r"""
     path_and_formal_params = path formal_params

@@ -1,8 +1,8 @@
 """Conveniences shared among analyzers"""
 
+import os
 from functools import wraps
 from json import dump, load
-import os
 
 
 def program_name_on_this_platform(program):
@@ -11,7 +11,7 @@ def program_name_on_this_platform(program):
     return program + ".cmd" if os.name == "nt" else program
 
 
-class Command(object):
+class Command:
     def __init__(self, program):
         self.program = program_name_on_this_platform(program)
         self.args = []

@@ -1,12 +1,12 @@
-from io import open
-from setuptools import setup, find_packages
+from pathlib import Path
 
+from setuptools import find_packages, setup
 
 setup(
     name="sphinx-js",
     version="3.2.1",
     description="Support for using Sphinx on JSDoc-documented JS code",
-    long_description=open("README.rst", "r", encoding="utf8").read(),
+    long_description=Path("README.rst").read_text(),
     long_description_content_type="text/x-rst",
     author="Erik Rose",
     author_email="erikrose@grinchcentral.com",

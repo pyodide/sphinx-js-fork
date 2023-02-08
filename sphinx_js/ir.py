@@ -23,11 +23,10 @@ let's at least have a well-documented one and one slightly more likely to
 survive template changes.
 
 """
-from dataclasses import dataclass, InitVar
+from dataclasses import InitVar, dataclass
 from typing import Any, List, NewType, Optional, Union
 
 from .analyzer_utils import dotted_path
-
 
 #: Human-readable type of a value. None if we don't know the type.
 Type = NewType("Type", Optional[str])

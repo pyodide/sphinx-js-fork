@@ -4,10 +4,10 @@ from os.path import join, normpath
 from sphinx.errors import SphinxError
 
 from .directives import (
+    JSStaticFunction,
+    auto_attribute_directive_bound_to_app,
     auto_class_directive_bound_to_app,
     auto_function_directive_bound_to_app,
-    auto_attribute_directive_bound_to_app,
-    JSStaticFunction,
 )
 from .jsdoc import Analyzer as JsAnalyzer
 from .typedoc import Analyzer as TsAnalyzer
@@ -22,7 +22,6 @@ def fix_js_make_xref():
 
     """
     from docutils import nodes
-
     from sphinx.domains import javascript
     from sphinx.locale import _
 

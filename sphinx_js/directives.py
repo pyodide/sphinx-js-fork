@@ -14,7 +14,7 @@ from docutils.parsers.rst.directives import flag
 from sphinx import addnodes
 from sphinx.domains.javascript import JSCallable
 
-from .renderers import AutoFunctionRenderer, AutoClassRenderer, AutoAttributeRenderer
+from .renderers import AutoAttributeRenderer, AutoClassRenderer, AutoFunctionRenderer
 
 
 class JsDirective(Directive):

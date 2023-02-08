@@ -1,13 +1,14 @@
-from io import open
+import sys
 from os.path import dirname, join
 from shutil import rmtree
 from unittest import TestCase
-import sys
 
 from sphinx.cmd.build import main as sphinx_main
 
-from sphinx_js.jsdoc import Analyzer as JsAnalyzer, jsdoc_output
-from sphinx_js.typedoc import Analyzer as TsAnalyzer, index_by_id, typedoc_output
+from sphinx_js.jsdoc import Analyzer as JsAnalyzer
+from sphinx_js.jsdoc import jsdoc_output
+from sphinx_js.typedoc import Analyzer as TsAnalyzer
+from sphinx_js.typedoc import index_by_id, typedoc_output
 
 
 class ThisDirTestCase(TestCase):
@@ -47,7 +48,7 @@ class SphinxBuildTestCase(ThisDirTestCase):
     def _file_contents(self, filename):
         extension = "txt" if self.builder == "text" else "html"
         with open(
-            join(self.docs_dir, "_build", "%s.%s" % (filename, extension)),
+            join(self.docs_dir, "_build", f"{filename}.{extension}"),
             encoding="utf8",
         ) as file:
             return file.read()
@@ -133,7 +134,7 @@ def dict_where(json, already_seen=None, **kwargs):
         match = object_if_matches_properties(json, **kwargs)
         if match is not NO_MATCH:
             return match
-        for k, v in json.items():
+        for v in json.values():
             if id(v) not in already_seen:
                 match = dict_where(v, already_seen, **kwargs)
                 if match is not NO_MATCH:

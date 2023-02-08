@@ -12,11 +12,10 @@ from .ir import Class, Function, Interface, Pathname
 from .parsers import PathVisitor
 from .suffix_tree import SuffixAmbiguous, SuffixNotFound
 
-
 logger = logging.getLogger(__name__)
 
 
-class JsRenderer(object):
+class JsRenderer:
     """Abstract superclass for renderers of various sphinx-js directives
 
     Provides an inversion-of-control framework for rendering and bridges us
@@ -115,7 +114,7 @@ class JsRenderer(object):
         # Not sure if passing the settings from the "real" doc is the right
         # thing to do here:
         doc = new_document(
-            "%s:%s(%s)" % (obj.filename, obj.path, obj.line),
+            f"{obj.filename}:{obj.path}({obj.line})",
             settings=self._directive.state.document.settings,
         )
         RstParser().parse(rst, doc)
@@ -160,7 +159,7 @@ class JsRenderer(object):
                 # general) automatically ignores markup constructs in its
                 # parameter (though not its contents).
                 formals.append(
-                    name if not param.has_default else "%s=%s" % (name, param.default)
+                    name if not param.has_default else f"{name}={param.default}"
                 )
                 used_names.add(name)
 

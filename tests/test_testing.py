@@ -1,4 +1,4 @@
-from tests.testing import dict_where, NO_MATCH
+from tests.testing import NO_MATCH, dict_where
 
 
 def test_dict_where():

@@ -6,7 +6,7 @@ import pytest
 
 from sphinx_js.ir import Attribute, Class, Function, Param, Pathname, Return
 from sphinx_js.typedoc import index_by_id, make_path_segments
-from tests.testing import dict_where, NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase
+from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
 class IndexByIdTests(TestCase):

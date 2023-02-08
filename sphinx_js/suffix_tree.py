@@ -1,4 +1,4 @@
-class SuffixTree(object):
+class SuffixTree:
     """A suffix tree in which you can use anything hashable as a path segment
     and anything at all as a value
 
@@ -152,7 +152,7 @@ class SuffixAmbiguous(SuffixError):
     """There were multiple keys found ending in the suffix."""
 
     def __init__(self, segments, next_possible_keys, or_ends_here=False):
-        super(SuffixAmbiguous, self).__init__(segments)
+        super().__init__(segments)
         self.next_possible_keys = next_possible_keys
         self.or_ends_here = or_ends_here
 
@@ -160,7 +160,7 @@ class SuffixAmbiguous(SuffixError):
         ends_here_msg = (
             " Or it could end without any of them." if self.or_ends_here else ""
         )
-        return "Ambiguous path: %s could continue as any of %s.%s" % (
+        return "Ambiguous path: {} could continue as any of {}.{}".format(
             "".join(self.segments),
             self.next_possible_keys,
             ends_here_msg,

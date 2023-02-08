@@ -4,19 +4,19 @@ Analyzers run jsdoc or typedoc or whatever, squirrel away their output, and
 then lazily constitute IR objects as requested.
 
 """
+import subprocess
 from codecs import getreader, getwriter
 from collections import defaultdict
 from errno import ENOENT
-from json import load, dumps
-from os.path import join, normpath, relpath, splitext, sep
-import subprocess
+from json import dumps, load
+from os.path import join, normpath, relpath, sep, splitext
 from tempfile import TemporaryFile
 
 from sphinx.errors import SphinxError
 
-from .analyzer_utils import cache_to_file, Command, is_explicitly_rooted
-from .ir import Attribute, Class, Exc, Function, NO_DEFAULT, Param, Pathname, Return
-from .parsers import path_and_formal_params, PathVisitor
+from .analyzer_utils import Command, cache_to_file, is_explicitly_rooted
+from .ir import NO_DEFAULT, Attribute, Class, Exc, Function, Param, Pathname, Return
+from .parsers import PathVisitor, path_and_formal_params
 from .suffix_tree import SuffixTree
 
 
@@ -134,7 +134,7 @@ class Analyzer:
             # the fields are about the default constructor:
             constructor=self._doclet_as_function(doclet, full_path),
             members=members,
-            **top_level_properties(doclet, full_path, self._base_dir)
+            **top_level_properties(doclet, full_path, self._base_dir),
         )
 
     def _doclet_as_function(self, doclet, full_path):
@@ -148,7 +148,7 @@ class Analyzer:
             exceptions=exceptions_to_ir(doclet.get("exceptions", [])),
             returns=returns_to_ir(doclet.get("returns", [])),
             params=params_to_ir(doclet),
-            **top_level_properties(doclet, full_path, self._base_dir)
+            **top_level_properties(doclet, full_path, self._base_dir),
         )
 
     def _doclet_as_attribute(self, doclet, full_path):
@@ -160,7 +160,7 @@ class Analyzer:
             is_static=False,
             is_private=is_private(doclet),
             type=get_type(doclet),
-            **top_level_properties(doclet, full_path, self._base_dir)
+            **top_level_properties(doclet, full_path, self._base_dir),
         )
 
 
@@ -191,7 +191,9 @@ def full_path_segments(d, base_dir, longname_field="longname"):
     # Building up a string and then parsing it back down again is probably
     # not the fastest approach, but it means knowledge of path format is in
     # one place: the parser.
-    path = "%s/%s.%s" % (rooted_rel, splitext(meta["filename"])[0], d[longname_field])
+    path = "{}/{}.{}".format(
+        rooted_rel, splitext(meta["filename"])[0], d[longname_field]
+    )
     return PathVisitor().visit(path_and_formal_params["path"].parse(path))
 
 
@@ -261,7 +263,7 @@ def format_default_according_to_type_hints(value, declared_types, first_type_is_
         if first_type_is_string:
             # It came in as an int, null, or bool, and we have to
             # convert it back to a string.
-            return '"%s"' % (dumps(value),)
+            return f'"{dumps(value)}"'
         else:
             # It's fine as the type it is.
             return dumps(value)

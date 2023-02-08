@@ -1,6 +1,5 @@
 from recommonmark.transform import AutoStructify
 
-
 extensions = ["recommonmark", "sphinx.ext.mathjax", "sphinx_js"]
 source_suffix = [".rst", ".md"]
 master_doc = "index"
