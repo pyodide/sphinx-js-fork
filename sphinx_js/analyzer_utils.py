@@ -8,7 +8,7 @@ import os
 def program_name_on_this_platform(program):
     """Return the name of the executable file on the current platform, given a
     command name with no extension."""
-    return program + '.cmd' if os.name == 'nt' else program
+    return program + ".cmd" if os.name == "nt" else program
 
 
 class Command(object):
@@ -30,19 +30,22 @@ def cache_to_file(get_filename):
     :arg get_filename: A function which receives the original arguments of the
         decorated function
     """
+
     def decorator(fn):
         @wraps(fn)
         def decorated(*args, **kwargs):
             filename = get_filename(*args, **kwargs)
             if filename and os.path.isfile(filename):
-                with open(filename, encoding='utf-8') as f:
+                with open(filename, encoding="utf-8") as f:
                     return load(f)
             res = fn(*args, **kwargs)
             if filename:
-                with open(filename, 'w', encoding='utf-8') as f:
+                with open(filename, "w", encoding="utf-8") as f:
                     dump(res, f, indent=2)
             return res
+
         return decorated
+
     return decorator
 
 
@@ -54,7 +57,7 @@ def is_explicitly_rooted(path):
     user is that explicit, we still find the path in the suffix tree.
 
     """
-    return path.startswith(('../', './')) or path in ('..', '.')
+    return path.startswith(("../", "./")) or path in ("..", ".")
 
 
 def dotted_path(segments):
@@ -66,7 +69,8 @@ def dotted_path(segments):
     into this and construct a full path based on that.
 
     """
-    segments_without_separators = [s[:-1] for s in segments[:-1]
-                                   if s not in ['./', '../']]
+    segments_without_separators = [
+        s[:-1] for s in segments[:-1] if s not in ["./", "../"]
+    ]
     segments_without_separators.append(segments[-1])
-    return '.'.join(segments_without_separators)
+    return ".".join(segments_without_separators)

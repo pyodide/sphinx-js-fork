@@ -368,7 +368,7 @@ Version History
   * Remove our declared dependency on ``docutils`` to work around the way pip's greedy dependency resolver reacts to the latest version of Sphinx. pip fails when pip-installing sphinx-js because pip sees our "any version of docutils" declaration first (which resolves greedily to the latest version, 0.17) but later encounters Sphinx's apparently new ``<0.17`` constraint and gives up. We can revert this when pip's ``--use-feature=2020-resolver`` becomes the default.
 
 3.1.1: (March 23rd, 2021)
-  * Rewrite large parts of the suffix tree that powers path lookup. This fixes several crashers.
+  * Rewrite large parts of the suffix tree that powers path lookup. This fixes several crashes.
 
 3.1: (September 10th, 2020)
   * Re-architect language analysis. There is now a well-documented intermediate representation between JSDoc- and TypeDoc-emitted JSON and the renderers. This should make it much faster to merge PRs.
@@ -463,7 +463,7 @@ Version History
     object labeled as a ``@class``.
 
 1.5.2: (March 22th, 2017)
-  * Fix crasher while warning that a specified longname isn't found.
+  * Fix crash while warning that a specified longname isn't found.
 
 1.5.1: (March 20th, 2017)
   * Sort ``:members:`` alphabetically when an order is not explicitly specified.

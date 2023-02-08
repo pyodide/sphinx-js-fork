@@ -26,9 +26,10 @@ class JsRenderer(object):
     parameter list.
 
     """
+
     def __init__(self, directive, app, arguments=None, content=None, options=None):
         # Fix crash when calling eval_rst with CommonMarkParser:
-        if not hasattr(directive.state.document.settings, 'tab_width'):
+        if not hasattr(directive.state.document.settings, "tab_width"):
             directive.state.document.settings.tab_width = 8
 
         self._directive = directive
@@ -38,7 +39,9 @@ class JsRenderer(object):
         # on the instance so calls to template_vars don't need to concern
         # themselves with what it needs.
         self._app = app
-        self._partial_path, self._explicit_formal_params = PathVisitor().parse(arguments[0])
+        self._partial_path, self._explicit_formal_params = PathVisitor().parse(
+            arguments[0]
+        )
         self._content = content or StringList()
         self._options = options or {}
 
@@ -54,26 +57,31 @@ class JsRenderer(object):
         :arg app: The Sphinx global app object. Some methods need this.
 
         """
-        return cls(directive,
-                   app,
-                   arguments=directive.arguments,
-                   content=directive.content,
-                   options=directive.options)
+        return cls(
+            directive,
+            app,
+            arguments=directive.arguments,
+            content=directive.content,
+            options=directive.options,
+        )
 
     def get_object(self):
-        """Return the IR object rendered by this renderer.
-
-        """
+        """Return the IR object rendered by this renderer."""
         try:
             obj = self._app._sphinxjs_analyzer.get_object(
-                self._partial_path, self._renderer_type)
+                self._partial_path, self._renderer_type
+            )
             return obj
         except SuffixNotFound as exc:
-            raise SphinxError('No documentation was found for object "%s" or any path ending with that.'
-                              % ''.join(exc.segments))
+            raise SphinxError(
+                'No documentation was found for object "%s" or any path ending with that.'
+                % "".join(exc.segments)
+            )
         except SuffixAmbiguous as exc:
-            raise SphinxError('More than one object matches the path suffix "%s". Candidate paths have these segments in front: %s'
-                              % (''.join(exc.segments), exc.next_possible_keys))
+            raise SphinxError(
+                'More than one object matches the path suffix "%s". Candidate paths have these segments in front: %s'
+                % ("".join(exc.segments), exc.next_possible_keys)
+            )
 
     def dependencies(self):
         """Return a set of path(s) to the file(s) that the IR object
@@ -86,7 +94,7 @@ class JsRenderer(object):
             if obj.deppath:
                 return set([obj.deppath])
         except SphinxError as exc:
-            logger.exception('Exception while retrieving paths for IR object: %s' % exc)
+            logger.exception("Exception while retrieving paths for IR object: %s" % exc)
         return set([])
 
     def rst_nodes(self):
@@ -97,19 +105,19 @@ class JsRenderer(object):
 
         """
         obj = self.get_object()
-        rst = self.rst(self._partial_path,
-                       obj,
-                       use_short_name='short-name' in self._options)
+        rst = self.rst(
+            self._partial_path, obj, use_short_name="short-name" in self._options
+        )
 
         # Parse the RST into docutils nodes with a fresh doc, and return
         # them.
         #
         # Not sure if passing the settings from the "real" doc is the right
         # thing to do here:
-        doc = new_document('%s:%s(%s)' % (obj.filename,
-                                          obj.path,
-                                          obj.line),
-                           settings=self._directive.state.document.settings)
+        doc = new_document(
+            "%s:%s(%s)" % (obj.filename, obj.path, obj.line),
+            settings=self._directive.state.document.settings,
+        )
         RstParser().parse(rst, doc)
         return doc.children
 
@@ -119,7 +127,7 @@ class JsRenderer(object):
         dotted_name = partial_path[-1] if use_short_name else dotted_path(partial_path)
 
         # Render to RST using Jinja:
-        env = Environment(loader=PackageLoader('sphinx_js', 'templates'))
+        env = Environment(loader=PackageLoader("sphinx_js", "templates"))
         template = env.get_template(self._template)
         return template.render(**self._template_vars(dotted_name, obj))
 
@@ -140,22 +148,23 @@ class JsRenderer(object):
         for param in obj.params:
             # Turn "@param p2.subProperty" into just p2. We wouldn't want to
             # add subproperties to the flat formal param list:
-            name = param.name.split('.')[0]
+            name = param.name.split(".")[0]
 
             # Add '...' to the parameter name if it's a variadic argument
             if param.is_variadic:
-                name = '...' + name
+                name = "..." + name
 
             if name not in used_names:
                 # We don't rst.escape() anything here, because, empirically,
                 # the js:function directive (or maybe directive params in
                 # general) automatically ignores markup constructs in its
                 # parameter (though not its contents).
-                formals.append(name if not param.has_default else
-                               '%s=%s' % (name, param.default))
+                formals.append(
+                    name if not param.has_default else "%s=%s" % (name, param.default)
+                )
                 used_names.add(name)
 
-        return '(%s)' % ', '.join(formals)
+        return "(%s)" % ", ".join(formals)
 
     def _fields(self, obj):
         """Return an iterable of "info fields" to be included in the directive,
@@ -166,12 +175,14 @@ class JsRenderer(object):
         tail comes after.
 
         """
-        FIELD_TYPES = [('params', _param_formatter),
-                       ('params', _param_type_formatter),
-                       ('properties', _param_formatter),
-                       ('properties', _param_type_formatter),
-                       ('exceptions', _exception_formatter),
-                       ('returns', _return_formatter)]
+        FIELD_TYPES = [
+            ("params", _param_formatter),
+            ("params", _param_type_formatter),
+            ("properties", _param_formatter),
+            ("properties", _param_type_formatter),
+            ("exceptions", _exception_formatter),
+            ("returns", _return_formatter),
+        ]
         for collection_attr, callback in FIELD_TYPES:
             for instance in getattr(obj, collection_attr, []):
                 result = callback(instance)
@@ -188,8 +199,8 @@ class JsRenderer(object):
 
 
 class AutoFunctionRenderer(JsRenderer):
-    _template = 'function.rst'
-    _renderer_type = 'function'
+    _template = "function.rst"
+    _renderer_type = "function"
 
     def _template_vars(self, name, obj):
         return dict(
@@ -202,12 +213,13 @@ class AutoFunctionRenderer(JsRenderer):
             is_optional=obj.is_optional,
             is_static=obj.is_static,
             see_also=obj.see_alsos,
-            content='\n'.join(self._content))
+            content="\n".join(self._content),
+        )
 
 
 class AutoClassRenderer(JsRenderer):
-    _template = 'class.rst'
-    _renderer_type = 'class'
+    _template = "class.rst"
+    _renderer_type = "class"
 
     def _template_vars(self, name, obj):
         # TODO: At the moment, we pull most fields (params, returns,
@@ -218,11 +230,11 @@ class AutoClassRenderer(JsRenderer):
             # keep from repeating this long test for every constructor-using
             # line in the dict() call:
             constructor = Function(
-                name='',
+                name="",
                 path=Pathname([]),
-                filename='',
+                filename="",
                 deppath=None,
-                description='',
+                description="",
                 line=0,
                 deprecated=False,
                 examples=[],
@@ -235,7 +247,8 @@ class AutoClassRenderer(JsRenderer):
                 is_private=False,
                 params=[],
                 exceptions=[],
-                returns=[])
+                returns=[],
+            )
         else:
             constructor = obj.constructor
         return dict(
@@ -249,15 +262,21 @@ class AutoClassRenderer(JsRenderer):
             class_comment=obj.description,
             is_abstract=isinstance(obj, Class) and obj.is_abstract,
             interfaces=obj.interfaces if isinstance(obj, Class) else [],
-            is_interface=isinstance(obj, Interface),  # TODO: Make interfaces not look so much like classes. This will require taking complete control of templating from Sphinx.
+            is_interface=isinstance(
+                obj, Interface
+            ),  # TODO: Make interfaces not look so much like classes. This will require taking complete control of templating from Sphinx.
             supers=obj.supers,
             constructor_comment=constructor.description,
-            content='\n'.join(self._content),
-            members=self._members_of(obj,
-                                     include=self._options['members'],
-                                     exclude=self._options.get('exclude-members', set()),
-                                     should_include_private='private-members' in self._options)
-                    if 'members' in self._options else '')
+            content="\n".join(self._content),
+            members=self._members_of(
+                obj,
+                include=self._options["members"],
+                exclude=self._options.get("exclude-members", set()),
+                should_include_private="private-members" in self._options,
+            )
+            if "members" in self._options
+            else "",
+        )
 
     def _members_of(self, obj, include, exclude, should_include_private):
         """Return RST describing the members of a given class.
@@ -269,13 +288,16 @@ class AutoClassRenderer(JsRenderer):
         :arg should_include_private: Whether to include private members
 
         """
+
         def rst_for(obj):
-            renderer = (AutoFunctionRenderer if isinstance(obj, Function)
-                        else AutoAttributeRenderer)
-            return renderer(self._directive, self._app, arguments=['dummy']).rst(
-                [obj.name],
-                obj,
-                use_short_name=False)
+            renderer = (
+                AutoFunctionRenderer
+                if isinstance(obj, Function)
+                else AutoAttributeRenderer
+            )
+            return renderer(self._directive, self._app, arguments=["dummy"]).rst(
+                [obj.name], obj, use_short_name=False
+            )
 
         def members_to_include(include):
             """Return the members that should be included (before excludes and
@@ -286,6 +308,7 @@ class AutoClassRenderer(JsRenderer):
             listed members with remaining ones inserted at the placeholder "*".
 
             """
+
             def sort_attributes_first_then_by_path(obj):
                 """Return a sort key for IR objects."""
                 return isinstance(obj, Function), obj.path.segments
@@ -298,14 +321,16 @@ class AutoClassRenderer(JsRenderer):
 
             # If the special name * is included in the list, include all other
             # members, in sorted order.
-            if '*' in included_set:
-                star_index = include.index('*')
+            if "*" in included_set:
+                star_index = include.index("*")
                 sorted_not_included_members = sorted(
                     (m for m in members if m.name not in included_set),
-                    key=sort_attributes_first_then_by_path
+                    key=sort_attributes_first_then_by_path,
                 )
                 not_included = [m.name for m in sorted_not_included_members]
-                include = include[:star_index] + not_included + include[star_index + 1:]
+                include = (
+                    include[:star_index] + not_included + include[star_index + 1 :]
+                )
                 included_set.update(not_included)
 
             # Even if there are 2 members with the same short name (e.g. a
@@ -318,16 +343,17 @@ class AutoClassRenderer(JsRenderer):
             included_members.sort(key=lambda m: include.index(m.name))
             return included_members
 
-        return '\n\n'.join(
-            rst_for(member) for member in members_to_include(include)
-            if (not member.is_private
-                or (member.is_private and should_include_private))
-            and member.name not in exclude)
+        return "\n\n".join(
+            rst_for(member)
+            for member in members_to_include(include)
+            if (not member.is_private or (member.is_private and should_include_private))
+            and member.name not in exclude
+        )
 
 
 class AutoAttributeRenderer(JsRenderer):
-    _template = 'attribute.rst'
-    _renderer_type = 'attribute'
+    _template = "attribute.rst"
+    _renderer_type = "attribute"
 
     def _template_vars(self, name, obj):
         return dict(
@@ -338,19 +364,20 @@ class AutoAttributeRenderer(JsRenderer):
             see_also=obj.see_alsos,
             examples=obj.examples,
             type=obj.type,
-            content='\n'.join(self._content))
+            content="\n".join(self._content),
+        )
 
 
 def unwrapped(text):
     """Return the text with line wrapping removed."""
-    return sub(r'[ \t]*[\r\n]+[ \t]*', ' ', text)
+    return sub(r"[ \t]*[\r\n]+[ \t]*", " ", text)
 
 
 def _return_formatter(return_):
     """Derive heads and tail from ``@returns`` blocks."""
-    tail = ('**%s** -- ' % rst.escape(return_.type)) if return_.type else ''
+    tail = ("**%s** -- " % rst.escape(return_.type)) if return_.type else ""
     tail += return_.description
-    return ['returns'], tail
+    return ["returns"], tail
 
 
 def _param_formatter(param):
@@ -358,7 +385,7 @@ def _param_formatter(param):
     if not param.type and not param.description:
         # There's nothing worth saying about this param.
         return None
-    heads = ['param']
+    heads = ["param"]
     if param.type:
         heads.append(param.type)
     heads.append(param.name)
@@ -370,14 +397,14 @@ def _param_type_formatter(param):
     """Generate types for function parameters specified in field."""
     if not param.type:
         return None
-    heads = ['type', param.name]
+    heads = ["type", param.name]
     tail = rst.escape(param.type)
     return heads, tail
 
 
 def _exception_formatter(exception):
     """Derive heads and tail from ``@throws`` blocks."""
-    heads = ['throws']
+    heads = ["throws"]
     if exception.type:
         heads.append(exception.type)
     tail = exception.description

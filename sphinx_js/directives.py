@@ -14,9 +14,7 @@ from docutils.parsers.rst.directives import flag
 from sphinx import addnodes
 from sphinx.domains.javascript import JSCallable
 
-from .renderers import (AutoFunctionRenderer,
-                        AutoClassRenderer,
-                        AutoAttributeRenderer)
+from .renderers import AutoFunctionRenderer, AutoClassRenderer, AutoAttributeRenderer
 
 
 class JsDirective(Directive):
@@ -27,9 +25,7 @@ class JsDirective(Directive):
     optional_arguments = 0
     final_argument_whitespace = True
 
-    option_spec = {
-        'short-name': flag
-    }
+    option_spec = {"short-name": flag}
 
 
 def note_dependencies(app, dependencies):
@@ -55,6 +51,7 @@ def auto_function_directive_bound_to_app(app):
         optional formal parameter list, all mashed together in a single string.
 
         """
+
         def run(self):
             renderer = AutoFunctionRenderer.from_directive(self, app)
             note_dependencies(app, renderer.dependencies())
@@ -72,12 +69,17 @@ def auto_class_directive_bound_to_app(app):
         in a single string.
 
         """
+
         option_spec = JsDirective.option_spec.copy()
-        option_spec.update({
-            'members': lambda members: ([m.strip() for m in members.split(',')]
-                                        if members else []),
-            'exclude-members': _members_to_exclude,
-            'private-members': flag})
+        option_spec.update(
+            {
+                "members": lambda members: (
+                    [m.strip() for m in members.split(",")] if members else []
+                ),
+                "exclude-members": _members_to_exclude,
+                "private-members": flag,
+            }
+        )
 
         def run(self):
             renderer = AutoClassRenderer.from_directive(self, app)
@@ -94,6 +96,7 @@ def auto_attribute_directive_bound_to_app(app):
         Takes a single argument which is a JS attribute name.
 
         """
+
         def run(self):
             renderer = AutoAttributeRenderer.from_directive(self, app)
             note_dependencies(app, renderer.dependencies())
@@ -109,11 +112,14 @@ def _members_to_exclude(arg):
     which excludes all. That seemed useless to me.
 
     """
-    return set(a.strip() for a in (arg or '').split(','))
+    return set(a.strip() for a in (arg or "").split(","))
 
 
 class JSStaticFunction(JSCallable):
     """Like a callable but with a different prefix."""
+
     def get_display_prefix(self):
-        return [addnodes.desc_sig_keyword('static', 'static'),
-                addnodes.desc_sig_space()]
+        return [
+            addnodes.desc_sig_keyword("static", "static"),
+            addnodes.desc_sig_space(),
+        ]

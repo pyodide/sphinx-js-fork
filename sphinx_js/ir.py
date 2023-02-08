@@ -30,7 +30,7 @@ from .analyzer_utils import dotted_path
 
 
 #: Human-readable type of a value. None if we don't know the type.
-Type = NewType('Type', Optional[str])
+Type = NewType("Type", Optional[str])
 # In the far future, we may take full control of our RST templates rather than
 # using the js-domain directives provided by Sphinx. This would give us the
 # freedom to link type names in formal param lists and param description lists
@@ -40,7 +40,7 @@ Type = NewType('Type', Optional[str])
 # text or link-having RST.
 
 #: Pathname, full or not, to an object:
-ReStructuredText = NewType('ReStructuredText', str)
+ReStructuredText = NewType("ReStructuredText", str)
 
 
 class Pathname:
@@ -49,14 +49,15 @@ class Pathname:
     Example: ``['./', 'dir/', 'dir/', 'file.', 'object.', 'object#', 'object']``
 
     """
+
     def __init__(self, segments):
         self.segments = segments
 
     def __str__(self):
-        return ''.join(self.segments)
+        return "".join(self.segments)
 
     def __repr__(self):
-        return '<Pathname(%r)>' % self.segments
+        return "<Pathname(%r)>" % self.segments
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.segments == other.segments
@@ -69,8 +70,11 @@ class _NoDefault:
     """A conspicuous no-default value that will show up in templates to help
     troubleshoot code paths that grab ``Param.default`` without checking
     ``Param.has_default`` first."""
+
     def __repr__(self):
-        return '<no default value>'
+        return "<no default value>"
+
+
 NO_DEFAULT = _NoDefault()
 
 
@@ -78,6 +82,7 @@ NO_DEFAULT = _NoDefault()
 class _Member:
     """An IR object that is a member of another, as a method is a member of a
     class or interface"""
+
     #: Whether this member is required to be provided by a subclass of a class
     #: or implementor of an interface
     is_abstract: bool
@@ -95,11 +100,12 @@ class _Member:
 class Param:
     """A parameter of either a function or (in the case of TS, which has
     classes parametrized by type) a class."""
+
     name: str
     #: The description text (like all other description fields in the IR)
     #: retains any line breaks and subsequent indentation whitespace that were
     #: in the source code.
-    description: ReStructuredText = ''
+    description: ReStructuredText = ""
     has_default: bool = False
     is_variadic: bool = False
     type: Type = None
@@ -111,13 +117,16 @@ class Param:
 
     def __post_init__(self, default):
         if self.has_default and default is NO_DEFAULT:
-            raise ValueError('Tried to construct a Param with has_default=True but without `default` specified.')
+            raise ValueError(
+                "Tried to construct a Param with has_default=True but without `default` specified."
+            )
         self.default = default
 
 
 @dataclass
 class Exc:
     """One kind of exception that can be raised by a function"""
+
     #: The type of exception can have
     type: Type
     description: ReStructuredText
@@ -126,6 +135,7 @@ class Exc:
 @dataclass
 class Return:
     """One kind of thing a function can return"""
+
     #: The type this kind of return value can have
     type: Type
     description: ReStructuredText
@@ -145,6 +155,7 @@ class TopLevel:
     include the kinds of subentities referenced by the fields defined herein.
 
     """
+
     #: The short name of the object, regardless of whether it's a class or
     #: function or typedef or param.
     #:
@@ -165,7 +176,7 @@ class TopLevel:
     deppath: Optional[str]
     #: The human-readable description of the entity or '' if absent
     description: ReStructuredText
-    #: Line number where the object (exluding any prefixing comment) begins
+    #: Line number where the object (excluding any prefixing comment) begins
     line: int
     #: Explanation of the deprecation (which implies True) or True or False
     deprecated: Union[ReStructuredText, bool]
@@ -175,7 +186,7 @@ class TopLevel:
     see_alsos: List[str]
     #: Explicitly documented sub-properties of the object, a la jsdoc's
     #: @properties
-    properties: List['Attribute']
+    properties: List["Attribute"]
     #: None if not exported for use by outside code. Otherwise, the Sphinx
     #: dotted path to the module it is exported from, e.g. 'foo.bar'
     exported_from: Optional[Pathname]
@@ -189,6 +200,7 @@ class Attribute(TopLevel, _Member):
     directive which is used to display them.
 
     """
+
     #: The type this property's value can have
     type: Type
 
@@ -196,6 +208,7 @@ class Attribute(TopLevel, _Member):
 @dataclass
 class Function(TopLevel, _Member):
     """A function or a method of a class"""
+
     params: List[Param]
     exceptions: List[Exc]  # noqa: Linter is buggy.
     returns: List[Return]
@@ -204,6 +217,7 @@ class Function(TopLevel, _Member):
 @dataclass
 class _MembersAndSupers:
     """An IR object that can contain members and extend other types"""
+
     #: Class members, concretized ahead of time for simplicity. (Otherwise,
     #: we'd have to pass the doclets_by_class map in and keep it around, along
     #: with a callable that would create the member IRs from it on demand.)

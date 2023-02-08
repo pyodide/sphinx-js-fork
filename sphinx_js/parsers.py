@@ -3,7 +3,8 @@ from re import sub
 from parsimonious import Grammar, NodeVisitor
 
 
-path_and_formal_params = Grammar(r"""
+path_and_formal_params = Grammar(
+    r"""
     path_and_formal_params = path formal_params
 
     # Invalid JS symbol names and wild-and-crazy placement of slashes later in
@@ -23,7 +24,8 @@ path_and_formal_params = Grammar(r"""
     middle_segments = name_and_sep*
     name_and_sep = name sep
     formal_params = ~r".*"
-    """)
+    """
+)
 
 
 class PathVisitor(NodeVisitor):
@@ -49,7 +51,7 @@ class PathVisitor(NodeVisitor):
 
     def visit_name_and_sep(self, node, children):
         """Concatenate name and separator into one string."""
-        return ''.join(x for x in children)
+        return "".join(x for x in children)
 
     def visit_formal_params(self, node, children):
         return node.text
@@ -78,4 +80,4 @@ def _backslash_unescape(str):
     it safe.
 
     """
-    return sub(r'\\(.)', lambda match: match.group(1), str)
+    return sub(r"\\(.)", lambda match: match.group(1), str)
