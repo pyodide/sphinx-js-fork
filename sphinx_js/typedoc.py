@@ -6,9 +6,8 @@ from codecs import getreader
 from errno import ENOENT
 from json import load
 from os.path import basename, join, normpath, relpath, sep, splitext
-from platform import node
 from tempfile import NamedTemporaryFile
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterator, List, Optional, Tuple, Union, Dict
 
 from sphinx.errors import SphinxError
 
@@ -25,6 +24,8 @@ from .ir import (
     TopLevel,
 )
 from .suffix_tree import SuffixTree
+
+Node = Any
 
 
 class Analyzer:
@@ -67,7 +68,7 @@ class Analyzer:
         """
         return self._objects_by_path.get(path_suffix)
 
-    def _parent_nodes(self, node) -> Iterator[node]:
+    def _parent_nodes(self, node: Node) -> Iterator[Node]:
         """Return an iterator of parent nodes"""
         while True:
             node = node.get("__parent")
@@ -78,14 +79,14 @@ class Analyzer:
                 # Found one!
                 yield node
 
-    def _containing_module(self, node) -> Optional[Pathname]:
+    def _containing_module(self, node: Node) -> Optional[Pathname]:
         """Return the Pathname pointing to the module containing the given
         node, None if one isn't found."""
         for node in self._parent_nodes(node):
             return Pathname(make_path_segments(node, self._base_dir))
         return None
 
-    def _containing_deppath(self, node) -> Optional[Pathname]:
+    def _containing_deppath(self, node: Node) -> Optional[Pathname]:
         """Return the path pointing to the module containing the given node.
         The path is absolute or relative to `root_for_relative_js_paths`.
         Raises ValueError if one isn't found.
@@ -121,7 +122,7 @@ class Analyzer:
         )
 
     def _constructor_and_members(
-        self, cls
+        self, cls: Node
     ) -> Tuple[Optional[Function], List[Union[Function, Attribute]]]:
         """Return the constructor and other members of a class.
 
@@ -141,8 +142,10 @@ class Analyzer:
             if ir:
                 if child.get("kindString") == "Constructor":
                     # This really, really should happen exactly once per class.
+                    assert isinstance(ir, Function)
                     constructor = ir
                 else:
+                    assert isinstance(ir, (Function, Attribute))
                     members.append(ir)
         return constructor, members
 
@@ -156,7 +159,9 @@ class Analyzer:
             todo.extend(more_todo)
         return done
 
-    def _convert_node(self, node) -> Tuple[TopLevel, List[dict]]:
+    def _convert_node(
+        self, node: Node
+    ) -> Tuple[Optional[TopLevel], List[Dict[str, Any]]]:
         """Convert a node of TypeScript JSON output to an IR object.
 
         :return: A tuple: (the IR object, a list of other nodes found within
@@ -173,7 +178,7 @@ class Analyzer:
             if source.get("fileName", ".")[0] == "/":
                 return None, []
 
-        ir = None
+        ir: Optional[TopLevel] = None
         kind = node.get("kindString")
         if kind == "External module":
             # We shouldn't need these until we implement automodule. But what
@@ -344,7 +349,7 @@ class Analyzer:
             default=param["defaultValue"] if has_default else NO_DEFAULT,
         )
 
-    def _make_returns(self, signature) -> List[Return]:
+    def _make_returns(self, signature: Node) -> List[Return]:
         """Return the Returns a function signature can have.
 
         Because, in TypeDoc, each signature can have only 1 @return tag, we

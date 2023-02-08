@@ -26,6 +26,12 @@ class JsRenderer:
 
     """
 
+    _renderer_type: str
+    _template: str
+
+    def _template_vars(self, name, obj):
+        raise NotImplementedError
+
     def __init__(self, directive, app, arguments=None, content=None, options=None):
         # Fix crash when calling eval_rst with CommonMarkParser:
         if not hasattr(directive.state.document.settings, "tab_width"):
@@ -138,7 +144,8 @@ class JsRenderer:
         Return a ReST-escaped string ready for substitution into the template.
 
         """
-        if self._explicit_formal_params:
+        # TODO: fix this type:ignore
+        if self._explicit_formal_params:  # type:ignore[truthy-bool]
             return self._explicit_formal_params
 
         formals = []

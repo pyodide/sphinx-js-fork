@@ -5,7 +5,6 @@ then lazily constitute IR objects as requested.
 
 """
 import subprocess
-from codecs import getreader, getwriter
 from collections import defaultdict
 from errno import ENOENT
 from json import dumps, load
@@ -206,9 +205,11 @@ def jsdoc_output(cache, abs_source_paths, base_dir, sphinx_conf_dir, config_path
 
     # Use a temporary file to handle large output volume. JSDoc defaults to
     # utf8-encoded output.
-    with getwriter("utf-8")(TemporaryFile(mode="w+b")) as temp:
+    with TemporaryFile(mode="w+b") as temp:
         try:
-            p = subprocess.Popen(command.make(), cwd=sphinx_conf_dir, stdout=temp)
+            subprocess.run(
+                command.make(), cwd=sphinx_conf_dir, stdout=temp, encoding="utf8"
+            )
         except OSError as exc:
             if exc.errno == ENOENT:
                 raise SphinxError(
@@ -217,11 +218,10 @@ def jsdoc_output(cache, abs_source_paths, base_dir, sphinx_conf_dir, config_path
                 )
             else:
                 raise
-        p.wait()
         # Once output is finished, move back to beginning of file and load it:
         temp.seek(0)
         try:
-            return load(getreader("utf-8")(temp))
+            return load(temp)
         except ValueError:
             raise SphinxError(
                 "jsdoc found no JS files in the directories %s. Make sure js_source_path is set correctly in conf.py. It is also possible (though unlikely) that jsdoc emitted invalid JSON."
