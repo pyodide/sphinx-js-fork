@@ -7,7 +7,7 @@ from errno import ENOENT
 from json import load
 from os.path import basename, join, normpath, relpath, sep, splitext
 from tempfile import NamedTemporaryFile
-from typing import Any, Iterator, List, Optional, Tuple, Union, Dict
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from sphinx.errors import SphinxError
 
