@@ -1,5 +1,6 @@
 from functools import lru_cache
 from os.path import join, normpath
+from typing import Any
 
 from sphinx.errors import SphinxError
 
@@ -24,6 +25,7 @@ def fix_js_make_xref():
     from docutils import nodes
     from sphinx.domains import javascript
     from sphinx.locale import _
+    from sphinx.util.docfields import GroupedField, TypedField
 
     class JSXrefMixin:
         def make_xref(
@@ -39,7 +41,7 @@ def fix_js_make_xref():
         ):
             # Set inliner to None just like the PythonXrefMixin does so the
             # xref doesn't get rendered as a function.
-            return super().make_xref(
+            return super().make_xref(  # type:ignore[misc]
                 rolename,
                 domain,
                 target,
@@ -50,15 +52,15 @@ def fix_js_make_xref():
                 location=None,
             )
 
-    class JSTypedField(JSXrefMixin, javascript.TypedField):
+    class JSTypedField(JSXrefMixin, TypedField):
         pass
 
-    class JSGroupedField(JSXrefMixin, javascript.GroupedField):
+    class JSGroupedField(JSXrefMixin, GroupedField):
         pass
 
     # Replace javascript module
-    javascript.TypedField = JSTypedField
-    javascript.GroupedField = JSGroupedField
+    javascript.TypedField = JSTypedField  # type:ignore[attr-defined]
+    javascript.GroupedField = JSGroupedField  # type:ignore[attr-defined]
 
     # Fix the one place TypedField and GroupedField are used in the javascript
     # module
@@ -113,7 +115,7 @@ def fix_staticfunction_objtype():
             return _("%s() (%s static method)") % (name, obj)
         return orig_get_index_text(self, objectname, name_obj)
 
-    JSObject.get_index_text = get_index_text
+    JSObject.get_index_text = get_index_text  # type:ignore[assignment]
 
 
 fix_js_make_xref()
@@ -170,7 +172,7 @@ def analyze(app):
 
     # Pick analyzer:
     try:
-        analyzer = {"javascript": JsAnalyzer, "typescript": TsAnalyzer}[
+        analyzer: Any = {"javascript": JsAnalyzer, "typescript": TsAnalyzer}[
             app.config.js_language
         ]
     except KeyError:

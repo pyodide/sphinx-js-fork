@@ -108,6 +108,8 @@ class SuffixError(Exception):
     def __init__(self, segments):
         self.segments = segments
 
+    _message: str
+
     def __str__(self):
         return self._message % "".join(self.segments)
 

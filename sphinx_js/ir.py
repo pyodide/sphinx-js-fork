@@ -24,12 +24,12 @@ survive template changes.
 
 """
 from dataclasses import InitVar, dataclass
-from typing import Any, List, NewType, Optional, Union
+from typing import Any, List, Optional, Union
 
 from .analyzer_utils import dotted_path
 
 #: Human-readable type of a value. None if we don't know the type.
-Type = NewType("Type", Optional[str])
+Type = Optional[str]
 # In the far future, we may take full control of our RST templates rather than
 # using the js-domain directives provided by Sphinx. This would give us the
 # freedom to link type names in formal param lists and param description lists
@@ -39,7 +39,7 @@ Type = NewType("Type", Optional[str])
 # text or link-having RST.
 
 #: Pathname, full or not, to an object:
-ReStructuredText = NewType("ReStructuredText", str)
+ReStructuredText = str
 
 
 class Pathname:
@@ -104,10 +104,10 @@ class Param:
     #: The description text (like all other description fields in the IR)
     #: retains any line breaks and subsequent indentation whitespace that were
     #: in the source code.
-    description: ReStructuredText = ""
+    description: ReStructuredText = ReStructuredText("")
     has_default: bool = False
     is_variadic: bool = False
-    type: Type = None
+    type: Optional[Type] = None
     #: Return the default value of this parameter, string-formatted so it can
     #: be immediately suffixed to an equal sign in a formal param list. For
     #: example, the number 6 becomes the string "6" to create ``foo=6``. If
@@ -119,7 +119,7 @@ class Param:
             raise ValueError(
                 "Tried to construct a Param with has_default=True but without `default` specified."
             )
-        self.default = default
+        self.default = default  # type:ignore[attr-defined]
 
 
 @dataclass
