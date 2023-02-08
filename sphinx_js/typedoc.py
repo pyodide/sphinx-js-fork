@@ -86,14 +86,14 @@ class Analyzer:
             return Pathname(make_path_segments(node, self._base_dir))
         return None
 
-    def _containing_deppath(self, node: Node) -> Optional[Pathname]:
+    def _containing_deppath(self, node: Node) -> Optional[str]:
         """Return the path pointing to the module containing the given node.
         The path is absolute or relative to `root_for_relative_js_paths`.
         Raises ValueError if one isn't found.
 
         """
         for node in self._parent_nodes(node):
-            deppath = node.get("originalName")
+            deppath: str = node.get("originalName")
             if deppath:
                 return relpath(deppath, self._base_dir)
             else:

@@ -1,4 +1,5 @@
 from re import sub
+from typing import List, Union
 
 from docutils.parsers.rst import Parser as RstParser
 from docutils.statemachine import StringList
@@ -8,7 +9,7 @@ from sphinx.errors import SphinxError
 from sphinx.util import logging, rst
 
 from .analyzer_utils import dotted_path
-from .ir import Class, Function, Interface, Pathname
+from .ir import Attribute, Class, Function, Interface, Pathname
 from .parsers import PathVisitor
 from .suffix_tree import SuffixAmbiguous, SuffixNotFound
 
@@ -284,7 +285,13 @@ class AutoClassRenderer(JsRenderer):
             else "",
         )
 
-    def _members_of(self, obj, include, exclude, should_include_private):
+    def _members_of(
+        self,
+        obj: Class,
+        include: List[str],
+        exclude: List[str],
+        should_include_private: bool,
+    ) -> str:
         """Return RST describing the members of a given class.
 
         :arg obj Class: The class we're documenting
@@ -305,7 +312,9 @@ class AutoClassRenderer(JsRenderer):
                 [obj.name], obj, use_short_name=False
             )
 
-        def members_to_include(include):
+        def members_to_include(
+            include: List[str],
+        ) -> List[Union[Attribute, Function]]:
             """Return the members that should be included (before excludes and
             access specifiers are taken into account).
 
@@ -352,7 +361,7 @@ class AutoClassRenderer(JsRenderer):
         return "\n\n".join(
             rst_for(member)
             for member in members_to_include(include)
-            if (not member.is_private or (member.is_private and should_include_private))
+            if ((not member.is_private) or should_include_private)
             and member.name not in exclude
         )
 
