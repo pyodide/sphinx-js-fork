@@ -440,7 +440,7 @@ def params_to_ir(doclet: Doclet) -> list[Param]:
         type = get_type(p)
         default = p.get("defaultvalue", NO_DEFAULT)
         formatted_default = (
-            "dummy"
+            NO_DEFAULT
             if default is NO_DEFAULT
             else format_default_according_to_type_hints(
                 default, type, first_type_is_string(p.get("type", {}))

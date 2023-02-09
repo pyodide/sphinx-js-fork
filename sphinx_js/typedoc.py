@@ -294,7 +294,7 @@ class Analyzer:
             # Every class has a constructor in the JSON, even if it's only
             # inherited.
             constructor, members = self._constructor_and_members(node)
-            ir = Class(  # type:ignore[call-arg]
+            ir = Class(
                 constructor=constructor,
                 members=members,
                 supers=self._related_types(node, kind="extendedTypes"),

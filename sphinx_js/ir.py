@@ -23,7 +23,7 @@ let's at least have a well-documented one and one slightly more likely to
 survive template changes.
 
 """
-from dataclasses import dataclass, InitVar
+from dataclasses import dataclass, field
 from typing import Any, List
 
 from .analyzer_utils import dotted_path
@@ -111,15 +111,14 @@ class Param:
     #: Return the default value of this parameter, string-formatted so it can
     #: be immediately suffixed to an equal sign in a formal param list. For
     #: example, the number 6 becomes the string "6" to create ``foo=6``. If
-    #: has_default=True, this must be set.
-    default: InitVar[Any] = NO_DEFAULT
+    # : has_default=True, this must be set.
+    default: str | _NoDefault = NO_DEFAULT
 
-    def __post_init__(self, default: Any = NO_DEFAULT) -> None:
-        if self.has_default and default is NO_DEFAULT:
+    def __post_init__(self) -> None:
+        if self.has_default and self.default is NO_DEFAULT:
             raise ValueError(
                 "Tried to construct a Param with has_default=True but without `default` specified."
             )
-        self.default = default
 
 
 @dataclass
@@ -245,3 +244,4 @@ class Class(TopLevel, _MembersAndSupers):
     # itself. These are supported and extracted by jsdoc, but they end up in an
     # `undocumented: True` doclet and so are presently filtered out. But we do
     # have the space to include them someday.
+    params: list[Param] = field(default_factory=list)
