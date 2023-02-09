@@ -2,6 +2,7 @@ from functools import cache
 from os.path import join, normpath
 from typing import Any
 
+from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
 from .directives import (
@@ -16,7 +17,7 @@ from .typedoc import Analyzer as TsAnalyzer
 
 # Cache this to guarantee it only runs once.
 @cache
-def fix_js_make_xref():
+def fix_js_make_xref() -> None:
     """Monkeypatch to fix sphinx.domains.javascript TypedField and GroupedField
 
     Fixes https://github.com/sphinx-doc/sphinx/issues/11021
@@ -30,15 +31,15 @@ def fix_js_make_xref():
     class JSXrefMixin:
         def make_xref(
             self,
-            rolename,
-            domain,
-            target,
-            innernode=nodes.emphasis,
-            contnode=None,
-            env=None,
-            inliner=None,
-            location=None,
-        ):
+            rolename: Any,
+            domain: Any,
+            target: Any,
+            innernode: Any = nodes.emphasis,
+            contnode: Any = None,
+            env: Any = None,
+            inliner: Any = None,
+            location: Any = None,
+        ) -> Any:
             # Set inliner to None just like the PythonXrefMixin does so the
             # xref doesn't get rendered as a function.
             return super().make_xref(  # type:ignore[misc]
@@ -84,7 +85,7 @@ def fix_js_make_xref():
 
 # Cache this to guarantee it only runs once.
 @cache
-def fix_staticfunction_objtype():
+def fix_staticfunction_objtype() -> None:
     """Add support for staticfunction objtype
 
     This adds a new staticfunction objtype to javascript domain class attribute.
@@ -107,7 +108,7 @@ def fix_staticfunction_objtype():
 
     orig_get_index_text = JSObject.get_index_text
 
-    def get_index_text(self, objectname, name_obj):
+    def get_index_text(self: Any, objectname: str, name_obj: Any) -> Any:
         name, obj = name_obj
         if self.objtype == "staticfunction":
             if not obj:
@@ -122,7 +123,7 @@ fix_js_make_xref()
 fix_staticfunction_objtype()
 
 
-def setup(app):
+def setup(app: Sphinx) -> None:
     # I believe this is the best place to run jsdoc. I was tempted to use
     # app.add_source_parser(), but I think the kind of source it's referring to
     # is RSTs.
@@ -153,7 +154,7 @@ def setup(app):
     app.add_config_value("root_for_relative_js_paths", None, "env")
 
 
-def analyze(app):
+def analyze(app: Sphinx) -> None:
     """Run JSDoc or another analysis tool across a whole codebase, and squirrel
     away its results in a language-specific Analyzer."""
     # Normalize config values:
@@ -181,12 +182,14 @@ def analyze(app):
         )
 
     # Analyze source code:
-    app._sphinxjs_analyzer = analyzer.from_disk(
+    app._sphinxjs_analyzer = analyzer.from_disk(  # type:ignore[attr-defined]
         abs_source_paths, app, root_for_relative_paths
     )
 
 
-def root_or_fallback(root_for_relative_paths, abs_source_paths):
+def root_or_fallback(
+    root_for_relative_paths: str | None, abs_source_paths: list[str]
+) -> str:
     """Return the path that relative JS entity paths in the docs are relative to.
 
     Fall back to the sole JS source path if the setting is unspecified.

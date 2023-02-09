@@ -23,7 +23,7 @@ let's at least have a well-documented one and one slightly more likely to
 survive template changes.
 
 """
-from dataclasses import InitVar, dataclass
+from dataclasses import dataclass, InitVar
 from typing import Any, List
 
 from .analyzer_utils import dotted_path
@@ -49,19 +49,19 @@ class Pathname:
 
     """
 
-    def __init__(self, segments):
+    def __init__(self, segments: list[str]):
         self.segments = segments
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "".join(self.segments)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Pathname(%r)>" % self.segments
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return isinstance(other, self.__class__) and self.segments == other.segments
 
-    def dotted(self):
+    def dotted(self) -> str:
         return dotted_path(self.segments)
 
 
@@ -70,7 +70,7 @@ class _NoDefault:
     troubleshoot code paths that grab ``Param.default`` without checking
     ``Param.has_default`` first."""
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<no default value>"
 
 
@@ -112,14 +112,14 @@ class Param:
     #: be immediately suffixed to an equal sign in a formal param list. For
     #: example, the number 6 becomes the string "6" to create ``foo=6``. If
     #: has_default=True, this must be set.
-    default: InitVar[Any] = NO_DEFAULT  # noqa: flake8 thinks this is a "def".
+    default: InitVar[Any] = NO_DEFAULT
 
-    def __post_init__(self, default):
+    def __post_init__(self, default: Any = NO_DEFAULT) -> None:
         if self.has_default and default is NO_DEFAULT:
             raise ValueError(
                 "Tried to construct a Param with has_default=True but without `default` specified."
             )
-        self.default = default  # type:ignore[attr-defined]
+        self.default = default
 
 
 @dataclass

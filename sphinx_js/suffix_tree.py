@@ -1,10 +1,27 @@
-class SuffixTree:
+from collections.abc import Iterable
+from typing import (
+    Any,
+    Generic,
+    TypedDict,
+    TypeVar,
+)
+
+T = TypeVar("T")
+
+
+# In Python 3.10: Cannot inherit from TypedDict and Generic.
+class _Tree(TypedDict, total=False):
+    value: Any
+    subtree: dict[str, "_Tree"]
+
+
+class SuffixTree(Generic[T]):
     """A suffix tree in which you can use anything hashable as a path segment
     and anything at all as a value
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         #: Internal structure is like... ::
         #:
         #:     Tree = {value?: Any,
@@ -13,9 +30,9 @@ class SuffixTree:
         #: A Tree can have a value key, a subtree key, or both. Subtree dicts
         #: always have at least 1 key. Every subtree has at least one value,
         #: directly or indirectly. ``self._tree`` itself is a Tree.
-        self._tree = {}
+        self._tree: _Tree = {}
 
-    def add(self, unambiguous_segments, value):
+    def add(self, unambiguous_segments: list[str], value: T) -> None:
         """Add an item to the tree.
 
         :arg unambiguous_segments: A list of path segments that correspond
@@ -31,7 +48,7 @@ class SuffixTree:
         else:
             tree["value"] = value
 
-    def add_many(self, segments_and_values):
+    def add_many(self, segments_and_values: Iterable[tuple[list[str], Any]]) -> None:
         """Add a batch of items to the tree all at once, and collect any
         errors.
 
@@ -50,7 +67,7 @@ class SuffixTree:
         if conflicts:
             raise PathsTaken(conflicts)
 
-    def get_with_path(self, segments):
+    def get_with_path(self, segments: list[str]) -> tuple[T, list[str]]:
         """Return the value stored at a path ending in the given segments,
         along with the full path found.
 
@@ -100,17 +117,17 @@ class SuffixTree:
         # value, we must be at one now.
         return tree["value"], (list(reversed(additional_segments)) + segments)
 
-    def get(self, segments):
+    def get(self, segments: list[str]) -> T:
         return self.get_with_path(segments)[0]
 
 
 class SuffixError(Exception):
-    def __init__(self, segments):
+    def __init__(self, segments: list[str]):
         self.segments = segments
 
     _message: str
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._message % "".join(self.segments)
 
 
@@ -127,13 +144,13 @@ class PathsTaken(Exception):
 
     """
 
-    def __init__(self, conflicts):
+    def __init__(self, conflicts: list[list[str]]) -> None:
         """
         :arg conflicts: A list of paths, each given as a list of segments
         """
         self.conflicts = conflicts
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             "Your code contains multiple documented objects at each of "
             "these paths:\n\n"
@@ -153,12 +170,17 @@ class SuffixNotFound(SuffixError):
 class SuffixAmbiguous(SuffixError):
     """There were multiple keys found ending in the suffix."""
 
-    def __init__(self, segments, next_possible_keys, or_ends_here=False):
+    def __init__(
+        self,
+        segments: list[str],
+        next_possible_keys: list[str],
+        or_ends_here: bool = False,
+    ) -> None:
         super().__init__(segments)
         self.next_possible_keys = next_possible_keys
         self.or_ends_here = or_ends_here
 
-    def __str__(self):
+    def __str__(self) -> str:
         ends_here_msg = (
             " Or it could end without any of them." if self.or_ends_here else ""
         )

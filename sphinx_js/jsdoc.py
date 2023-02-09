@@ -6,17 +6,66 @@ then lazily constitute IR objects as requested.
 """
 import subprocess
 from collections import defaultdict
+from collections.abc import Callable
 from errno import ENOENT
 from json import dumps, load
 from os.path import join, normpath, relpath, sep, splitext
 from tempfile import TemporaryFile
+from typing import Any, Literal, TypedDict
 
+from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
 from .analyzer_utils import Command, cache_to_file, is_explicitly_rooted
-from .ir import NO_DEFAULT, Attribute, Class, Exc, Function, Param, Pathname, Return
+from .ir import (
+    NO_DEFAULT,
+    Attribute,
+    Class,
+    Exc,
+    Function,
+    Param,
+    Pathname,
+    Return,
+    TopLevel,
+)
 from .parsers import PathVisitor, path_and_formal_params
 from .suffix_tree import SuffixTree
+
+
+class JsDocCode(TypedDict, total=False):
+    paramnames: list[str]
+
+
+class Meta(TypedDict, total=False):
+    path: str
+    filename: str
+    lineno: int
+    code: JsDocCode
+
+
+class JsdocType(TypedDict, total=False):
+    names: list[str]
+
+
+class Doclet(TypedDict, total=False):
+    name: str
+    comment: str
+    undocumented: bool
+    access: str
+    scope: str
+    meta: Meta
+    longname: str
+    memberof: str
+    description: str
+    type: JsdocType
+    classdesc: str
+    exceptions: list["Doclet"]
+    returns: list["Doclet"]
+    examples: list[Any]
+    see_alsos: list[Any]
+    properties: list["Doclet"]
+    params: list["Doclet"]
+    variable: bool
 
 
 class Analyzer:
@@ -25,7 +74,7 @@ class Analyzer:
 
     """
 
-    def __init__(self, json, base_dir):
+    def __init__(self, json: list[Doclet], base_dir: str):
         """Index and squirrel away the JSON for later lazy conversion to IR
         objects.
 
@@ -47,7 +96,7 @@ class Analyzer:
         ]
 
         # Build table for lookup by name, which most directives use:
-        self._doclets_by_path = SuffixTree()
+        self._doclets_by_path: SuffixTree[Doclet] = SuffixTree()
         self._doclets_by_path.add_many(
             (full_path_segments(d, base_dir), d) for d in doclets
         )
@@ -71,7 +120,9 @@ class Analyzer:
                 self._doclets_by_class[tuple(segments)].append(d)
 
     @classmethod
-    def from_disk(cls, abs_source_paths, app, base_dir):
+    def from_disk(
+        cls, abs_source_paths: list[str], app: Sphinx, base_dir: str
+    ) -> "Analyzer":
         json = jsdoc_output(
             getattr(app.config, "jsdoc_cache", None),
             abs_source_paths,
@@ -81,7 +132,9 @@ class Analyzer:
         )
         return cls(json, base_dir)
 
-    def get_object(self, path_suffix, as_type):
+    def get_object(
+        self, path_suffix: list[str], as_type: Literal["function", "class", "attribute"]
+    ) -> TopLevel:
         """Return the IR object with the given path suffix.
 
         If helpful, use the ``as_type`` hint, which identifies which autodoc
@@ -108,14 +161,16 @@ class Analyzer:
         doclet, full_path = self._doclets_by_path.get_with_path(path_suffix)
         return doclet_as_whatever(doclet, full_path)
 
-    def _doclet_as_class(self, doclet, full_path):
+    def _doclet_as_class(self, doclet: Doclet, full_path: list[str]) -> Class:
         # This is an instance method so it can get at the base dir.
-        members = []
+        members: list[Function | Attribute] = []
         for member_doclet in self._doclets_by_class[tuple(full_path)]:
             kind = member_doclet.get("kind")
             member_full_path = full_path_segments(member_doclet, self._base_dir)
             # Typedefs should still fit into function-shaped holes:
-            doclet_as_whatever = (
+            doclet_as_whatever: Callable[[Doclet, list[str]], Function] | Callable[
+                [Doclet, list[str]], Attribute
+            ] = (
                 self._doclet_as_function
                 if (kind == "function" or kind == "typedef")
                 else self._doclet_as_attribute
@@ -136,7 +191,7 @@ class Analyzer:
             **top_level_properties(doclet, full_path, self._base_dir),
         )
 
-    def _doclet_as_function(self, doclet, full_path):
+    def _doclet_as_function(self, doclet: Doclet, full_path: list[str]) -> Function:
         return Function(
             description=description(doclet),
             exported_from=None,
@@ -150,7 +205,7 @@ class Analyzer:
             **top_level_properties(doclet, full_path, self._base_dir),
         )
 
-    def _doclet_as_attribute(self, doclet, full_path):
+    def _doclet_as_attribute(self, doclet: Doclet, full_path: list[str]) -> Attribute:
         return Attribute(
             description=description(doclet),
             exported_from=None,
@@ -163,15 +218,19 @@ class Analyzer:
         )
 
 
-def is_private(doclet):
+def is_private(doclet: Doclet) -> bool:
     return doclet.get("access") == "private"
 
 
-def is_static(doclet):
+def is_static(doclet: Doclet) -> bool:
     return doclet.get("scope") == "static"
 
 
-def full_path_segments(d, base_dir, longname_field="longname"):
+def full_path_segments(
+    d: Doclet,
+    base_dir: str,
+    longname_field: Literal["longname", "memberof"] = "longname",
+) -> list[str]:
     """Return the full, unambiguous list of path segments that points to an
     entity described by a doclet.
 
@@ -193,11 +252,19 @@ def full_path_segments(d, base_dir, longname_field="longname"):
     path = "{}/{}.{}".format(
         rooted_rel, splitext(meta["filename"])[0], d[longname_field]
     )
-    return PathVisitor().visit(path_and_formal_params["path"].parse(path))
+    return PathVisitor().visit(  # type:ignore[no-any-return]
+        path_and_formal_params["path"].parse(path)
+    )
 
 
 @cache_to_file(lambda cache, *args: cache)
-def jsdoc_output(cache, abs_source_paths, base_dir, sphinx_conf_dir, config_path=None):
+def jsdoc_output(
+    cache: str | None,
+    abs_source_paths: list[str],
+    base_dir: str,
+    sphinx_conf_dir: str,
+    config_path: str | None = None,
+) -> list[Doclet]:
     command = Command("jsdoc")
     command.add("-X", *abs_source_paths)
     if config_path:
@@ -221,7 +288,7 @@ def jsdoc_output(cache, abs_source_paths, base_dir, sphinx_conf_dir, config_path
         # Once output is finished, move back to beginning of file and load it:
         temp.seek(0)
         try:
-            return load(temp)
+            return load(temp)  # type:ignore[no-any-return]
         except ValueError:
             raise SphinxError(
                 "jsdoc found no JS files in the directories %s. Make sure js_source_path is set correctly in conf.py. It is also possible (though unlikely) that jsdoc emitted invalid JSON."
@@ -229,7 +296,9 @@ def jsdoc_output(cache, abs_source_paths, base_dir, sphinx_conf_dir, config_path
             )
 
 
-def format_default_according_to_type_hints(value, declared_types, first_type_is_string):
+def format_default_according_to_type_hints(
+    value: Any, declared_types: str | None, first_type_is_string: bool
+) -> Any:
     """Return the default value for a param, formatted as a string
     ready to be used in a formal parameter list.
 
@@ -269,11 +338,11 @@ def format_default_according_to_type_hints(value, declared_types, first_type_is_
             return dumps(value)
 
 
-def description(obj):
+def description(obj: Doclet) -> str:
     return obj.get("description", "")
 
 
-def get_type(props):
+def get_type(props: Doclet) -> str | None:
     """Given an arbitrary object from a jsdoc-emitted JSON file, go get the
     ``type`` property, and return the textual rendering of the type, possibly a
     union like ``Foo | Bar``, or None if we don't know the type."""
@@ -281,7 +350,9 @@ def get_type(props):
     return "|".join(names) if names else None
 
 
-def top_level_properties(doclet, full_path, base_dir):
+def top_level_properties(
+    doclet: Doclet, full_path: list[str], base_dir: str
+) -> dict[str, Any]:
     """Extract information common to complex entities, and return it as a dict.
 
     Specifically, pull out the information needed to parametrize TopLevel's
@@ -305,7 +376,7 @@ def top_level_properties(doclet, full_path, base_dir):
     )
 
 
-def properties_to_ir(properties):
+def properties_to_ir(properties: list[Doclet]) -> list[Attribute]:
     """Turn jsdoc-emitted properties JSON into a list of Properties."""
     return [
         Attribute(
@@ -332,12 +403,12 @@ def properties_to_ir(properties):
     ]
 
 
-def first_type_is_string(type):
+def first_type_is_string(type: JsdocType) -> bool:
     type_names = type.get("names", [])
-    return type_names and type_names[0] == "string"
+    return bool(type_names) and type_names[0] == "string"
 
 
-def params_to_ir(doclet):
+def params_to_ir(doclet: Doclet) -> list[Param]:
     """Extract the parameters of a function or class, and return a list of
     Param instances.
 
@@ -393,10 +464,10 @@ def params_to_ir(doclet):
     return ret
 
 
-def exceptions_to_ir(exceptions):
+def exceptions_to_ir(exceptions: list[Doclet]) -> list[Exc]:
     """Turn jsdoc's JSON-formatted exceptions into a list of Exceptions."""
     return [Exc(type=get_type(e), description=description(e)) for e in exceptions]
 
 
-def returns_to_ir(returns):
+def returns_to_ir(returns: list[Doclet]) -> list[Return]:
     return [Return(type=get_type(r), description=description(r)) for r in returns]
