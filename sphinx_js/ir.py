@@ -24,7 +24,7 @@ survive template changes.
 
 """
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any
 
 from .analyzer_utils import dotted_path
 
@@ -208,7 +208,7 @@ class Function(TopLevel, _Member):
     """A function or a method of a class"""
 
     params: list[Param]
-    exceptions: List[Exc]  # noqa: Linter is buggy.
+    exceptions: list[Exc]
     returns: list[Return]
 
 
