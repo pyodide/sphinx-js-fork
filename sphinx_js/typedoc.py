@@ -3,11 +3,12 @@
 import re
 import subprocess
 from codecs import getreader
+from collections.abc import Iterator
 from errno import ENOENT
 from json import load
 from os.path import basename, join, normpath, relpath, sep, splitext
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any
 
 from sphinx.errors import SphinxError
 
@@ -79,14 +80,14 @@ class Analyzer:
                 # Found one!
                 yield node
 
-    def _containing_module(self, node: Node) -> Optional[Pathname]:
+    def _containing_module(self, node: Node) -> Pathname | None:
         """Return the Pathname pointing to the module containing the given
         node, None if one isn't found."""
         for node in self._parent_nodes(node):
             return Pathname(make_path_segments(node, self._base_dir))
         return None
 
-    def _containing_deppath(self, node: Node) -> Optional[str]:
+    def _containing_deppath(self, node: Node) -> str | None:
         """Return the path pointing to the module containing the given node.
         The path is absolute or relative to `root_for_relative_js_paths`.
         Raises ValueError if one isn't found.
@@ -123,7 +124,7 @@ class Analyzer:
 
     def _constructor_and_members(
         self, cls: Node
-    ) -> Tuple[Optional[Function], List[Union[Function, Attribute]]]:
+    ) -> tuple[Function | None, list[Function | Attribute]]:
         """Return the constructor and other members of a class.
 
         In TS, a constructor may have multiple (overloaded) type signatures but
@@ -159,9 +160,7 @@ class Analyzer:
             todo.extend(more_todo)
         return done
 
-    def _convert_node(
-        self, node: Node
-    ) -> Tuple[Optional[TopLevel], List[Dict[str, Any]]]:
+    def _convert_node(self, node: Node) -> tuple[TopLevel | None, list[dict[str, Any]]]:
         """Convert a node of TypeScript JSON output to an IR object.
 
         :return: A tuple: (the IR object, a list of other nodes found within
@@ -178,7 +177,7 @@ class Analyzer:
             if source.get("fileName", ".")[0] == "/":
                 return None, []
 
-        ir: Optional[TopLevel] = None
+        ir: TopLevel | None = None
         kind = node.get("kindString")
         if kind == "External module":
             # We shouldn't need these until we implement automodule. But what
@@ -349,7 +348,7 @@ class Analyzer:
             default=param["defaultValue"] if has_default else NO_DEFAULT,
         )
 
-    def _make_returns(self, signature: Node) -> List[Return]:
+    def _make_returns(self, signature: Node) -> list[Return]:
         """Return the Returns a function signature can have.
 
         Because, in TypeDoc, each signature can have only 1 @return tag, we

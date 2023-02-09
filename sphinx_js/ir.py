@@ -24,12 +24,12 @@ survive template changes.
 
 """
 from dataclasses import InitVar, dataclass
-from typing import Any, List, Optional, Union
+from typing import Any, List
 
 from .analyzer_utils import dotted_path
 
 #: Human-readable type of a value. None if we don't know the type.
-Type = Optional[str]
+Type = str | None
 # In the far future, we may take full control of our RST templates rather than
 # using the js-domain directives provided by Sphinx. This would give us the
 # freedom to link type names in formal param lists and param description lists
@@ -107,7 +107,7 @@ class Param:
     description: ReStructuredText = ReStructuredText("")
     has_default: bool = False
     is_variadic: bool = False
-    type: Optional[Type] = None
+    type: Type | None = None
     #: Return the default value of this parameter, string-formatted so it can
     #: be immediately suffixed to an equal sign in a formal param list. For
     #: example, the number 6 becomes the string "6" to create ``foo=6``. If
@@ -172,23 +172,23 @@ class TopLevel:
     filename: str
     #: The path to the dependency, i.e., the file the object is from.
     #: Either absolute or relative to the root_for_relative_js_paths.
-    deppath: Optional[str]
+    deppath: str | None
     #: The human-readable description of the entity or '' if absent
     description: ReStructuredText
     #: Line number where the object (excluding any prefixing comment) begins
     line: int
     #: Explanation of the deprecation (which implies True) or True or False
-    deprecated: Union[ReStructuredText, bool]
+    deprecated: ReStructuredText | bool
     #: List of preformatted textual examples
-    examples: List[str]
+    examples: list[str]
     #: List of paths to also refer the reader to
-    see_alsos: List[str]
+    see_alsos: list[str]
     #: Explicitly documented sub-properties of the object, a la jsdoc's
     #: @properties
-    properties: List["Attribute"]
+    properties: list["Attribute"]
     #: None if not exported for use by outside code. Otherwise, the Sphinx
     #: dotted path to the module it is exported from, e.g. 'foo.bar'
-    exported_from: Optional[Pathname]
+    exported_from: Pathname | None
 
 
 @dataclass
@@ -208,9 +208,9 @@ class Attribute(TopLevel, _Member):
 class Function(TopLevel, _Member):
     """A function or a method of a class"""
 
-    params: List[Param]
+    params: list[Param]
     exceptions: List[Exc]  # noqa: Linter is buggy.
-    returns: List[Return]
+    returns: list[Return]
 
 
 @dataclass
@@ -221,10 +221,10 @@ class _MembersAndSupers:
     #: we'd have to pass the doclets_by_class map in and keep it around, along
     #: with a callable that would create the member IRs from it on demand.)
     #: Does not include the default constructor.
-    members: List[Union[Function, Attribute]]
+    members: list[Function | Attribute]
     #: Objects this one extends: for example, superclasses of a class or
     #: superinterfaces of an interface
-    supers: List[Pathname]
+    supers: list[Pathname]
 
 
 @dataclass
@@ -236,11 +236,11 @@ class Interface(TopLevel, _MembersAndSupers):
 class Class(TopLevel, _MembersAndSupers):
     #: The default constructor for this class. Absent if the constructor is
     #: inherited.
-    constructor: Optional[Function]
+    constructor: Function | None
     #: Whether this is an abstract class
     is_abstract: bool
     #: Interfaces this class implements
-    interfaces: List[Pathname]
+    interfaces: list[Pathname]
     # There's room here for additional fields like @example on the class doclet
     # itself. These are supported and extracted by jsdoc, but they end up in an
     # `undocumented: True` doclet and so are presently filtered out. But we do

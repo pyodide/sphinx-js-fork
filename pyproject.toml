@@ -35,7 +35,7 @@ select = [
 # Remove E999 once pattern matching is supported
 # https://github.com/charliermarsh/ruff/issues/282
 ignore = ["E402", "E501", "E731", "E741", "E999", "B904", "B020"]
-target-version = "py37"
+target-version = "py310"
 
 [tool.ruff.flake8-bugbear]
 extend-immutable-calls = ["typer.Argument", "typer.Option"]

@@ -1,5 +1,4 @@
 from re import sub
-from typing import List, Union
 
 from docutils.parsers.rst import Parser as RstParser
 from docutils.statemachine import StringList
@@ -288,8 +287,8 @@ class AutoClassRenderer(JsRenderer):
     def _members_of(
         self,
         obj: Class,
-        include: List[str],
-        exclude: List[str],
+        include: list[str],
+        exclude: list[str],
         should_include_private: bool,
     ) -> str:
         """Return RST describing the members of a given class.
@@ -313,8 +312,8 @@ class AutoClassRenderer(JsRenderer):
             )
 
         def members_to_include(
-            include: List[str],
-        ) -> List[Union[Attribute, Function]]:
+            include: list[str],
+        ) -> list[Attribute | Function]:
             """Return the members that should be included (before excludes and
             access specifiers are taken into account).
 

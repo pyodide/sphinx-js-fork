@@ -22,7 +22,7 @@ setup(
         # https://github.com/pallets/jinja/issues/1585
         "markupsafe==2.0.1",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.10",
     classifiers=[
         "Intended Audience :: Developers",
         "Natural Language :: English",

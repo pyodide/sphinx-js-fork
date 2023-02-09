@@ -1,4 +1,4 @@
-from functools import lru_cache
+from functools import cache
 from os.path import join, normpath
 from typing import Any
 
@@ -15,7 +15,7 @@ from .typedoc import Analyzer as TsAnalyzer
 
 
 # Cache this to guarantee it only runs once.
-@lru_cache(maxsize=None)
+@cache
 def fix_js_make_xref():
     """Monkeypatch to fix sphinx.domains.javascript TypedField and GroupedField
 
@@ -83,7 +83,7 @@ def fix_js_make_xref():
 
 
 # Cache this to guarantee it only runs once.
-@lru_cache(maxsize=None)
+@cache
 def fix_staticfunction_objtype():
     """Add support for staticfunction objtype
 
