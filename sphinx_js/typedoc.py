@@ -196,7 +196,7 @@ class Analyzer:
         """
         if node.inheritedFrom is not None:
             return None, []
-        if getattr(node, "sources", None):
+        if node.sources:
             # Ignore nodes with a reference to absolute paths (like /usr/lib)
             source = node.sources[0]
             if source.fileName[0] == "/":
@@ -305,8 +305,18 @@ class Analyzer:
 
         """
         types = []
-        for t in getattr(node, kind):
-            if t.type == "reference":
+        if kind == "extendedTypes":
+            orig_types = node.extendedTypes
+        elif kind == "implementedTypes":
+            assert isinstance(node, pyd.Class)
+            orig_types = node.implementedTypes
+        else:
+            raise ValueError(
+                f"Expected kind to be 'extendedTypes' or 'implementedTypes' not {kind}"
+            )
+
+        for t in orig_types:
+            if t.type == "reference" and t.id is not None:
                 rtype = self._index[t.id]
                 pathname = Pathname(make_path_segments(rtype, self._base_dir))
                 types.append(pathname)
