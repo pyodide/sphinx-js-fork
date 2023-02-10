@@ -179,7 +179,6 @@ class JsRenderer:
         Return a ReST-escaped string ready for substitution into the template.
 
         """
-        # TODO: fix this type:ignore
         if self._explicit_formal_params:
             return self._explicit_formal_params
 
