@@ -183,7 +183,7 @@ class Analyzer:
         return constructor, members
 
     def _convert_all_nodes(self, root: pyd.Root) -> list[TopLevel]:
-        todo: list[pyd.Node | pyd.Root | pyd.Signature] = [root]
+        todo: list[pyd.Node | pyd.Signature] = list(root.children)
         done = []
         while todo:
             converted, more_todo = self._convert_node(todo.pop())
@@ -193,7 +193,7 @@ class Analyzer:
         return done
 
     def _convert_node(
-        self, node: pyd.Node | pyd.Root | pyd.Signature
+        self, node: pyd.Node | pyd.Signature
     ) -> tuple[TopLevel | None, list[pyd.Node]]:
         """Convert a node of TypeScript JSON output to an IR object.
 
@@ -282,9 +282,7 @@ class Analyzer:
             # Constructors' .name attrs end up being like 'new Foo'. They
             # should probably be called "constructor", but I'm not bothering
             # with that yet because nobody uses that attr on constructors atm.
-            parent = node.parent
-            assert parent
-            assert parent.kindString != "root"
+            assert node.parent
             ir = Function(
                 params=[self._make_param(p) for p in node.parameters],
                 # Exceptions are discouraged in TS as being unrepresentable in its
@@ -295,7 +293,7 @@ class Analyzer:
                 returns=self._make_returns(node)
                 if node.kindString != "Constructor signature"
                 else [],
-                **member_properties(parent),
+                **member_properties(node.parent),
                 **self._top_level_properties(node),
             )
 
@@ -494,8 +492,9 @@ def make_description(comment: pyd.Comment) -> str:
     return ret.strip()
 
 
-def member_properties(node: pyd.IndexType) -> dict[str, bool]:
-
+def member_properties(
+    node: pyd.Node | pyd.Signature | pyd.Param,
+) -> dict[str, bool]:
     return dict(
         is_abstract=node.flags.isAbstract,
         is_optional=node.flags.isOptional,

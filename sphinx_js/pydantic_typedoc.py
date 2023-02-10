@@ -10,27 +10,27 @@ class Source(BaseModel):
 
 
 class Comment(BaseModel):
+    returns: str = ""
     shortText: str | None
     text: str | None
-    returns: str = ""
 
 
 class Flags(BaseModel):
     isAbstract: bool = False
-    isRest: bool = False
-    isOptional: bool = False
-    isStatic: bool = False
-    isPrivate: bool = False
     isExported: bool = False
+    isOptional: bool = False
+    isPrivate: bool = False
+    isRest: bool = False
+    isStatic: bool = False
 
 
 class Base(BaseModel):
-    parent: Optional["IndexType"]
-    id: int | None
     children: list["Node"] = []
+    id: int | None
     inheritedFrom: Any = None
     kindString: str = ""
     originalName: str | None
+    parent: Optional["IndexType"]
 
     class Config(BaseConfig):
         fields = {"parent": {"exclude": True}}  # type:ignore[dict-item]
@@ -38,18 +38,17 @@ class Base(BaseModel):
 
 class Root(Base):
     kindString: Literal["root"] = "root"
-    sources: list[Source] = [] # probably never present
     flags: "Flags" = Field(default_factory=Flags)
     name: str | None
 
 
 class Callable(Base):
-    sources: list[Source]
     kindString: Literal[
         "Constructor",
         "Method",
         "Function",
     ]
+    sources: list[Source]
     signatures: list["Signature"] = []
     flags: "Flags" = Field(default_factory=Flags)
     name: str
@@ -68,7 +67,6 @@ class Member(Base):
 
 
 class ManyNode(Base):
-    sources: list[Source]
     kindString: Literal[
         "Class",
         "External module",
@@ -79,6 +77,7 @@ class ManyNode(Base):
         "Enumeration",
         "Enumeration member",
     ]
+    sources: list[Source]
     type: Optional["Type"]
     name: str
 
@@ -102,10 +101,11 @@ Node = Annotated[ManyNode | Callable | Member, Field(discriminator="kindString")
 
 
 class Signature(Base):
-    sources: list[Source] = []
     kindString: Literal[
         "Constructor signature", "Call signature", "Get signature", "Set signature"
     ]
+    parent: Optional["ManyNode | Callable"]
+    sources: list[Source] = []
     type: "Type"
     comment: Comment = Field(default_factory=Comment)
     parameters: list["Param"] = []
@@ -114,9 +114,9 @@ class Signature(Base):
 
 
 class Param(Base):
+    kindString: Literal["Parameter"] = "Parameter"
     name: str
     type: "Type"
-    kindString: Literal["Parameter"] = "Parameter"
     comment: Comment = Field(default_factory=Comment)
     defaultValue: str | None
     flags: Flags
