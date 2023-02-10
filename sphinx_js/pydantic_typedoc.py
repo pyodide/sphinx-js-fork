@@ -38,7 +38,7 @@ class Base(BaseModel):
 
 class Root(Base):
     kindString: Literal["root"] = "root"
-    sources: list[Source] = []
+    sources: list[Source] = [] # probably never present
     flags: "Flags" = Field(default_factory=Flags)
     name: str | None
 
@@ -53,7 +53,6 @@ class Callable(Base):
     signatures: list["Signature"] = []
     flags: "Flags" = Field(default_factory=Flags)
     name: str
-    originalName: str | None
 
 
 class Member(Base):
@@ -62,7 +61,6 @@ class Member(Base):
         "Variable",
     ]
     sources: list[Source]
-    originalName: str | None
     type: "Type"
     name: str
     flags: "Flags" = Field(default_factory=Flags)
@@ -81,7 +79,6 @@ class ManyNode(Base):
         "Enumeration",
         "Enumeration member",
     ]
-    originalName: str | None
     type: Optional["Type"]
     name: str
 
