@@ -5,6 +5,7 @@ from unittest import TestCase
 import pytest
 
 from sphinx_js.ir import Attribute, Class, Function, Param, Pathname, Return
+from sphinx_js.pydantic_typedoc import Root
 from sphinx_js.typedoc import index_by_id, make_path_segments
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
@@ -14,8 +15,9 @@ class IndexByIdTests(TestCase):
         """Make sure nodes get indexed."""
         # A simple TypeDoc JSON dump of a source file with a single, top-level
         # function with no params or return value:
-        json = loads(
-            r"""{
+        json = Root(
+            **loads(
+                r"""{
           "id": 0,
           "name": "misterRoot",
           "children": [
@@ -78,19 +80,23 @@ class IndexByIdTests(TestCase):
             }
           ]
         }"""
+            )
         )
         index = index_by_id({}, json)
         # Things get indexed by ID:
         function = index[2]
-        assert function["name"] == "foo"
+        assert function.name == "foo"
         # Things get parent links:
-        assert function["__parent"]["name"] == '"longnames"'
-        assert function["__parent"]["__parent"]["name"] == "misterRoot"
+        assert function.parent.name == '"longnames"'
+        assert function.parent.parent.name == "misterRoot"
         # Root gets indexed by ID:
         root = index[0]
-        assert root["name"] == "misterRoot"
+        assert root.name == "misterRoot"
         # Root parent link is absent or None:
-        assert root.get("__parent") is None
+        assert root.parent is None
+
+
+from sphinx_js.pydantic_typedoc import Comment
 
 
 class PathSegmentsTests(TypeDocTestCase):
@@ -100,7 +106,7 @@ class PathSegmentsTests(TypeDocTestCase):
 
     def commented_object(self, comment, **kwargs):
         """Return the object from ``json`` having the given comment short-text."""
-        return dict_where(self.json, comment={"shortText": comment}, **kwargs)
+        return dict_where(self.json, comment=Comment(shortText=comment), **kwargs)
 
     def commented_object_path(self, comment, **kwargs):
         """Return the path segments of the object with the given comment."""
@@ -223,7 +229,7 @@ class ConvertNodeTests(TypeDocAnalyzerTestCase):
 
     files = ["nodes.ts"]
 
-    def test_class(self):
+    def test_class1(self):
         """Test that superclasses, implemented interfaces, abstractness, and
         nonexistent constructors, members, and top-level attrs are surfaced."""
         # Make sure is_abstract is sometimes false:

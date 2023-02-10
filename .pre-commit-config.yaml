@@ -33,6 +33,7 @@ repos:
         args: []
         additional_dependencies:
           - jinja2
+          - pydantic
           - pytest
           - sphinx
           - types-docutils

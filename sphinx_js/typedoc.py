@@ -7,16 +7,12 @@ from errno import ENOENT
 from json import load
 from os.path import basename, join, normpath, relpath, sep, splitext
 from tempfile import NamedTemporaryFile
-from typing import (
-    Literal,
-    Optional,
-    TypedDict,
-    cast,
-)
+from typing import Literal, TypedDict
 
 from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
+from . import pydantic_typedoc as pyd
 from .analyzer_utils import Command, is_explicitly_rooted
 from .ir import (
     NO_DEFAULT,
@@ -30,78 +26,6 @@ from .ir import (
     TopLevel,
 )
 from .suffix_tree import SuffixTree
-
-
-class Source(TypedDict):
-    fileName: str
-    line: int
-
-
-class _TypedocNodeMandatory(TypedDict):
-    __parent: Optional["TypedocNode"]
-    name: str
-    id: int
-    sources: list[Source]
-    flags: dict[str, bool]
-
-
-class TypedocNode(_TypedocNodeMandatory, total=False):
-    originalName: str
-    setSignature: list["TypedocSignature"]
-    kindString: Literal[
-        "Class", "External module", "Module", "Constructor", "Interface", "Accessor"
-    ]
-    children: list["TypedocNode"]
-    inheritedFrom: str
-    getSignature: list["TypedocSignature"]
-    signatures: list["TypedocSignature"]
-    type: "TypedocType"
-    extendedTypes: list["TypedocType"]
-    implementedTypes: list["TypedocType"]
-    comment: "TypedocComment"
-
-
-class TypedocSignature(_TypedocNodeMandatory):
-    kindString: Literal["Constructor signature", "Call signature"]
-    type: "TypedocType"
-    comment: "TypedocComment"
-    parameters: list["TypedocParam"]
-
-
-class TypedocComment(TypedDict, total=False):
-    shortText: str
-    text: str
-    returns: str
-
-
-class TypedocParam(_TypedocNodeMandatory):
-    type: "TypedocType"
-    comment: "TypedocComment"
-    defaultValue: str
-
-
-class TypedocType(_TypedocNodeMandatory):
-    type: Literal[
-        "reference",
-        "unknown",
-        "stringLiteral",
-        "array",
-        "tuple",
-        "union",
-        "intersection",
-        "typeOperator",
-        "reflection",
-        "typeOperator",
-        "typeParameter",
-    ]
-    types: list["TypedocType"]
-    value: str
-    elementType: "TypedocType"
-    elements: list["TypedocType"]
-    operator: str
-    target: "TypedocType"
-    typeArguments: list["TypedocType"]
-    constraint: "TypedocType"
 
 
 class TopLevelProperties(TypedDict):
@@ -119,7 +43,7 @@ class TopLevelProperties(TypedDict):
 
 
 class Analyzer:
-    def __init__(self, json: TypedocNode, base_dir: str):
+    def __init__(self, json: pyd.Root, base_dir: str):
         """
         :arg json: The loaded JSON output from typedoc
         :arg base_dir: The absolute path of the dir relative to which to
@@ -127,6 +51,10 @@ class Analyzer:
 
         """
         self._base_dir = base_dir
+        # print("\n\n")
+        # pprint(loads(json.json()))
+        # print("\n\n")
+
         _index = index_by_id({}, json)
         assert _index
         self._index = _index
@@ -166,49 +94,51 @@ class Analyzer:
         """
         return self._objects_by_path.get(path_suffix)
 
-    def _parent_nodes(self, node: TypedocNode) -> Iterator[TypedocNode]:
+    def _parent_nodes(self, node: pyd.AnyNode) -> Iterator[pyd.ManyNode]:
         """Return an iterator of parent nodes"""
-        n: TypedocNode | None = node
-        while n and n["id"] != 0:
-            if n.get("kindString") == "External module":
+        n: pyd.AnyNode | None = node
+        while n and n.id != 0:
+            if n.kindString == "External module":
                 # Found one!
                 yield n
-            n = n.get("__parent")
+            n = n.parent
 
-    def _containing_module(self, node: TypedocNode) -> Pathname | None:
+    def _containing_module(self, node: pyd.AnyNode) -> Pathname | None:
         """Return the Pathname pointing to the module containing the given
         node, None if one isn't found."""
         for node in self._parent_nodes(node):
             return Pathname(make_path_segments(node, self._base_dir))
         return None
 
-    def _containing_deppath(self, node: TypedocNode) -> str | None:
+    def _containing_deppath(self, node: pyd.AnyNode) -> str | None:
         """Return the path pointing to the module containing the given node.
         The path is absolute or relative to `root_for_relative_js_paths`.
         Raises ValueError if one isn't found.
 
         """
         for node in self._parent_nodes(node):
-            deppath = node.get("originalName")
+            deppath = node.originalName
             if deppath:
                 return relpath(deppath, self._base_dir)
             else:
                 raise ValueError("Could not find deppath")
         raise ValueError("Could not find deppath")
 
-    def _top_level_properties(self, node: TypedocNode) -> TopLevelProperties:
-        source = node["sources"][0]
-        if node.get("flags", {}).get("isExported", False):
+    def _top_level_properties(
+        self, node: pyd.ManyNode | pyd.Member | pyd.Signature
+    ) -> TopLevelProperties:
+        source = node.sources[0]
+        if node.flags.isExported:
             exported_from = self._containing_module(node)
         else:
             exported_from = None
         return dict(
             name=short_name(node),
             path=Pathname(make_path_segments(node, self._base_dir)),
-            filename=basename(source["fileName"]),
+            filename=basename(source.fileName),
             deppath=self._containing_deppath(node),
-            description=make_description(node.get("comment", {})),
-            line=source["line"],
+            description=make_description(node.comment),
+            line=source.line,
             # These properties aren't supported by TypeDoc:
             deprecated=False,
             examples=[],
@@ -218,7 +148,7 @@ class Analyzer:
         )
 
     def _constructor_and_members(
-        self, cls: TypedocNode
+        self, cls: pyd.Node
     ) -> tuple[Function | None, list[Function | Attribute]]:
         """Return the constructor and other members of a class.
 
@@ -233,20 +163,27 @@ class Analyzer:
         """
         constructor = None
         members = []
-        for child in cls.get("children", []):
+        for child in cls.children:
+            # print("child:")
+            # from json import loads
+            # pprint(loads(child.json()), depth=2)
             ir, _ = self._convert_node(child)
-            if ir:
-                if child.get("kindString") == "Constructor":
-                    # This really, really should happen exactly once per class.
-                    assert isinstance(ir, Function)
-                    constructor = ir
-                else:
-                    assert isinstance(ir, (Function, Attribute))
-                    members.append(ir)
+            if not ir:
+                continue
+            if child.kindString == "Constructor":
+                # This really, really should happen exactly once per class.
+                assert isinstance(ir, Function)
+                constructor = ir
+            else:
+                # print("\nmember:")
+                # pprint(ir)
+                # print("\n")
+                assert isinstance(ir, (Function, Attribute))
+                members.append(ir)
         return constructor, members
 
-    def _convert_all_nodes(self, root: TypedocNode) -> list[TopLevel]:
-        todo: list[TypedocNode] = [root]
+    def _convert_all_nodes(self, root: pyd.Root) -> list[TopLevel]:
+        todo: list[pyd.Node | pyd.Root | pyd.Signature] = [root]
         done = []
         while todo:
             converted, more_todo = self._convert_node(todo.pop())
@@ -256,8 +193,8 @@ class Analyzer:
         return done
 
     def _convert_node(
-        self, node: TypedocNode
-    ) -> tuple[TopLevel | None, list[TypedocNode]]:
+        self, node: pyd.Node | pyd.Root | pyd.Signature
+    ) -> tuple[TopLevel | None, list[pyd.Node]]:
         """Convert a node of TypeScript JSON output to an IR object.
 
         :return: A tuple: (the IR object, a list of other nodes found within
@@ -266,31 +203,30 @@ class Analyzer:
             are omitted.
 
         """
-        if "inheritedFrom" in node:
+        if node.inheritedFrom is not None:
             return None, []
-        if "sources" in node:
+        if getattr(node, "sources", None):
             # Ignore nodes with a reference to absolute paths (like /usr/lib)
-            source = node["sources"][0]
-            if source.get("fileName", ".")[0] == "/":
+            source = node.sources[0]
+            if source.fileName[0] == "/":
                 return None, []
 
         ir: TopLevel | None = None
-        kind = node.get("kindString")
-        if kind == "External module":
+        if node.kindString == "External module":
             # We shouldn't need these until we implement automodule. But what
             # of js:mod in the templates?
             pass
-        elif kind == "Module":
+        elif node.kindString == "Module":
             # Does anybody even use TS's old internal modules anymore?
             pass
-        elif kind == "Interface":
+        elif node.kindString == "Interface":
             _, members = self._constructor_and_members(node)
             ir = Interface(
                 members=members,
                 supers=self._related_types(node, kind="extendedTypes"),
                 **self._top_level_properties(node),
             )
-        elif kind == "Class":
+        elif node.kindString == "Class":
             # Every class has a constructor in the JSON, even if it's only
             # inherited.
             constructor, members = self._constructor_and_members(node)
@@ -298,31 +234,38 @@ class Analyzer:
                 constructor=constructor,
                 members=members,
                 supers=self._related_types(node, kind="extendedTypes"),
-                is_abstract=node.get("flags", {}).get("isAbstract", False),
+                is_abstract=node.flags.isAbstract,
                 interfaces=self._related_types(node, kind="implementedTypes"),
                 **self._top_level_properties(node),
             )
-        elif kind in ["Property", "Variable"]:
+        elif node.kindString == "Property" or node.kindString == "Variable":
             ir = Attribute(
-                type=self._type_name(node["type"]),
+                type=self._type_name(node.type),
                 **member_properties(node),
                 **self._top_level_properties(node),
             )
-        elif kind == "Accessor":
-            get_signature = node.get("getSignature")
-            if get_signature:
+        elif node.kindString == "Accessor":
+            if node.getSignature:
                 # There's no signature to speak of for a getter: only a return type.
-                type = get_signature[0]["type"]
+                print("\nAccessor:")
+                from pprint import pprint
+
+                pprint(node.getSignature[0], depth=2)
+                type = node.getSignature[0].type
             else:
                 # ES6 says setters have exactly 1 param. I'm not sure if they
                 # can have multiple signatures, though.
-                type = node["setSignature"][0]["parameters"][0]["type"]
+                type = node.setSignature[0].parameters[0].type
             ir = Attribute(
                 type=self._type_name(type),
                 **member_properties(node),
                 **self._top_level_properties(node),
             )
-        elif kind in ["Function", "Constructor", "Method"]:
+        elif (
+            node.kindString == "Function"
+            or node.kindString == "Constructor"
+            or node.kindString == "Method"
+        ):
             # There's really nothing in these; all the interesting bits are in
             # the contained 'Call signature' keys. We support only the first
             # signature at the moment, because to do otherwise would create
@@ -330,36 +273,40 @@ class Analyzer:
             # cause the suffix tree to raise an exception while being built. An
             # eventual solution might be to store the signatures in a one-to-
             # many attr of Functions.
-            sigs = node["signatures"]
+            sigs = node.signatures
             first_sig = sigs[0]  # Should always have at least one
-            first_sig["sources"] = node["sources"]
-            return self._convert_node(first_sig)  # type:ignore[arg-type]
-        elif kind in ["Call signature", "Constructor signature"]:
+            first_sig.sources = node.sources
+            return self._convert_node(first_sig)
+        elif (
+            node.kindString == "Call signature"
+            or node.kindString == "Constructor signature"
+        ):
             # This is the real meat of a function, method, or constructor.
             #
             # Constructors' .name attrs end up being like 'new Foo'. They
             # should probably be called "constructor", but I'm not bothering
             # with that yet because nobody uses that attr on constructors atm.
-            n = cast(TypedocSignature, node)
-            k = n["kindString"]
-            parent = node["__parent"]
+            parent = node.parent
             assert parent
+            assert parent.kindString != "root"
             ir = Function(
-                params=[self._make_param(p) for p in n.get("parameters", [])],
+                params=[self._make_param(p) for p in node.parameters],
                 # Exceptions are discouraged in TS as being unrepresentable in its
                 # type system. More importantly, TypeDoc does not support them.
                 exceptions=[],
                 # Though perhaps technically true, it looks weird to the user
                 # (and in the template) if constructors have a return value:
-                returns=self._make_returns(n) if k != "Constructor signature" else [],
+                returns=self._make_returns(node)
+                if node.kindString != "Constructor signature"
+                else [],
                 **member_properties(parent),
                 **self._top_level_properties(node),
             )
 
-        return ir, node.get("children", [])
+        return ir, node.children
 
     def _related_types(
-        self, node: TypedocNode, kind: Literal["extendedTypes", "implementedTypes"]
+        self, node: pyd.Node, kind: Literal["extendedTypes", "implementedTypes"]
     ) -> list[Pathname]:
         """Return the unambiguous pathnames of implemented interfaces or
         extended classes.
@@ -372,105 +319,105 @@ class Analyzer:
 
         """
         types = []
-        for type in node.get(kind, []):
-            if type["type"] == "reference":
+        for type in getattr(node, kind):
+            if type.type == "reference":
                 pathname = Pathname(
-                    make_path_segments(self._index[type["id"]], self._base_dir)
+                    make_path_segments(self._index[type.id], self._base_dir)
                 )
                 types.append(pathname)
             # else it's some other thing we should go implement
         return types
 
-    def _type_name(self, type: TypedocType) -> str:
+    def _type_name(self, type: pyd.Type) -> str:
         """Return a string description of a type.
 
         :arg type: A TypeDoc-emitted type node
 
         """
-        type_of_type = type.get("type")
-
-        if type_of_type == "reference" and type.get("id"):
-            node = self._index[type["id"]]
-            name = node["name"]
-        elif type_of_type == "unknown":
-            if re.match(r"-?\d*(\.\d+)?", type["name"]):  # It's a number.
+        name: str = ""
+        if type.type == "reference" and type.id:
+            node = self._index[type.id]
+            assert node.name
+            name = node.name
+        elif type.type == "unknown":
+            name = type.name
+            assert name
+            if re.match(r"-?\d*(\.\d+)?", name):  # It's a number.
                 # TypeDoc apparently sticks numeric constants' values into the
                 # type name. String constants? Nope. Function ones? Nope.
                 name = "number"
-            else:
-                name = type["name"]
-        elif type_of_type in ["intrinsic", "reference"]:
-            name = type["name"]
-        elif type_of_type == "stringLiteral":
-            name = '"' + type["value"] + '"'
-        elif type_of_type == "array":
-            name = self._type_name(type["elementType"]) + "[]"
-        elif type_of_type == "tuple" and "elements" in type:
-            types = [self._type_name(t) for t in type["elements"]]
+        elif type.type == "intrinsic" or type.type == "reference":
+            name = type.name
+        elif type.type == "stringLiteral":
+            name = '"' + type.value + '"'
+        elif type.type == "array":
+            name = self._type_name(type.elementType) + "[]"
+        elif type.type == "tuple" and type.elements:
+            types = [self._type_name(t) for t in type.elements]
             name = "[" + ", ".join(types) + "]"
-        elif type_of_type == "union":
-            name = "|".join(self._type_name(t) for t in type["types"])
-        elif type_of_type == "intersection":
-            name = " & ".join(self._type_name(t) for t in type["types"])
-        elif type_of_type == "typeOperator":
-            name = type["operator"] + " " + self._type_name(type["target"])
+        elif type.type == "union":
+            name = "|".join(self._type_name(t) for t in type.types)
+        elif type.type == "intersection":
+            name = " & ".join(self._type_name(t) for t in type.types)
+        elif type.type == "typeOperator":
+            name = type.operator + " " + self._type_name(type.target)
             # e.g. "keyof T"
-        elif type_of_type == "typeParameter":
-            name = type["name"]
-            constraint = type.get("constraint")
+        elif type.type == "typeParameter":
+            name = type.name
+            constraint = type.constraint
             if constraint is not None:
                 name += " extends " + self._type_name(constraint)
                 # e.g. K += extends + keyof T
-        elif type_of_type == "reflection":
+        elif type.type == "reflection":
             name = "<TODO: reflection>"
             # test_generic_member() (currently skipped) tests this.
         else:
             name = "<TODO: other type>"
 
-        type_args = type.get("typeArguments")
+        type_args = type.typeArguments
         if type_args:
             arg_names = ", ".join(self._type_name(arg) for arg in type_args)
             name += f"<{arg_names}>"
 
         return name
 
-    def _make_param(self, param: TypedocParam) -> Param:
+    def _make_param(self, param: pyd.Param) -> Param:
         """Make a Param from a 'parameters' JSON item"""
-        has_default = "defaultValue" in param
+        default = param.defaultValue or NO_DEFAULT
         return Param(
-            name=param["name"],
-            description=make_description(param.get("comment", {})),
-            has_default=has_default,
-            is_variadic=param.get("flags", {}).get("isRest", False),
+            name=param.name,
+            description=make_description(param.comment),
+            has_default=param.defaultValue is not None,
+            is_variadic=param.flags.isRest,
             # For now, we just pass a single string in as the type rather than
             # a list of types to be unioned by the renderer. There's really no
             # disadvantage.
-            type=self._type_name(param["type"]),
-            default=param["defaultValue"] if has_default else NO_DEFAULT,
+            type=self._type_name(param.type),
+            default=default,
         )
 
-    def _make_returns(self, signature: TypedocSignature) -> list[Return]:
+    def _make_returns(self, signature: pyd.Signature) -> list[Return]:
         """Return the Returns a function signature can have.
 
         Because, in TypeDoc, each signature can have only 1 @return tag, we
         return a list of either 0 or 1 item.
 
         """
-        type = signature.get("type")
-        if type is None or type.get("name") == "void":
+        type = signature.type
+        if type.type == "intrinsic" and type.name == "void":
             # Returns nothing
             return []
         return [
             Return(
                 type=self._type_name(type),
-                description=signature.get("comment", {}).get("returns", "").strip(),
+                description=signature.comment.returns.strip(),
             )
         ]
 
 
 def typedoc_output(
     abs_source_paths: list[str], sphinx_conf_dir: str, config_path: str
-) -> TypedocNode:
+) -> pyd.Root:
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
     command = Command("typedoc")
@@ -490,14 +437,14 @@ def typedoc_output(
             else:
                 raise
         # typedoc emits a valid JSON file even if it finds no TS files in the dir:
-        return cast(TypedocNode, load(temp))
+        return pyd.Root(**load(temp))
 
 
 def index_by_id(
-    index: dict[int, TypedocNode],
-    node: TypedocNode | None,
-    parent: TypedocNode | None = None,
-) -> dict[int, TypedocNode] | None:
+    index: dict[int, pyd.Node | pyd.Root],
+    node: pyd.Node | pyd.Root | None,
+    parent: pyd.Node | pyd.Root | None = None,
+) -> dict[int, pyd.Node | pyd.Root] | None:
     """Create an ID-to-node mapping for all the TypeDoc output nodes.
 
     We don't unnest them, but we do add ``__parent`` keys so we can easily walk
@@ -515,51 +462,52 @@ def index_by_id(
     if node is None:
         return None
 
-    id = node.get("id")
-    if id is not None:  # 0 is okay; it's the root node.
+    if node.id is not None:  # 0 is okay; it's the root node.
         # Give anything in the map a parent:
-        node[
-            "__parent"
-        ] = parent  # Parents are used for (1) building longnames, (2) setting memberof (which we shouldn't have to do anymore; we can just traverse children), (3) getting the module a class or interface is defined in so we can link to it, and (4) one other things, so it's worth setting them.
-        index[id] = node
+
+        # Parents are used for (1) building longnames, (2) setting memberof
+        # (which we shouldn't have to do anymore; we can just traverse
+        # children), (3) getting the module a class or interface is defined in
+        # so we can link to it, and (4) one other things, so it's worth setting
+        # them.
+        node.parent = parent
+        index[node.id] = node
 
     # Burrow into everything that could contain more ID'd items. We don't
     # need setSignature or getSignature for now. Do we need indexSignature?
     for tag in ["children", "signatures", "parameters"]:
-        for child in node.get(tag, []):  # type:ignore[attr-defined]
+        for child in getattr(node, tag, []):
             index_by_id(index, child, parent=node)
 
     return index
 
 
-def make_description(comment: TypedocComment) -> str:
+def make_description(comment: pyd.Comment) -> str:
     """Construct a single comment string from a fancy object."""
-    ret = "\n\n".join(
-        text for text in [comment.get("shortText"), comment.get("text")] if text
-    )
+    ret = "\n\n".join(text for text in [comment.shortText, comment.text] if text)
     return ret.strip()
 
 
-def member_properties(node: TypedocNode) -> dict[str, bool]:
-    flags: dict[str, bool] = node.get("flags", {})
+def member_properties(node: pyd.Node) -> dict[str, bool]:
+
     return dict(
-        is_abstract=flags.get("isAbstract", False),
-        is_optional=flags.get("isOptional", False),
-        is_static=flags.get("isStatic", False),
-        is_private=flags.get("isPrivate", False),
+        is_abstract=node.flags.isAbstract,
+        is_optional=node.flags.isOptional,
+        is_static=node.flags.isStatic,
+        is_private=node.flags.isPrivate,
     )
 
 
-def short_name(node: TypedocNode) -> str:
-    if node["kindString"] in ["Module", "External module"]:
-        return node["name"][1:-1]  # strip quotes
-    return node["name"]
+def short_name(node: pyd.Node | pyd.Signature) -> str:
+    if node.kindString == "Module" or node.kindString == "External module":
+        return node.name[1:-1]  # strip quotes
+    return node.name
 
 
 # Optimization: Could memoize this for probably a decent perf gain: every child
 # of an object redoes the work for all its parents.
 def make_path_segments(
-    node: TypedocNode, base_dir: str, child_was_static: bool | None = None
+    node: pyd.AnyNode, base_dir: str, child_was_static: bool | None = None
 ) -> list[str]:
     """Return the full, unambiguous list of path segments that points to an
     entity described by a TypeDoc JSON node.
@@ -582,56 +530,61 @@ def make_path_segments(
     namepath-like paths, even if we eventually support {@link} syntax.
 
     """
-    node_is_static = node.get("flags", {}).get("isStatic", False)
+    node_is_static = node.flags.isStatic
 
-    parent = node.get("__parent")
+    parent = node.parent
     parent_segments = (
         make_path_segments(parent, base_dir, child_was_static=node_is_static)
         if parent
         else []
     )
 
-    kind = node.get("kindString")
     delimiter = "" if child_was_static is None else "."
 
     # Handle the cases here that are handled in _convert_node(), plus any that
     # are encountered on other nodes on the way up to the root.
-    if kind in ["Variable", "Property", "Accessor", "Interface", "Module"]:
+    if (
+        node.kindString == "Variable"
+        or node.kindString == "Property"
+        or node.kindString == "Accessor"
+        or node.kindString == "Interface"
+        or node.kindString == "Module"
+    ):
         # We emit a segment for a Method's child Call Signature but skip the
         # Method itself. They 2 nodes have the same names, but, by taking the
         # child, we fortuitously end up without a trailing delimiter on our
         # last segment.
-        segments = [node["name"]]
-    elif kind in ["Call signature", "Constructor signature"]:
+        segments = [node.name]
+    elif (
+        node.kindString == "Call signature"
+        or node.kindString == "Constructor signature"
+    ):
         # Similar to above, we skip the parent Constructor and glom onto the
         # Constructor Signature. That gets us no trailing delimiter. However,
         # the signature has name == 'new Foo', so we go up to the parent to get
         # the real name, which is usually (always?) "constructor".
         assert parent
-        segments = [parent["name"]]
-    elif kind == "Class":
-        segments = [node["name"]]
+        assert parent.name
+        segments = [parent.name]
+    elif node.kindString == "Class":
+        segments = [node.name]
         if child_was_static is False:
             delimiter = "#"
-    elif kind == "External module":
+    elif node.kindString == "External module":
         # 'name' contains folder names if multiple folders are passed into
         # TypeDoc. It's also got excess quotes. So we ignore it and take
         # 'originalName', which has a nice, absolute path.
-        rel = relpath(node["originalName"], base_dir)
+        assert node.originalName
+        rel = relpath(node.originalName, base_dir)
         if not is_explicitly_rooted(rel):
             rel = f".{sep}{rel}"
+
         segments = rel.split(sep)
         filename = splitext(segments[-1])[0]
         segments = [s + "/" for s in segments[:-1]] + [filename]
     else:
         # None, as for a root node, Constructor, or Method
         segments = []
-
-    print("\n")
-    print("node_is_static", node_is_static)
-
-    print("parent_segments:", parent_segments)
-    print("segments:", segments)
 
     if segments:
         # It's not some abstract thing the user doesn't think about and we skip
@@ -641,5 +594,4 @@ def make_path_segments(
     else:
         # Allow some levels of the JSON to not have a corresponding path segment:
         result = parent_segments
-    print("result:", result)
     return result
