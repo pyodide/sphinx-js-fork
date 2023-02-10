@@ -336,7 +336,6 @@ class Analyzer:
             name = node.name
         elif type.type == "unknown":
             name = type.name
-            assert name
             if re.match(r"-?\d*(\.\d+)?", name):  # It's a number.
                 # TypeDoc apparently sticks numeric constants' values into the
                 # type name. String constants? Nope. Function ones? Nope.
