@@ -4,26 +4,18 @@ from typing import Annotated, Any, Literal, Optional
 from pydantic import BaseConfig, BaseModel, Field
 
 
-class Config(BaseConfig):
-    fields = {"parent": {"exclude": True}}  # type:ignore[dict-item]
-
-
-class Base(BaseModel):
-    parent: Optional["Node | Root"]
-    id: int | None
-    children: list["Node"] = []
-    Config = Config
-    inheritedFrom: Any = None
-    kindString: str = ""
-    originalName: str | None
-
-
-class Source(Base):
+class Source(BaseModel):
     fileName: str
     line: int
 
 
-class Flags(Base):
+class Comment(BaseModel):
+    shortText: str | None
+    text: str | None
+    returns: str = ""
+
+
+class Flags(BaseModel):
     isAbstract: bool = False
     isRest: bool = False
     isOptional: bool = False
@@ -32,10 +24,16 @@ class Flags(Base):
     isExported: bool = False
 
 
-class Comment(Base):
-    shortText: str | None
-    text: str | None
-    returns: str = ""
+class Base(BaseModel):
+    parent: Optional["IndexType"]
+    id: int | None
+    children: list["Node"] = []
+    inheritedFrom: Any = None
+    kindString: str = ""
+    originalName: str | None
+
+    class Config(BaseConfig):
+        fields = {"parent": {"exclude": True}}  # type:ignore[dict-item]
 
 
 class Root(Base):
@@ -121,6 +119,7 @@ class Signature(Base):
 class Param(Base):
     name: str
     type: "Type"
+    kindString: Literal["Parameter"] = "Parameter"
     comment: Comment = Field(default_factory=Comment)
     defaultValue: str | None
     flags: Flags
@@ -195,6 +194,9 @@ Type = Annotated[
     ),
     Field(discriminator="type"),
 ]
+
+IndexType = Node | Root | Signature | Param
+
 
 for cls in list(globals().values()):
     if isclass(cls) and issubclass(cls, BaseModel):

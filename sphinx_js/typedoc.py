@@ -94,9 +94,9 @@ class Analyzer:
         """
         return self._objects_by_path.get(path_suffix)
 
-    def _parent_nodes(self, node: pyd.AnyNode) -> Iterator[pyd.ManyNode]:
+    def _parent_nodes(self, node: pyd.IndexType) -> Iterator[pyd.ManyNode]:
         """Return an iterator of parent nodes"""
-        n: pyd.AnyNode | None = node
+        n: pyd.IndexType | None = node
         while n and n.id != 0:
             if n.kindString == "External module":
                 # Found one!
@@ -247,10 +247,6 @@ class Analyzer:
         elif node.kindString == "Accessor":
             if node.getSignature:
                 # There's no signature to speak of for a getter: only a return type.
-                print("\nAccessor:")
-                from pprint import pprint
-
-                pprint(node.getSignature[0], depth=2)
                 type = node.getSignature[0].type
             else:
                 # ES6 says setters have exactly 1 param. I'm not sure if they
@@ -440,11 +436,14 @@ def typedoc_output(
         return pyd.Root(**load(temp))
 
 
+from .pydantic_typedoc import IndexType
+
+
 def index_by_id(
-    index: dict[int, pyd.Node | pyd.Root],
-    node: pyd.Node | pyd.Root | None,
-    parent: pyd.Node | pyd.Root | None = None,
-) -> dict[int, pyd.Node | pyd.Root] | None:
+    index: dict[int, IndexType],
+    node: IndexType,
+    parent: IndexType | None = None,
+) -> dict[int, IndexType] | None:
     """Create an ID-to-node mapping for all the TypeDoc output nodes.
 
     We don't unnest them, but we do add ``__parent`` keys so we can easily walk
@@ -459,9 +458,6 @@ def index_by_id(
     # differently in different cases? I think the reason for the cases is that
     # we used to set a parent ID rather than a parent pointer and not all nodes
     # have IDs.
-    if node is None:
-        return None
-
     if node.id is not None:  # 0 is okay; it's the root node.
         # Give anything in the map a parent:
 
@@ -473,11 +469,21 @@ def index_by_id(
         node.parent = parent
         index[node.id] = node
 
+    from collections.abc import Sequence
+
     # Burrow into everything that could contain more ID'd items. We don't
     # need setSignature or getSignature for now. Do we need indexSignature?
-    for tag in ["children", "signatures", "parameters"]:
-        for child in getattr(node, tag, []):
-            index_by_id(index, child, parent=node)
+    children: list[Sequence[pyd.Node | pyd.Signature | pyd.Param]] = []
+
+    children.append(node.children)
+    if isinstance(node, pyd.Callable):
+        children.append(node.signatures)
+
+    if isinstance(node, pyd.Signature):
+        children.append(node.parameters)
+
+    for child in (c for l in children for c in l):
+        index_by_id(index, child, parent=node)
 
     return index
 
@@ -488,7 +494,7 @@ def make_description(comment: pyd.Comment) -> str:
     return ret.strip()
 
 
-def member_properties(node: pyd.Node) -> dict[str, bool]:
+def member_properties(node: pyd.IndexType) -> dict[str, bool]:
 
     return dict(
         is_abstract=node.flags.isAbstract,
@@ -507,7 +513,7 @@ def short_name(node: pyd.Node | pyd.Signature) -> str:
 # Optimization: Could memoize this for probably a decent perf gain: every child
 # of an object redoes the work for all its parents.
 def make_path_segments(
-    node: pyd.AnyNode, base_dir: str, child_was_static: bool | None = None
+    node: IndexType, base_dir: str, child_was_static: bool | None = None
 ) -> list[str]:
     """Return the full, unambiguous list of path segments that points to an
     entity described by a TypeDoc JSON node.
