@@ -5,7 +5,7 @@ from unittest import TestCase
 import pytest
 
 from sphinx_js.ir import Attribute, Class, Function, Param, Pathname, Return
-from sphinx_js.pydantic_typedoc import Root
+from sphinx_js.pydantic_typedoc import parse
 from sphinx_js.typedoc import index_by_id, make_path_segments
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
@@ -15,8 +15,8 @@ class IndexByIdTests(TestCase):
         """Make sure nodes get indexed."""
         # A simple TypeDoc JSON dump of a source file with a single, top-level
         # function with no params or return value:
-        json = Root(
-            **loads(
+        json = parse(
+            loads(
                 r"""{
           "id": 0,
           "name": "misterRoot",

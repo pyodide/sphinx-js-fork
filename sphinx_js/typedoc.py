@@ -429,7 +429,7 @@ def typedoc_output(
             else:
                 raise
         # typedoc emits a valid JSON file even if it finds no TS files in the dir:
-        return pyd.Root(**load(temp))
+        return pyd.parse(load(temp))
 
 
 from .pydantic_typedoc import IndexType

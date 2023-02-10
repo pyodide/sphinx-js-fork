@@ -1,7 +1,7 @@
 from inspect import isclass
 from typing import Annotated, Any, Literal, Optional
 
-from pydantic import BaseConfig, BaseModel, Field
+from pydantic import BaseConfig, BaseModel, Field, ValidationError
 
 
 class Source(BaseModel):
@@ -202,3 +202,77 @@ IndexType = Node | Root | Signature | Param
 for cls in list(globals().values()):
     if isclass(cls) and issubclass(cls, BaseModel):
         cls.update_forward_refs()
+
+
+# Fix error messages
+#
+# The Pydantic error messages tend to contain TONS of irrelevant stuff. This
+# deletes the useless stuff and adds important context.
+
+discriminators = ["type", "kindString"]
+classesByDiscriminator: dict[str, dict[str, type[BaseModel]]] = {
+    disc: {} for disc in discriminators
+}
+
+for cls in list(globals().values()):
+    if not isclass(cls) or not issubclass(cls, BaseModel):
+        continue
+    for disc in discriminators:
+        if disc not in cls.__annotations__:
+            continue
+        ann = cls.__annotations__[disc]
+        if getattr(ann, "__name__", None) != "Literal":
+            continue
+        for arg in ann.__args__:
+            classesByDiscriminator[disc][arg] = cls
+
+
+def parse(json: dict[str, Any]) -> Root:
+    try:
+        return Root.parse_obj(json)
+    except ValidationError as exc:
+        from pprint import pprint
+
+        s = sorted(
+            set(e["loc"][:-1] for e in exc.errors()), key=lambda loc: (-len(loc), loc)
+        )
+        handled = set()
+        errors = []
+        for loc in s:
+            if loc in handled:
+                continue
+            # Add all prefixes of the current loc to handled
+            for i in range(len(s)):
+                handled.add(loc[:i])
+
+            # follow path to get problematic subobject
+            o = json
+            for a in loc:
+                o = o[a]  # type: ignore[index]
+
+            # Work out the discriminator and use it to look up the appropriate class
+            for disc in discriminators:
+                if disc not in o:
+                    continue
+                if o[disc] not in classesByDiscriminator[disc]:
+                    continue
+                c = classesByDiscriminator[disc][o[disc]]
+                try:
+                    c.parse_obj(o)
+                except ValidationError as e:
+                    errs = e.errors()
+
+                for err in errs:
+                    # Extend the loc so that it is relative to the top level object
+                    err["loc"] = loc + err["loc"]
+                    err["msg"] += "\n" + f"  Discriminator: {disc} = {o[disc]}\n"
+                    print("\n")
+                    print("loc:", err["loc"])
+                    print("msg:", err["msg"])
+                    print("obj:")
+                    pprint(o, depth=1)
+                    print("\n")
+                errors.extend(errs)
+
+        exc._error_cache = errors
+        raise
