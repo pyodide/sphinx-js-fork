@@ -2,7 +2,7 @@
 
 import re
 import subprocess
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from errno import ENOENT
 from json import load
 from os.path import basename, join, normpath, relpath, sep, splitext
@@ -51,9 +51,7 @@ class Analyzer:
 
         """
         self._base_dir = base_dir
-        _index = index_by_id({}, json)
-        assert _index
-        self._index = _index
+        self._index = index_by_id({}, json)
         ir_objects = self._convert_all_nodes(json)
         # Toss this overboard to save RAM. We're done with it now:
         del self._index
@@ -90,7 +88,7 @@ class Analyzer:
         """
         return self._objects_by_path.get(path_suffix)
 
-    def _parent_nodes(self, node: pyd.IndexType) -> Iterator[pyd.OtherNode]:
+    def _parent_nodes(self, node: pyd.IndexType) -> Iterator[pyd.ExternalModule]:
         """Return an iterator of parent nodes"""
         n: pyd.IndexType | None = node
         while n and n.id != 0:
@@ -441,7 +439,7 @@ def index_by_id(
     index: dict[int, IndexType],
     node: IndexType,
     parent: IndexType | None = None,
-) -> dict[int, IndexType] | None:
+) -> dict[int, IndexType]:
     """Create an ID-to-node mapping for all the TypeDoc output nodes.
 
     We don't unnest them, but we do add ``__parent`` keys so we can easily walk
@@ -466,8 +464,6 @@ def index_by_id(
         # them.
         node.parent = parent
         index[node.id] = node
-
-    from collections.abc import Sequence
 
     # Burrow into everything that could contain more ID'd items. We don't
     # need setSignature or getSignature for now. Do we need indexSignature?
@@ -537,10 +533,9 @@ def make_path_segments(
     """
     node_is_static = node.flags.isStatic
 
-    parent = node.parent
     parent_segments = (
-        make_path_segments(parent, base_dir, child_was_static=node_is_static)
-        if parent
+        make_path_segments(node.parent, base_dir, child_was_static=node_is_static)
+        if node.parent
         else []
     )
 
@@ -568,9 +563,7 @@ def make_path_segments(
         # Constructor Signature. That gets us no trailing delimiter. However,
         # the signature has name == 'new Foo', so we go up to the parent to get
         # the real name, which is usually (always?) "constructor".
-        assert parent
-        assert parent.name
-        segments = [parent.name]
+        segments = [node.parent.name]
     elif node.kindString == "Class":
         segments = [node.name]
         if child_was_static is False:
@@ -579,7 +572,6 @@ def make_path_segments(
         # 'name' contains folder names if multiple folders are passed into
         # TypeDoc. It's also got excess quotes. So we ignore it and take
         # 'originalName', which has a nice, absolute path.
-        assert node.originalName
         rel = relpath(node.originalName, base_dir)
         if not is_explicitly_rooted(rel):
             rel = f".{sep}{rel}"

@@ -84,9 +84,13 @@ class Member(NodeBase):
     type: "TypeD"
 
 
+class ExternalModule(NodeBase):
+    kindString: Literal["External module"]
+    originalName: str
+
+
 class OtherNode(NodeBase):
     kindString: Literal[
-        "External module",
         "Module",
         "Type alias",
         "Enumeration",
@@ -95,7 +99,7 @@ class OtherNode(NodeBase):
 
 
 Node = Annotated[
-    Accessor | Callable | Class | Interface | Member | OtherNode,
+    Accessor | Callable | Class | ExternalModule | Interface | Member | OtherNode,
     Field(discriminator="kindString"),
 ]
 
