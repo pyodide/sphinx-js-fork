@@ -124,7 +124,7 @@ class Signature(Base):
 
 
 class TypeBase(Base):
-    TypeDrguments: list["TypeD"] = []
+    typeArguments: list["TypeD"] = []
 
 
 class AndOrType(TypeBase):
