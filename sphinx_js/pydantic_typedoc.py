@@ -37,93 +37,116 @@ class Base(BaseModel):
 
 
 class Root(Base):
+    # These are probably never present except "name"
     kindString: Literal["root"] = "root"
     flags: "Flags" = Field(default_factory=Flags)
     name: str | None
 
 
-class Callable(Base):
+class NodeBase(Base):
+    comment: Comment = Field(default_factory=Comment)
+    flags: "Flags" = Field(default_factory=Flags)
+    name: str
+    sources: list[Source]
+
+
+class Accessor(NodeBase):
+    kindString: Literal["Accessor"]
+    getSignature: list["Signature"] = []
+    setSignature: list["Signature"] = []
+
+
+class Callable(NodeBase):
     kindString: Literal[
         "Constructor",
         "Method",
         "Function",
     ]
-    sources: list[Source]
     signatures: list["Signature"] = []
-    flags: "Flags" = Field(default_factory=Flags)
-    name: str
 
 
-class Member(Base):
+class Class(NodeBase):
+    kindString: Literal["Class"]
+    extendedTypes: list["TypeD"] = []
+    implementedTypes: list["TypeD"] = []
+
+
+class Interface(NodeBase):
+    kindString: Literal["Interface"]
+    extendedTypes: list["TypeD"] = []
+
+
+class Member(NodeBase):
     kindString: Literal[
         "Property",
         "Variable",
     ]
-    sources: list[Source]
-    type: "Type"
-    name: str
-    flags: "Flags" = Field(default_factory=Flags)
-    comment: Comment = Field(default_factory=Comment)
+    type: "TypeD"
 
 
-class ManyNode(Base):
+class OtherNode(NodeBase):
     kindString: Literal[
-        "Class",
         "External module",
         "Module",
-        "Interface",
-        "Accessor",
         "Type alias",
         "Enumeration",
         "Enumeration member",
     ]
-    sources: list[Source]
-    type: Optional["Type"]
-    name: str
 
-    # setSignature: list["Signature"]
-    # getSignature: list["Signature"]
-    # signatures: list["Signature"]
 
-    # Only for Interface
-    extendedTypes: list["Type"] = []
-    # Only for Interface and Class
-    implementedTypes: list["Type"] = []
-    # Only for accessor
-    getSignature: list["Signature"] = []
-    setSignature: list["Signature"] = []
+Node = Annotated[
+    Accessor | Callable | Class | Interface | Member | OtherNode,
+    Field(discriminator="kindString"),
+]
 
+
+class Param(Base):
+    kindString: Literal["Parameter"] = "Parameter"
     comment: Comment = Field(default_factory=Comment)
-    flags: "Flags" = Field(default_factory=Flags)
-
-
-Node = Annotated[ManyNode | Callable | Member, Field(discriminator="kindString")]
+    defaultValue: str | None
+    flags: Flags
+    name: str
+    type: "TypeD"
 
 
 class Signature(Base):
     kindString: Literal[
         "Constructor signature", "Call signature", "Get signature", "Set signature"
     ]
-    parent: Optional["ManyNode | Callable"]
-    sources: list[Source] = []
-    type: "Type"
+    parent: "Node" = None  # type:ignore[assignment]
+
     comment: Comment = Field(default_factory=Comment)
+    flags: Flags = Field(default_factory=Flags)
+    name: str
     parameters: list["Param"] = []
-    flags: "Flags" = Field(default_factory=Flags)
-    name: str
-
-
-class Param(Base):
-    kindString: Literal["Parameter"] = "Parameter"
-    name: str
-    type: "Type"
-    comment: Comment = Field(default_factory=Comment)
-    defaultValue: str | None
-    flags: Flags
+    sources: list[Source] = []
+    type: "TypeD"
 
 
 class TypeBase(Base):
-    typeArguments: list["Type"] = []
+    TypeDrguments: list["TypeD"] = []
+
+
+class AndOrType(TypeBase):
+    type: Literal["union", "intersection"]
+    types: list["TypeD"]
+
+
+class ArrayType(TypeBase):
+    type: Literal["array"]
+    elementType: "TypeD"
+
+
+class OperatorType(TypeBase):
+    type: Literal["typeOperator"]
+    operator: str
+    target: "TypeD"
+
+
+class ParameterType(TypeBase):
+    type: Literal["typeParameter"]
+    name: str
+    constraint: Optional["TypeD"]
 
 
 class ReferenceType(TypeBase):
@@ -132,37 +155,19 @@ class ReferenceType(TypeBase):
     id: int | None
 
 
+class ReflectionType(TypeBase):
+    type: Literal["reflection"]
+
+
 class StringLiteralType(TypeBase):
     type: Literal["stringLiteral"]
     name: str
     value: str
 
 
-class ArrayType(TypeBase):
-    type: Literal["array"]
-    elementType: "Type"
-
-
 class TupleType(TypeBase):
     type: Literal["tuple"]
-    elements: list["Type"]
-
-
-class AndOrType(TypeBase):
-    type: Literal["union", "intersection"]
-    types: list["Type"]
-
-
-class OperatorType(TypeBase):
-    type: Literal["typeOperator"]
-    operator: str
-    target: "Type"
-
-
-class ParameterType(TypeBase):
-    type: Literal["typeParameter"]
-    name: str
-    constraint: Optional["Type"]
+    elements: list["TypeD"]
 
 
 class UnknownType(TypeBase):
@@ -170,27 +175,22 @@ class UnknownType(TypeBase):
     name: str
 
 
-class ReflectionType(TypeBase):
-    type: Literal["reflection"]
-
-
 AnyNode = Node | Root | Signature
 
 
-Type = Annotated[
-    (
-        ReferenceType
-        | StringLiteralType
-        | ArrayType
-        | TupleType
-        | AndOrType
-        | OperatorType
-        | ParameterType
-        | UnknownType
-        | ReflectionType
-    ),
-    Field(discriminator="type"),
-]
+Type = (
+    AndOrType
+    | ArrayType
+    | OperatorType
+    | ParameterType
+    | ReferenceType
+    | ReflectionType
+    | StringLiteralType
+    | TupleType
+    | UnknownType
+)
+
+TypeD = Annotated[Type, Field(discriminator="TypeD")]
 
 IndexType = Node | Root | Signature | Param
 

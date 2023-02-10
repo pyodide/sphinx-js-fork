@@ -51,10 +51,6 @@ class Analyzer:
 
         """
         self._base_dir = base_dir
-        # print("\n\n")
-        # pprint(loads(json.json()))
-        # print("\n\n")
-
         _index = index_by_id({}, json)
         assert _index
         self._index = _index
@@ -94,7 +90,7 @@ class Analyzer:
         """
         return self._objects_by_path.get(path_suffix)
 
-    def _parent_nodes(self, node: pyd.IndexType) -> Iterator[pyd.ManyNode]:
+    def _parent_nodes(self, node: pyd.IndexType) -> Iterator[pyd.OtherNode]:
         """Return an iterator of parent nodes"""
         n: pyd.IndexType | None = node
         while n and n.id != 0:
@@ -125,7 +121,8 @@ class Analyzer:
         raise ValueError("Could not find deppath")
 
     def _top_level_properties(
-        self, node: pyd.ManyNode | pyd.Member | pyd.Signature
+        self,
+        node: pyd.Node | pyd.Signature,
     ) -> TopLevelProperties:
         source = node.sources[0]
         if node.flags.isExported:
@@ -164,9 +161,6 @@ class Analyzer:
         constructor = None
         members = []
         for child in cls.children:
-            # print("child:")
-            # from json import loads
-            # pprint(loads(child.json()), depth=2)
             ir, _ = self._convert_node(child)
             if not ir:
                 continue
@@ -175,9 +169,6 @@ class Analyzer:
                 assert isinstance(ir, Function)
                 constructor = ir
             else:
-                # print("\nmember:")
-                # pprint(ir)
-                # print("\n")
                 assert isinstance(ir, (Function, Attribute))
                 members.append(ir)
         return constructor, members
@@ -282,7 +273,6 @@ class Analyzer:
             # Constructors' .name attrs end up being like 'new Foo'. They
             # should probably be called "constructor", but I'm not bothering
             # with that yet because nobody uses that attr on constructors atm.
-            assert node.parent
             ir = Function(
                 params=[self._make_param(p) for p in node.parameters],
                 # Exceptions are discouraged in TS as being unrepresentable in its
@@ -300,7 +290,9 @@ class Analyzer:
         return ir, node.children
 
     def _related_types(
-        self, node: pyd.Node, kind: Literal["extendedTypes", "implementedTypes"]
+        self,
+        node: pyd.Interface | pyd.Class,
+        kind: Literal["extendedTypes", "implementedTypes"],
     ) -> list[Pathname]:
         """Return the unambiguous pathnames of implemented interfaces or
         extended classes.
@@ -313,11 +305,10 @@ class Analyzer:
 
         """
         types = []
-        for type in getattr(node, kind):
-            if type.type == "reference":
-                pathname = Pathname(
-                    make_path_segments(self._index[type.id], self._base_dir)
-                )
+        for t in getattr(node, kind):
+            if t.type == "reference":
+                rtype = self._index[t.id]
+                pathname = Pathname(make_path_segments(rtype, self._base_dir))
                 types.append(pathname)
             # else it's some other thing we should go implement
         return types
