@@ -1,3 +1,4 @@
+import re
 from inspect import isclass
 from typing import Annotated, Any, Literal, Optional
 
@@ -131,15 +132,36 @@ class Signature(Base):
 class TypeBase(Base):
     typeArguments: list["TypeD"] = []
 
+    def render_name(self, index: dict[int, "IndexType"]) -> str:
+        name = self._render_name_root(index)
+
+        if self.typeArguments:
+            arg_names = ", ".join(arg.render_name(index) for arg in self.typeArguments)
+            name += f"<{arg_names}>"
+
+        return name
+
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        raise NotImplementedError
+
 
 class AndOrType(TypeBase):
     type: Literal["union", "intersection"]
     types: list["TypeD"]
 
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        if self.type == "union":
+            return "|".join(t.render_name(index) for t in self.types)
+        elif self.type == "intersection":
+            return " & ".join(t.render_name(index) for t in self.types)
+
 
 class ArrayType(TypeBase):
     type: Literal["array"]
     elementType: "TypeD"
+
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        return self.elementType.render_name(index) + "[]"
 
 
 class OperatorType(TypeBase):
@@ -147,11 +169,21 @@ class OperatorType(TypeBase):
     operator: str
     target: "TypeD"
 
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        return self.operator + " " + self.target.render_name(index)
+
 
 class ParameterType(TypeBase):
     type: Literal["typeParameter"]
     name: str
     constraint: Optional["TypeD"]
+
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        name = self.name
+        if self.constraint is not None:
+            name += " extends " + self.constraint.render_name(index)
+            # e.g. K += extends + keyof T
+        return name
 
 
 class ReferenceType(TypeBase):
@@ -159,9 +191,19 @@ class ReferenceType(TypeBase):
     name: str
     id: int | None
 
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        # test_generic_member() (currently skipped) tests this.
+        if self.id:
+            node = index[self.id]
+            assert node.name
+        return self.name
+
 
 class ReflectionType(TypeBase):
     type: Literal["reflection"]
+
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        return "<TODO: reflection>"
 
 
 class StringLiteralType(TypeBase):
@@ -169,15 +211,29 @@ class StringLiteralType(TypeBase):
     name: str
     value: str
 
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        return f'"{self.value}"'
+
 
 class TupleType(TypeBase):
     type: Literal["tuple"]
     elements: list["TypeD"]
 
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        types = [t.render_name(index) for t in self.elements]
+        return "[" + ", ".join(types) + "]"
+
 
 class UnknownType(TypeBase):
     type: Literal["unknown"]
     name: str
+
+    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+        if re.match(r"-?\d*(\.\d+)?", self.name):  # It's a number.
+            # TypeDoc apparently sticks numeric constants' values into the
+            # type name. String constants? Nope. Function ones? Nope.
+            return "number"
+        return self.name
 
 
 AnyNode = Node | Root | Signature

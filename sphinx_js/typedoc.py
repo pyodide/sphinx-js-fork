@@ -1,6 +1,5 @@
 """Converter from TypeDoc output to IR format"""
 
-import re
 import subprocess
 from collections.abc import Iterator, Sequence
 from errno import ENOENT
@@ -225,7 +224,7 @@ class Analyzer:
             )
         elif node.kindString == "Property" or node.kindString == "Variable":
             ir = Attribute(
-                type=self._type_name(node.type),
+                type=node.type.render_name(self._index),
                 **member_properties(node),
                 **self._top_level_properties(node),
             )
@@ -238,7 +237,7 @@ class Analyzer:
                 # can have multiple signatures, though.
                 type = node.setSignature[0].parameters[0].type
             ir = Attribute(
-                type=self._type_name(type),
+                type=type.render_name(self._index),
                 **member_properties(node),
                 **self._top_level_properties(node),
             )
@@ -317,58 +316,6 @@ class Analyzer:
             # else it's some other thing we should go implement
         return types
 
-    def _type_name(self, type: pyd.Type) -> str:
-        """Return a string description of a type.
-
-        :arg type: A TypeDoc-emitted type node
-
-        """
-        name: str = ""
-        if type.type == "reference" and type.id:
-            node = self._index[type.id]
-            assert node.name
-            name = node.name
-        elif type.type == "unknown":
-            name = type.name
-            if re.match(r"-?\d*(\.\d+)?", name):  # It's a number.
-                # TypeDoc apparently sticks numeric constants' values into the
-                # type name. String constants? Nope. Function ones? Nope.
-                name = "number"
-        elif type.type == "intrinsic" or type.type == "reference":
-            name = type.name
-        elif type.type == "stringLiteral":
-            name = '"' + type.value + '"'
-        elif type.type == "array":
-            name = self._type_name(type.elementType) + "[]"
-        elif type.type == "tuple" and type.elements:
-            types = [self._type_name(t) for t in type.elements]
-            name = "[" + ", ".join(types) + "]"
-        elif type.type == "union":
-            name = "|".join(self._type_name(t) for t in type.types)
-        elif type.type == "intersection":
-            name = " & ".join(self._type_name(t) for t in type.types)
-        elif type.type == "typeOperator":
-            name = type.operator + " " + self._type_name(type.target)
-            # e.g. "keyof T"
-        elif type.type == "typeParameter":
-            name = type.name
-            constraint = type.constraint
-            if constraint is not None:
-                name += " extends " + self._type_name(constraint)
-                # e.g. K += extends + keyof T
-        elif type.type == "reflection":
-            name = "<TODO: reflection>"
-            # test_generic_member() (currently skipped) tests this.
-        else:
-            name = "<TODO: other type>"
-
-        type_args = type.typeArguments
-        if type_args:
-            arg_names = ", ".join(self._type_name(arg) for arg in type_args)
-            name += f"<{arg_names}>"
-
-        return name
-
     def _make_param(self, param: pyd.Param) -> Param:
         """Make a Param from a 'parameters' JSON item"""
         default = param.defaultValue or NO_DEFAULT
@@ -380,7 +327,7 @@ class Analyzer:
             # For now, we just pass a single string in as the type rather than
             # a list of types to be unioned by the renderer. There's really no
             # disadvantage.
-            type=self._type_name(param.type),
+            type=param.type.render_name(self._index),
             default=default,
         )
 
@@ -397,7 +344,7 @@ class Analyzer:
             return []
         return [
             Return(
-                type=self._type_name(type),
+                type=type.render_name(self._index),
                 description=signature.comment.returns.strip(),
             )
         ]
