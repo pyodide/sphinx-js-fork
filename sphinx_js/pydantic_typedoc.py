@@ -1,13 +1,13 @@
 import re
 from collections.abc import Iterator
 from inspect import isclass
-from os.path import relpath, sep, splitext
-from typing import Annotated, Any, Literal, Optional, cast
+from os.path import basename, relpath, sep, splitext
+from typing import Annotated, Any, Literal, Optional, TypedDict, cast
 
 from pydantic import BaseConfig, BaseModel, Field, ValidationError
 
+from . import ir
 from .analyzer_utils import is_explicitly_rooted
-from .ir import Pathname
 
 
 class Source(BaseModel):
@@ -52,11 +52,11 @@ class Base(BaseModel):
                 yield n
             n = n.parent
 
-    def _containing_module(self, base_dir: str) -> Pathname | None:
+    def _containing_module(self, base_dir: str) -> ir.Pathname | None:
         """Return the Pathname pointing to the module containing the given
         node, None if one isn't found."""
         for n in self._parent_nodes():
-            return Pathname(n.make_path_segments(base_dir))
+            return ir.Pathname(n.make_path_segments(base_dir))
         return None
 
     def _containing_deppath(self) -> str | None:
@@ -133,9 +133,57 @@ class Root(Base):
         return []
 
 
-class NodeBase(Base):
-    comment: Comment = Field(default_factory=Comment)
+class TopLevelPropertiesDict(TypedDict):
     name: str
+    path: ir.Pathname
+    filename: str
+    deppath: str | None
+    description: str
+    line: int
+    deprecated: bool
+    examples: list[str]
+    see_alsos: list[str]
+    properties: list[ir.Attribute]
+    exported_from: ir.Pathname | None
+
+
+class TopLevelProperties(Base):
+    name: str
+    kindString: str
+    comment: Comment = Field(default_factory=Comment)
+
+    def short_name(self) -> str:
+        if (
+            self.kindString == "Module"
+            or self.kindString == "External module"
+            or self.kindString == "Namespace"
+        ):
+            return self.name[1:-1]  # strip quotes
+        return self.name
+
+    def _top_level_properties(self, base_dir: str) -> TopLevelPropertiesDict:
+        source = self.sources[0]
+        if self.flags.isExported:
+            exported_from = self._containing_module(base_dir)
+        else:
+            exported_from = None
+        return dict(
+            name=self.short_name(),
+            path=ir.Pathname(self.make_path_segments(base_dir)),
+            filename=basename(source.fileName),
+            deppath=self._containing_deppath(),
+            description=make_description(self.comment),
+            line=source.line,
+            # These properties aren't supported by TypeDoc:
+            deprecated=False,
+            examples=[],
+            see_alsos=[],
+            properties=[],
+            exported_from=exported_from,
+        )
+
+
+class NodeBase(TopLevelProperties):
     sources: list[Source]
 
     def _path_segments(self, base_dir: str) -> list[str]:
@@ -169,7 +217,7 @@ class ClassOrInterface(NodeBase):
         self,
         analyzer: Any,
         kind: Literal["extendedTypes", "implementedTypes"],
-    ) -> list[Pathname]:
+    ) -> list[ir.Pathname]:
         """Return the unambiguous pathnames of implemented interfaces or
         extended classes.
 
@@ -194,7 +242,7 @@ class ClassOrInterface(NodeBase):
         for t in orig_types:
             if t.type == "reference" and t.id is not None:
                 rtype = analyzer._index[t.id]
-                pathname = Pathname(rtype.make_path_segments(analyzer._base_dir))
+                pathname = ir.Pathname(rtype.make_path_segments(analyzer._base_dir))
                 types.append(pathname)
             # else it's some other thing we should go implement
         return types
@@ -244,6 +292,12 @@ Node = Annotated[
 ]
 
 
+def make_description(comment: Comment) -> str:
+    """Construct a single comment string from a fancy object."""
+    ret = "\n\n".join(text for text in [comment.shortText, comment.text] if text)
+    return ret.strip()
+
+
 class Param(Base):
     kindString: Literal["Parameter"] = "Parameter"
     comment: Comment = Field(default_factory=Comment)
@@ -252,14 +306,28 @@ class Param(Base):
     name: str
     type: "TypeD"
 
+    def _make_param(self, index: dict[int, "IndexType"]) -> ir.Param:
+        """Make a Param from a 'parameters' JSON item"""
+        default = self.defaultValue or ir.NO_DEFAULT
+        return ir.Param(
+            name=self.name,
+            description=make_description(self.comment),
+            has_default=self.defaultValue is not None,
+            is_variadic=self.flags.isRest,
+            # For now, we just pass a single string in as the type rather than
+            # a list of types to be unioned by the renderer. There's really no
+            # disadvantage.
+            type=self.type.render_name(index),
+            default=default,
+        )
 
-class Signature(Base):
+
+class Signature(TopLevelProperties):
     kindString: Literal[
         "Constructor signature", "Call signature", "Get signature", "Set signature"
     ]
     parent: "Node" = None  # type:ignore[assignment]
 
-    comment: Comment = Field(default_factory=Comment)
     name: str
     parameters: list["Param"] = []
     sources: list[Source] = []
@@ -267,6 +335,24 @@ class Signature(Base):
 
     def _path_segments(self, base_dir: str) -> list[str]:
         return [self.parent.name]
+
+    def _make_returns(self, index: dict[int, "IndexType"]) -> list[ir.Return]:
+        """Return the Returns a function signature can have.
+
+        Because, in TypeDoc, each signature can have only 1 @return tag, we
+        return a list of either 0 or 1 item.
+
+        """
+        type = self.type
+        if type.type == "intrinsic" and type.name == "void":
+            # Returns nothing
+            return []
+        return [
+            ir.Return(
+                type=type.render_name(index),
+                description=self.comment.returns.strip(),
+            )
+        ]
 
 
 class TypeBase(Base):

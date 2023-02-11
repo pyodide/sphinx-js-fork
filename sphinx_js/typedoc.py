@@ -4,9 +4,9 @@ import subprocess
 from collections.abc import Sequence
 from errno import ENOENT
 from json import load
-from os.path import basename, join, normpath
+from os.path import join, normpath
 from tempfile import NamedTemporaryFile
-from typing import Literal, TypedDict
+from typing import Literal
 
 from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
@@ -14,31 +14,13 @@ from sphinx.errors import SphinxError
 from . import pydantic_typedoc as pyd
 from .analyzer_utils import Command
 from .ir import (
-    NO_DEFAULT,
     Attribute,
     Class,
     Function,
     Interface,
-    Param,
-    Pathname,
-    Return,
     TopLevel,
 )
 from .suffix_tree import SuffixTree
-
-
-class TopLevelProperties(TypedDict):
-    name: str
-    path: Pathname
-    filename: str
-    deppath: str | None
-    description: str
-    line: int
-    deprecated: bool
-    examples: list[str]
-    see_alsos: list[str]
-    properties: list[Attribute]
-    exported_from: Pathname | None
 
 
 class Analyzer:
@@ -86,30 +68,6 @@ class Analyzer:
 
         """
         return self._objects_by_path.get(path_suffix)
-
-    def _top_level_properties(
-        self,
-        node: pyd.Node | pyd.Signature,
-    ) -> TopLevelProperties:
-        source = node.sources[0]
-        if node.flags.isExported:
-            exported_from = node._containing_module(self._base_dir)
-        else:
-            exported_from = None
-        return dict(
-            name=short_name(node),
-            path=Pathname(node.make_path_segments(self._base_dir)),
-            filename=basename(source.fileName),
-            deppath=node._containing_deppath(),
-            description=make_description(node.comment),
-            line=source.line,
-            # These properties aren't supported by TypeDoc:
-            deprecated=False,
-            examples=[],
-            see_alsos=[],
-            properties=[],
-            exported_from=exported_from,
-        )
 
     def _constructor_and_members(
         self, cls: pyd.Node
@@ -182,7 +140,7 @@ class Analyzer:
             ir = Interface(
                 members=members,
                 supers=node._related_types(self, kind="extendedTypes"),
-                **self._top_level_properties(node),
+                **node._top_level_properties(self._base_dir),
             )
         elif node.kindString == "Class":
             # Every class has a constructor in the JSON, even if it's only
@@ -194,13 +152,13 @@ class Analyzer:
                 supers=node._related_types(self, kind="extendedTypes"),
                 is_abstract=node.flags.isAbstract,
                 interfaces=node._related_types(self, kind="implementedTypes"),
-                **self._top_level_properties(node),
+                **node._top_level_properties(self._base_dir),
             )
         elif node.kindString == "Property" or node.kindString == "Variable":
             ir = Attribute(
                 type=node.type.render_name(self._index),
                 **member_properties(node),
-                **self._top_level_properties(node),
+                **node._top_level_properties(self._base_dir),
             )
         elif node.kindString == "Accessor":
             if node.getSignature:
@@ -213,7 +171,7 @@ class Analyzer:
             ir = Attribute(
                 type=type.render_name(self._index),
                 **member_properties(node),
-                **self._top_level_properties(node),
+                **node._top_level_properties(self._base_dir),
             )
         elif (
             node.kindString == "Function"
@@ -241,53 +199,20 @@ class Analyzer:
             # should probably be called "constructor", but I'm not bothering
             # with that yet because nobody uses that attr on constructors atm.
             ir = Function(
-                params=[self._make_param(p) for p in node.parameters],
+                params=[p._make_param(self._index) for p in node.parameters],
                 # Exceptions are discouraged in TS as being unrepresentable in its
                 # type system. More importantly, TypeDoc does not support them.
                 exceptions=[],
                 # Though perhaps technically true, it looks weird to the user
                 # (and in the template) if constructors have a return value:
-                returns=self._make_returns(node)
+                returns=node._make_returns(self._index)
                 if node.kindString != "Constructor signature"
                 else [],
                 **member_properties(node.parent),
-                **self._top_level_properties(node),
+                **node._top_level_properties(self._base_dir),
             )
 
         return ir, node.children
-
-    def _make_param(self, param: pyd.Param) -> Param:
-        """Make a Param from a 'parameters' JSON item"""
-        default = param.defaultValue or NO_DEFAULT
-        return Param(
-            name=param.name,
-            description=make_description(param.comment),
-            has_default=param.defaultValue is not None,
-            is_variadic=param.flags.isRest,
-            # For now, we just pass a single string in as the type rather than
-            # a list of types to be unioned by the renderer. There's really no
-            # disadvantage.
-            type=param.type.render_name(self._index),
-            default=default,
-        )
-
-    def _make_returns(self, signature: pyd.Signature) -> list[Return]:
-        """Return the Returns a function signature can have.
-
-        Because, in TypeDoc, each signature can have only 1 @return tag, we
-        return a list of either 0 or 1 item.
-
-        """
-        type = signature.type
-        if type.type == "intrinsic" and type.name == "void":
-            # Returns nothing
-            return []
-        return [
-            Return(
-                type=type.render_name(self._index),
-                description=signature.comment.returns.strip(),
-            )
-        ]
 
 
 def typedoc_output(
@@ -365,12 +290,6 @@ def index_by_id(
     return index
 
 
-def make_description(comment: pyd.Comment) -> str:
-    """Construct a single comment string from a fancy object."""
-    ret = "\n\n".join(text for text in [comment.shortText, comment.text] if text)
-    return ret.strip()
-
-
 def member_properties(
     node: pyd.Node | pyd.Signature | pyd.Param,
 ) -> dict[str, bool]:
@@ -380,13 +299,3 @@ def member_properties(
         is_static=node.flags.isStatic,
         is_private=node.flags.isPrivate,
     )
-
-
-def short_name(node: pyd.Node | pyd.Signature) -> str:
-    if (
-        node.kindString == "Module"
-        or node.kindString == "External module"
-        or node.kindString == "Namespace"
-    ):
-        return node.name[1:-1]  # strip quotes
-    return node.name
