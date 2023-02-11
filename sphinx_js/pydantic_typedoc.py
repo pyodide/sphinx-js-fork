@@ -1,8 +1,13 @@
 import re
+from collections.abc import Iterator
 from inspect import isclass
-from typing import Annotated, Any, Literal, Optional
+from os.path import relpath, sep, splitext
+from typing import Annotated, Any, Literal, Optional, cast
 
 from pydantic import BaseConfig, BaseModel, Field, ValidationError
+
+from .analyzer_utils import is_explicitly_rooted
+from .ir import Pathname
 
 
 class Source(BaseModel):
@@ -31,24 +36,110 @@ class Base(BaseModel):
     inheritedFrom: Any = None
     kindString: str = ""
     originalName: str | None
+    sources: list[Source] = []
     parent: Optional["IndexType"]
+    flags: Flags = Field(default_factory=Flags)
 
     class Config(BaseConfig):
         fields = {"parent": {"exclude": True}}  # type:ignore[dict-item]
+
+    def _parent_nodes(self) -> Iterator["ExternalModule | OtherNode"]:
+        """Return an iterator of parent nodes"""
+        n: IndexType | None = cast(IndexType, self)
+        while n and n.id != 0:
+            if n.kindString == "External module" or n.kindString == "Module":
+                # Found one!
+                yield n
+            n = n.parent
+
+    def _containing_module(self, base_dir: str) -> Pathname | None:
+        """Return the Pathname pointing to the module containing the given
+        node, None if one isn't found."""
+        for n in self._parent_nodes():
+            return Pathname(n.make_path_segments(base_dir))
+        return None
+
+    def _containing_deppath(self) -> str | None:
+        """Return the path pointing to the module containing the given node.
+        The path is absolute or relative to `root_for_relative_js_paths`.
+        Raises ValueError if one isn't found.
+
+        """
+        return self.sources[0].fileName
+
+    def _path_segments(self, base_dir: str) -> list[str]:
+        raise NotImplementedError
+
+    # Optimization: Could memoize this for probably a decent perf gain: every child
+    # of an object redoes the work for all its parents.
+    def make_path_segments(
+        self, base_dir: str, child_was_static: bool | None = None
+    ) -> list[str]:
+        """Return the full, unambiguous list of path segments that points to an
+        entity described by a TypeDoc JSON node.
+
+        Example: ``['./', 'dir/', 'dir/', 'file.', 'object.', 'object#', 'object']``
+
+        :arg base_dir: Absolute path of the dir relative to which file-path
+            segments are constructed
+        :arg child_was_static: True if the child node we're computing the path of
+            is a static member of the node under consideration. False if it is.
+            None if the current node is the one we're ultimately computing the path
+            of.
+
+        TypeDoc uses a totally different, locality-sensitive resolution mechanism
+        for links: https://typedoc.org/guides/link-resolution/. It seems like a
+        less well thought-out system than JSDoc's namepaths, as it doesn't
+        distinguish between, say, static and instance properties of the same name.
+        (AFAICT, TypeDoc does not emit documentation for inner properties, as for a
+        function nested within another function.) We're sticking with our own
+        namepath-like paths, even if we eventually support {@link} syntax.
+
+        """
+        node_is_static = self.flags.isStatic
+
+        parent_segments = (
+            self.parent.make_path_segments(base_dir, child_was_static=node_is_static)
+            if self.parent
+            else []
+        )
+
+        if child_was_static is None:
+            delimiter = ""
+        elif not child_was_static and self.kindString == "Class":
+            delimiter = "#"
+        else:
+            delimiter = "."
+
+        segments = self._path_segments(base_dir)
+
+        if segments:
+            # It's not some abstract thing the user doesn't think about and we skip
+            # over.
+            segments[-1] += delimiter
+            result = parent_segments + segments
+        else:
+            # Allow some levels of the JSON to not have a corresponding path segment:
+            result = parent_segments
+        return result
 
 
 class Root(Base):
     # These are probably never present except "name"
     kindString: Literal["root"] = "root"
-    flags: "Flags" = Field(default_factory=Flags)
     name: str | None
+
+    def _path_segments(self, base_dir: str) -> list[str]:
+        return []
 
 
 class NodeBase(Base):
     comment: Comment = Field(default_factory=Comment)
-    flags: "Flags" = Field(default_factory=Flags)
     name: str
     sources: list[Source]
+
+    def _path_segments(self, base_dir: str) -> list[str]:
+        return [self.name]
 
 
 class Accessor(NodeBase):
@@ -64,16 +155,50 @@ class Callable(NodeBase):
         "Function",
     ]
     signatures: list["Signature"] = []
+    def _path_segments(self, base_dir: str) -> list[str]:
+        return []
 
-
-class Class(NodeBase):
-    kindString: Literal["Class"]
+class ClassOrInterface(NodeBase):
+    kindString: Literal["Class", "Interface"]
     extendedTypes: list["TypeD"] = []
     implementedTypes: list["TypeD"] = []
 
+    def _related_types(
+        self,
+        analyzer: Any,
+        kind: Literal["extendedTypes", "implementedTypes"],
+    ) -> list[Pathname]:
+        """Return the unambiguous pathnames of implemented interfaces or
+        extended classes.
+
+        If we encounter a formulation of interface or class reference that we
+        don't understand (which I expect to occur only if it turns out you can
+        use a class or interface literal rather than referencing a declared
+        one), return 'UNIMPLEMENTED' for that interface or class so somebody
+        files a bug requesting we fix it. (It's not worth crashing for.)
+
+        """
+        types = []
+        if kind == "extendedTypes":
+            orig_types = self.extendedTypes
+        elif kind == "implementedTypes":
+            assert self.kindString == "Class"
+            orig_types = self.implementedTypes
+        else:
+            raise ValueError(
+                f"Expected kind to be 'extendedTypes' or 'implementedTypes' not {kind}"
+            )
+
+        for t in orig_types:
+            if t.type == "reference" and t.id is not None:
+                rtype = analyzer._index[t.id]
+                pathname = Pathname(rtype.make_path_segments(analyzer._base_dir))
+                types.append(pathname)
+            # else it's some other thing we should go implement
+        return types
+
 
 class Interface(NodeBase):
-    kindString: Literal["Interface"]
     extendedTypes: list["TypeD"] = []
 
 
@@ -86,13 +211,24 @@ class Member(NodeBase):
 
 
 class ExternalModule(NodeBase):
-    kindString: Literal["External module"]
-    originalName: str
+    kindString: Literal["External module", "Module"]
+    originalName: str = ""
+
+    def _path_segments(self, base_dir: str) -> list[str]:
+        # 'name' contains folder names if multiple folders are passed into
+        # TypeDoc. It's also got excess quotes. So we ignore it and take
+        # 'originalName', which has a nice, absolute path.
+        rel = relpath(self.originalName, base_dir)
+        if not is_explicitly_rooted(rel):
+            rel = f".{sep}{rel}"
+
+        segments = rel.split(sep)
+        filename = splitext(segments[-1])[0]
+        return [s + "/" for s in segments[:-1]] + [filename]
 
 
 class OtherNode(NodeBase):
     kindString: Literal[
-        "Module",
         "Namespace",
         "Type alias",
         "Enumeration",
@@ -101,7 +237,7 @@ class OtherNode(NodeBase):
 
 
 Node = Annotated[
-    Accessor | Callable | Class | ExternalModule | Interface | Member | OtherNode,
+    Accessor | Callable | ClassOrInterface | ExternalModule | Member | OtherNode,
     Field(discriminator="kindString"),
 ]
 
@@ -122,11 +258,13 @@ class Signature(Base):
     parent: "Node" = None  # type:ignore[assignment]
 
     comment: Comment = Field(default_factory=Comment)
-    flags: Flags = Field(default_factory=Flags)
     name: str
     parameters: list["Param"] = []
     sources: list[Source] = []
     type: "TypeD"
+
+    def _path_segments(self, base_dir: str) -> list[str]:
+        return [self.parent.name]
 
 
 class TypeBase(Base):

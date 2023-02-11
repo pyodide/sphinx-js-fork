@@ -6,7 +6,7 @@ import pytest
 
 from sphinx_js.ir import Attribute, Class, Function, Param, Pathname, Return
 from sphinx_js.pydantic_typedoc import parse
-from sphinx_js.typedoc import index_by_id, make_path_segments
+from sphinx_js.typedoc import index_by_id
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
@@ -113,7 +113,7 @@ class PathSegmentsTests(TypeDocTestCase):
         obj = self.commented_object(comment, **kwargs)
         if obj is NO_MATCH:
             raise RuntimeError(f'No object found with the comment "{comment}".')
-        return make_path_segments(obj, self._source_dir)
+        return obj.make_path_segments(self._source_dir)
 
     def test_class(self):
         assert self.commented_object_path("Foo class") == ["./", "pathSegments.", "Foo"]
@@ -204,7 +204,7 @@ class PathSegmentsTests(TypeDocTestCase):
         """Make sure FS path segments are emitted if ``base_dir`` doesn't
         directly contain the code."""
         obj = self.commented_object("Function")
-        segments = make_path_segments(obj, dirname(dirname(self._source_dir)))
+        segments = obj.make_path_segments(dirname(dirname(self._source_dir)))
         assert segments == [
             "./",
             "test_typedoc_analysis/",

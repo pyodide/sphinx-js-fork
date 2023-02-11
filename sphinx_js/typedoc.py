@@ -1,10 +1,10 @@
 """Converter from TypeDoc output to IR format"""
 
 import subprocess
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from errno import ENOENT
 from json import load
-from os.path import basename, join, normpath, relpath, sep, splitext
+from os.path import basename, join, normpath
 from tempfile import NamedTemporaryFile
 from typing import Literal, TypedDict
 
@@ -12,7 +12,7 @@ from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
 from . import pydantic_typedoc as pyd
-from .analyzer_utils import Command, is_explicitly_rooted
+from .analyzer_utils import Command
 from .ir import (
     NO_DEFAULT,
     Attribute,
@@ -87,46 +87,20 @@ class Analyzer:
         """
         return self._objects_by_path.get(path_suffix)
 
-    def _parent_nodes(
-        self, node: pyd.IndexType
-    ) -> Iterator[pyd.ExternalModule | pyd.OtherNode]:
-        """Return an iterator of parent nodes"""
-        n: pyd.IndexType | None = node
-        while n and n.id != 0:
-            if n.kindString == "External module" or n.kindString == "Module":
-                # Found one!
-                yield n
-            n = n.parent
-
-    def _containing_module(self, node: pyd.AnyNode) -> Pathname | None:
-        """Return the Pathname pointing to the module containing the given
-        node, None if one isn't found."""
-        for node in self._parent_nodes(node):
-            return Pathname(make_path_segments(node, self._base_dir))
-        return None
-
-    def _containing_deppath(self, node: pyd.Node | pyd.Signature) -> str | None:
-        """Return the path pointing to the module containing the given node.
-        The path is absolute or relative to `root_for_relative_js_paths`.
-        Raises ValueError if one isn't found.
-
-        """
-        return node.sources[0].fileName
-
     def _top_level_properties(
         self,
         node: pyd.Node | pyd.Signature,
     ) -> TopLevelProperties:
         source = node.sources[0]
         if node.flags.isExported:
-            exported_from = self._containing_module(node)
+            exported_from = node._containing_module(self._base_dir)
         else:
             exported_from = None
         return dict(
             name=short_name(node),
-            path=Pathname(make_path_segments(node, self._base_dir)),
+            path=Pathname(node.make_path_segments(self._base_dir)),
             filename=basename(source.fileName),
-            deppath=self._containing_deppath(node),
+            deppath=node._containing_deppath(),
             description=make_description(node.comment),
             line=source.line,
             # These properties aren't supported by TypeDoc:
@@ -207,7 +181,7 @@ class Analyzer:
             _, members = self._constructor_and_members(node)
             ir = Interface(
                 members=members,
-                supers=self._related_types(node, kind="extendedTypes"),
+                supers=node._related_types(self, kind="extendedTypes"),
                 **self._top_level_properties(node),
             )
         elif node.kindString == "Class":
@@ -217,9 +191,9 @@ class Analyzer:
             ir = Class(
                 constructor=constructor,
                 members=members,
-                supers=self._related_types(node, kind="extendedTypes"),
+                supers=node._related_types(self, kind="extendedTypes"),
                 is_abstract=node.flags.isAbstract,
-                interfaces=self._related_types(node, kind="implementedTypes"),
+                interfaces=node._related_types(self, kind="implementedTypes"),
                 **self._top_level_properties(node),
             )
         elif node.kindString == "Property" or node.kindString == "Variable":
@@ -281,40 +255,6 @@ class Analyzer:
             )
 
         return ir, node.children
-
-    def _related_types(
-        self,
-        node: pyd.Interface | pyd.Class,
-        kind: Literal["extendedTypes", "implementedTypes"],
-    ) -> list[Pathname]:
-        """Return the unambiguous pathnames of implemented interfaces or
-        extended classes.
-
-        If we encounter a formulation of interface or class reference that we
-        don't understand (which I expect to occur only if it turns out you can
-        use a class or interface literal rather than referencing a declared
-        one), return 'UNIMPLEMENTED' for that interface or class so somebody
-        files a bug requesting we fix it. (It's not worth crashing for.)
-
-        """
-        types = []
-        if kind == "extendedTypes":
-            orig_types = node.extendedTypes
-        elif kind == "implementedTypes":
-            assert isinstance(node, pyd.Class)
-            orig_types = node.implementedTypes
-        else:
-            raise ValueError(
-                f"Expected kind to be 'extendedTypes' or 'implementedTypes' not {kind}"
-            )
-
-        for t in orig_types:
-            if t.type == "reference" and t.id is not None:
-                rtype = self._index[t.id]
-                pathname = Pathname(make_path_segments(rtype, self._base_dir))
-                types.append(pathname)
-            # else it's some other thing we should go implement
-        return types
 
     def _make_param(self, param: pyd.Param) -> Param:
         """Make a Param from a 'parameters' JSON item"""
@@ -450,93 +390,3 @@ def short_name(node: pyd.Node | pyd.Signature) -> str:
     ):
         return node.name[1:-1]  # strip quotes
     return node.name
-
-
-# Optimization: Could memoize this for probably a decent perf gain: every child
-# of an object redoes the work for all its parents.
-def make_path_segments(
-    node: IndexType, base_dir: str, child_was_static: bool | None = None
-) -> list[str]:
-    """Return the full, unambiguous list of path segments that points to an
-    entity described by a TypeDoc JSON node.
-
-    Example: ``['./', 'dir/', 'dir/', 'file.', 'object.', 'object#', 'object']``
-
-    :arg base_dir: Absolute path of the dir relative to which file-path
-        segments are constructed
-    :arg child_was_static: True if the child node we're computing the path of
-        is a static member of the node under consideration. False if it is.
-        None if the current node is the one we're ultimately computing the path
-        of.
-
-    TypeDoc uses a totally different, locality-sensitive resolution mechanism
-    for links: https://typedoc.org/guides/link-resolution/. It seems like a
-    less well thought-out system than JSDoc's namepaths, as it doesn't
-    distinguish between, say, static and instance properties of the same name.
-    (AFAICT, TypeDoc does not emit documentation for inner properties, as for a
-    function nested within another function.) We're sticking with our own
-    namepath-like paths, even if we eventually support {@link} syntax.
-
-    """
-    node_is_static = node.flags.isStatic
-
-    parent_segments = (
-        make_path_segments(node.parent, base_dir, child_was_static=node_is_static)
-        if node.parent
-        else []
-    )
-
-    delimiter = "" if child_was_static is None else "."
-
-    # Handle the cases here that are handled in _convert_node(), plus any that
-    # are encountered on other nodes on the way up to the root.
-    if (
-        node.kindString == "Variable"
-        or node.kindString == "Property"
-        or node.kindString == "Accessor"
-        or node.kindString == "Interface"
-        or node.kindString == "Namespace"
-    ):
-        # We emit a segment for a Method's child Call Signature but skip the
-        # Method itself. They 2 nodes have the same names, but, by taking the
-        # child, we fortuitously end up without a trailing delimiter on our
-        # last segment.
-        segments = [node.name]
-    elif (
-        node.kindString == "Call signature"
-        or node.kindString == "Constructor signature"
-    ):
-        # Similar to above, we skip the parent Constructor and glom onto the
-        # Constructor Signature. That gets us no trailing delimiter. However,
-        # the signature has name == 'new Foo', so we go up to the parent to get
-        # the real name, which is usually (always?) "constructor".
-        segments = [node.parent.name]
-    elif node.kindString == "Class":
-        segments = [node.name]
-        if child_was_static is False:
-            delimiter = "#"
-    elif node.kindString == "External module" or node.kindString == "Module":
-        # 'name' contains folder names if multiple folders are passed into
-        # TypeDoc. It's also got excess quotes. So we ignore it and take
-        # 'originalName', which has a nice, absolute path.
-        assert node.originalName
-        rel = relpath(node.originalName, base_dir)
-        if not is_explicitly_rooted(rel):
-            rel = f".{sep}{rel}"
-
-        segments = rel.split(sep)
-        filename = splitext(segments[-1])[0]
-        segments = [s + "/" for s in segments[:-1]] + [filename]
-    else:
-        # None, as for a root node, Constructor, or Method
-        segments = []
-
-    if segments:
-        # It's not some abstract thing the user doesn't think about and we skip
-        # over.
-        segments[-1] += delimiter
-        result = parent_segments + segments
-    else:
-        # Allow some levels of the JSON to not have a corresponding path segment:
-        result = parent_segments
-    return result
