@@ -10,9 +10,9 @@ from . import ir
 from .analyzer_utils import is_explicitly_rooted
 
 
-class Analyzer(Protocol):
-    _index: dict[int, "IndexType"]
-    _base_dir: str
+class Converter(Protocol):
+    index: dict[int, "IndexType"]
+    base_dir: str
 
 
 class Source(BaseModel):
@@ -64,11 +64,11 @@ class Base(BaseModel):
                 yield n
             n = n.parent
 
-    def _containing_module(self, base_dir: str) -> ir.Pathname | None:
+    def _containing_module(self, converter: Converter) -> ir.Pathname | None:
         """Return the Pathname pointing to the module containing the given
         node, None if one isn't found."""
         for n in self._parent_nodes():
-            return ir.Pathname(n.make_path_segments(base_dir))
+            return ir.Pathname(n.make_path_segments(converter.base_dir))
         return None
 
     def _containing_deppath(self) -> str | None:
@@ -168,15 +168,15 @@ class TopLevelProperties(Base):
         """Overridden by Modules and Namespaces to strip quotes."""
         return self.name
 
-    def _top_level_properties(self, base_dir: str) -> TopLevelPropertiesDict:
+    def _top_level_properties(self, converter: Converter) -> TopLevelPropertiesDict:
         source = self.sources[0]
         if self.flags.isExported:
-            exported_from = self._containing_module(base_dir)
+            exported_from = self._containing_module(converter)
         else:
             exported_from = None
         return dict(
             name=self.short_name(),
-            path=ir.Pathname(self.make_path_segments(base_dir)),
+            path=ir.Pathname(self.make_path_segments(converter.base_dir)),
             filename=basename(source.fileName),
             deppath=self._containing_deppath(),
             description=make_description(self.comment),
@@ -189,7 +189,7 @@ class TopLevelProperties(Base):
             exported_from=exported_from,
         )
 
-    def to_ir(self, analyzer: Analyzer) -> tuple[ir.TopLevel | None, list["Node"]]:
+    def to_ir(self, converter: Converter) -> tuple[ir.TopLevel | None, list["Node"]]:
         return None, self.children
 
 
@@ -205,7 +205,7 @@ class Accessor(NodeBase):
     getSignature: list["Signature"] = []
     setSignature: list["Signature"] = []
 
-    def to_ir(self, analyzer: Analyzer) -> tuple[ir.Attribute, list["Node"]]:
+    def to_ir(self, converter: Converter) -> tuple[ir.Attribute, list["Node"]]:
         if self.getSignature:
             # There's no signature to speak of for a getter: only a return type.
             type = self.getSignature[0].type
@@ -214,9 +214,9 @@ class Accessor(NodeBase):
             # can have multiple signatures, though.
             type = self.setSignature[0].parameters[0].type
         res = ir.Attribute(
-            type=type.render_name(analyzer._index),
+            type=type.render_name(converter),
             **self.member_properties(),
-            **self._top_level_properties(analyzer._base_dir),
+            **self._top_level_properties(converter),
         )
         return res, self.children
 
@@ -232,7 +232,7 @@ class Callable(NodeBase):
     def _path_segments(self, base_dir: str) -> list[str]:
         return []
 
-    def to_ir(self, analyzer: Analyzer) -> tuple[ir.TopLevel | None, list["Node"]]:
+    def to_ir(self, converter: Converter) -> tuple[ir.TopLevel | None, list["Node"]]:
         # There's really nothing in these; all the interesting bits are in
         # the contained 'Call signature' keys. We support only the first
         # signature at the moment, because to do otherwise would create
@@ -242,7 +242,7 @@ class Callable(NodeBase):
         # many attr of Functions.
         first_sig = self.signatures[0]  # Should always have at least one
         first_sig.sources = self.sources
-        return first_sig.to_ir(analyzer)
+        return first_sig.to_ir(converter)
 
 
 class ClassOrInterface(NodeBase):
@@ -252,7 +252,7 @@ class ClassOrInterface(NodeBase):
 
     def _related_types(
         self,
-        analyzer: Analyzer,
+        converter: Converter,
         kind: Literal["extendedTypes", "implementedTypes"],
     ) -> list[ir.Pathname]:
         """Return the unambiguous pathnames of implemented interfaces or
@@ -278,14 +278,14 @@ class ClassOrInterface(NodeBase):
 
         for t in orig_types:
             if t.type == "reference" and t.id is not None:
-                rtype = analyzer._index[t.id]
-                pathname = ir.Pathname(rtype.make_path_segments(analyzer._base_dir))
+                rtype = converter.index[t.id]
+                pathname = ir.Pathname(rtype.make_path_segments(converter.base_dir))
                 types.append(pathname)
             # else it's some other thing we should go implement
         return types
 
     def _constructor_and_members(
-        self, analyzer: Analyzer
+        self, converter: Converter
     ) -> tuple[ir.Function | None, list[ir.Function | ir.Attribute]]:
         """Return the constructor and other members of a class.
 
@@ -301,7 +301,7 @@ class ClassOrInterface(NodeBase):
         constructor = None
         members = []
         for child in self.children:
-            result, _ = child.to_ir(analyzer)
+            result, _ = child.to_ir(converter)
             if not result:
                 continue
             if child.kindString == "Constructor":
@@ -317,15 +317,15 @@ class ClassOrInterface(NodeBase):
 class Class(ClassOrInterface):
     kindString: Literal["Class"]
 
-    def to_ir(self, analyzer: Analyzer) -> tuple[ir.Class | None, list["Node"]]:
-        constructor, members = self._constructor_and_members(analyzer)
+    def to_ir(self, converter: Converter) -> tuple[ir.Class | None, list["Node"]]:
+        constructor, members = self._constructor_and_members(converter)
         result = ir.Class(
             constructor=constructor,
             members=members,
-            supers=self._related_types(analyzer, kind="extendedTypes"),
+            supers=self._related_types(converter, kind="extendedTypes"),
             is_abstract=self.flags.isAbstract,
-            interfaces=self._related_types(analyzer, kind="implementedTypes"),
-            **self._top_level_properties(analyzer._base_dir),
+            interfaces=self._related_types(converter, kind="implementedTypes"),
+            **self._top_level_properties(converter),
         )
         return result, self.children
 
@@ -333,12 +333,12 @@ class Class(ClassOrInterface):
 class Interface(ClassOrInterface):
     kindString: Literal["Interface"]
 
-    def to_ir(self, analyzer: Analyzer) -> tuple[ir.Interface, list["Node"]]:
-        _, members = self._constructor_and_members(analyzer)
+    def to_ir(self, converter: Converter) -> tuple[ir.Interface, list["Node"]]:
+        _, members = self._constructor_and_members(converter)
         result = ir.Interface(
             members=members,
-            supers=self._related_types(analyzer, kind="extendedTypes"),
-            **self._top_level_properties(analyzer._base_dir),
+            supers=self._related_types(converter, kind="extendedTypes"),
+            **self._top_level_properties(converter),
         )
         return result, self.children
 
@@ -350,11 +350,11 @@ class Member(NodeBase):
     ]
     type: "TypeD"
 
-    def to_ir(self, analyzer: Analyzer) -> tuple[ir.TopLevel | None, list["Node"]]:
+    def to_ir(self, converter: Converter) -> tuple[ir.TopLevel | None, list["Node"]]:
         result = ir.Attribute(
-            type=self.type.render_name(analyzer._index),
+            type=self.type.render_name(converter),
             **self.member_properties(),
-            **self._top_level_properties(analyzer._base_dir),
+            **self._top_level_properties(converter),
         )
         return result, self.children
 
@@ -405,7 +405,7 @@ class Param(Base):
     name: str
     type: "TypeD"
 
-    def to_ir(self, index: dict[int, "IndexType"]) -> ir.Param:
+    def to_ir(self, converter: Converter) -> ir.Param:
         """Make a Param from a 'parameters' JSON item"""
         default = self.defaultValue or ir.NO_DEFAULT
         return ir.Param(
@@ -416,7 +416,7 @@ class Param(Base):
             # For now, we just pass a single string in as the type rather than
             # a list of types to be unioned by the renderer. There's really no
             # disadvantage.
-            type=self.type.render_name(index),
+            type=self.type.render_name(converter),
             default=default,
         )
 
@@ -436,7 +436,7 @@ class Signature(TopLevelProperties):
     def _path_segments(self, base_dir: str) -> list[str]:
         return [self.parent.name]
 
-    def return_type(self, index: dict[int, "IndexType"]) -> list[ir.Return]:
+    def return_type(self, converter: Converter) -> list[ir.Return]:
         """Return the Returns a function signature can have.
 
         Because, in TypeDoc, each signature can have only 1 @return tag, we
@@ -449,12 +449,12 @@ class Signature(TopLevelProperties):
             return []
         return [
             ir.Return(
-                type=type.render_name(index),
+                type=type.render_name(converter),
                 description=self.comment.returns.strip(),
             )
         ]
 
-    def to_ir(self, analyzer: Analyzer) -> tuple[ir.Function | None, list["Node"]]:
+    def to_ir(self, converter: Converter) -> tuple[ir.Function | None, list["Node"]]:
         if self.inheritedFrom is not None:
             return None, []
         # This is the real meat of a function, method, or constructor.
@@ -463,17 +463,17 @@ class Signature(TopLevelProperties):
         # should probably be called "constructor", but I'm not bothering
         # with that yet because nobody uses that attr on constructors atm.
         result = ir.Function(
-            params=[p.to_ir(analyzer._index) for p in self.parameters],
+            params=[p.to_ir(converter) for p in self.parameters],
             # Exceptions are discouraged in TS as being unrepresentable in its
             # type system. More importantly, TypeDoc does not support them.
             exceptions=[],
             # Though perhaps technically true, it looks weird to the user
             # (and in the template) if constructors have a return value:
-            returns=self.return_type(analyzer._index)
+            returns=self.return_type(converter)
             if self.kindString != "Constructor signature"
             else [],
             **self.parent.member_properties(),
-            **self._top_level_properties(analyzer._base_dir),
+            **self._top_level_properties(converter),
         )
         return result, self.children
 
@@ -481,16 +481,18 @@ class Signature(TopLevelProperties):
 class TypeBase(Base):
     typeArguments: list["TypeD"] = []
 
-    def render_name(self, index: dict[int, "IndexType"]) -> str:
-        name = self._render_name_root(index)
+    def render_name(self, converter: Converter) -> str:
+        name = self._render_name_root(converter)
 
         if self.typeArguments:
-            arg_names = ", ".join(arg.render_name(index) for arg in self.typeArguments)
+            arg_names = ", ".join(
+                arg.render_name(converter) for arg in self.typeArguments
+            )
             name += f"<{arg_names}>"
 
         return name
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+    def _render_name_root(self, converter: Converter) -> str:
         raise NotImplementedError
 
 
@@ -498,19 +500,19 @@ class AndOrType(TypeBase):
     type: Literal["union", "intersection"]
     types: list["TypeD"]
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+    def _render_name_root(self, converter: Converter) -> str:
         if self.type == "union":
-            return "|".join(t.render_name(index) for t in self.types)
+            return "|".join(t.render_name(converter) for t in self.types)
         elif self.type == "intersection":
-            return " & ".join(t.render_name(index) for t in self.types)
+            return " & ".join(t.render_name(converter) for t in self.types)
 
 
 class ArrayType(TypeBase):
     type: Literal["array"]
     elementType: "TypeD"
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
-        return self.elementType.render_name(index) + "[]"
+    def _render_name_root(self, converter: Converter) -> str:
+        return self.elementType.render_name(converter) + "[]"
 
 
 class OperatorType(TypeBase):
@@ -518,8 +520,8 @@ class OperatorType(TypeBase):
     operator: str
     target: "TypeD"
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
-        return self.operator + " " + self.target.render_name(index)
+    def _render_name_root(self, converter: Converter) -> str:
+        return self.operator + " " + self.target.render_name(converter)
 
 
 class ParameterType(TypeBase):
@@ -527,10 +529,10 @@ class ParameterType(TypeBase):
     name: str
     constraint: Optional["TypeD"]
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+    def _render_name_root(self, converter: Converter) -> str:
         name = self.name
         if self.constraint is not None:
-            name += " extends " + self.constraint.render_name(index)
+            name += " extends " + self.constraint.render_name(converter)
             # e.g. K += extends + keyof T
         return name
 
@@ -540,10 +542,10 @@ class ReferenceType(TypeBase):
     name: str
     id: int | None
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+    def _render_name_root(self, converter: Converter) -> str:
         # test_generic_member() (currently skipped) tests this.
         if self.id:
-            node = index[self.id]
+            node = converter.index[self.id]
             assert node.name
         return self.name
 
@@ -551,7 +553,7 @@ class ReferenceType(TypeBase):
 class ReflectionType(TypeBase):
     type: Literal["reflection"]
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+    def _render_name_root(self, converter: Converter) -> str:
         return "<TODO: reflection>"
 
 
@@ -560,7 +562,7 @@ class StringLiteralType(TypeBase):
     name: str
     value: str
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+    def _render_name_root(self, converter: Converter) -> str:
         return f'"{self.value}"'
 
 
@@ -568,8 +570,8 @@ class TupleType(TypeBase):
     type: Literal["tuple"]
     elements: list["TypeD"]
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
-        types = [t.render_name(index) for t in self.elements]
+    def _render_name_root(self, converter: Converter) -> str:
+        types = [t.render_name(converter) for t in self.elements]
         return "[" + ", ".join(types) + "]"
 
 
@@ -577,7 +579,7 @@ class UnknownType(TypeBase):
     type: Literal["unknown"]
     name: str
 
-    def _render_name_root(self, index: dict[int, "IndexType"]) -> str:
+    def _render_name_root(self, converter: Converter) -> str:
         if re.match(r"-?\d*(\.\d+)?", self.name):  # It's a number.
             # TypeDoc apparently sticks numeric constants' values into the
             # type name. String constants? Nope. Function ones? Nope.

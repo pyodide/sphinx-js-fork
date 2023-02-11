@@ -9,7 +9,7 @@ from sphinx.cmd.build import main as sphinx_main
 from sphinx_js.jsdoc import Analyzer as JsAnalyzer
 from sphinx_js.jsdoc import jsdoc_output
 from sphinx_js.typedoc import Analyzer as TsAnalyzer
-from sphinx_js.typedoc import index_by_id, typedoc_output
+from sphinx_js.typedoc import Converter, typedoc_output
 
 
 class ThisDirTestCase(TestCase):
@@ -83,7 +83,7 @@ class TypeDocTestCase(ThisDirTestCase):
             cls._source_dir,
             "tsconfig.json",
         )
-        index_by_id({}, cls.json)
+        Converter("source").populate_index(cls.json)
 
 
 class TypeDocAnalyzerTestCase(TypeDocTestCase):

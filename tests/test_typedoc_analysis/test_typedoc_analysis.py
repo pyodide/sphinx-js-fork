@@ -6,11 +6,11 @@ import pytest
 
 from sphinx_js.ir import Attribute, Class, Function, Param, Pathname, Return
 from sphinx_js.pydantic_typedoc import parse
-from sphinx_js.typedoc import index_by_id
+from sphinx_js.typedoc import Converter
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
-class IndexByIdTests(TestCase):
+class PopulateIndexTests(TestCase):
     def test_top_level_function(self):
         """Make sure nodes get indexed."""
         # A simple TypeDoc JSON dump of a source file with a single, top-level
@@ -82,7 +82,7 @@ class IndexByIdTests(TestCase):
         }"""
             )
         )
-        index = index_by_id({}, json)
+        index = Converter("").populate_index(json).index
         # Things get indexed by ID:
         function = index[2]
         assert function.name == "foo"
