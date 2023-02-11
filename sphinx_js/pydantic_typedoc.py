@@ -2,12 +2,17 @@ import re
 from collections.abc import Iterator
 from inspect import isclass
 from os.path import basename, relpath, sep, splitext
-from typing import Annotated, Any, Literal, Optional, TypedDict, cast
+from typing import Annotated, Any, Literal, Optional, Protocol, TypedDict, cast
 
 from pydantic import BaseConfig, BaseModel, Field, ValidationError
 
 from . import ir
 from .analyzer_utils import is_explicitly_rooted
+
+
+class Analyzer(Protocol):
+    _index: dict[int, "IndexType"]
+    _base_dir: str
 
 
 class Source(BaseModel):
@@ -33,7 +38,6 @@ class Flags(BaseModel):
 class Base(BaseModel):
     children: list["Node"] = []
     id: int | None
-    inheritedFrom: Any = None
     kindString: str = ""
     originalName: str | None
     sources: list[Source] = []
@@ -42,6 +46,14 @@ class Base(BaseModel):
 
     class Config(BaseConfig):
         fields = {"parent": {"exclude": True}}  # type:ignore[dict-item]
+
+    def member_properties(self) -> dict[str, bool]:
+        return dict(
+            is_abstract=self.flags.isAbstract,
+            is_optional=self.flags.isOptional,
+            is_static=self.flags.isStatic,
+            is_private=self.flags.isPrivate,
+        )
 
     def _parent_nodes(self) -> Iterator["ExternalModule | OtherNode"]:
         """Return an iterator of parent nodes"""
@@ -153,12 +165,7 @@ class TopLevelProperties(Base):
     comment: Comment = Field(default_factory=Comment)
 
     def short_name(self) -> str:
-        if (
-            self.kindString == "Module"
-            or self.kindString == "External module"
-            or self.kindString == "Namespace"
-        ):
-            return self.name[1:-1]  # strip quotes
+        """Overridden by Modules and Namespaces to strip quotes."""
         return self.name
 
     def _top_level_properties(self, base_dir: str) -> TopLevelPropertiesDict:
@@ -182,6 +189,9 @@ class TopLevelProperties(Base):
             exported_from=exported_from,
         )
 
+    def to_ir(self, analyzer: Analyzer) -> tuple[ir.TopLevel | None, list["Node"]]:
+        return None, self.children
+
 
 class NodeBase(TopLevelProperties):
     sources: list[Source]
@@ -195,6 +205,21 @@ class Accessor(NodeBase):
     getSignature: list["Signature"] = []
     setSignature: list["Signature"] = []
 
+    def to_ir(self, analyzer: Analyzer) -> tuple[ir.Attribute, list["Node"]]:
+        if self.getSignature:
+            # There's no signature to speak of for a getter: only a return type.
+            type = self.getSignature[0].type
+        else:
+            # ES6 says setters have exactly 1 param. I'm not sure if they
+            # can have multiple signatures, though.
+            type = self.setSignature[0].parameters[0].type
+        res = ir.Attribute(
+            type=type.render_name(analyzer._index),
+            **self.member_properties(),
+            **self._top_level_properties(analyzer._base_dir),
+        )
+        return res, self.children
+
 
 class Callable(NodeBase):
     kindString: Literal[
@@ -207,6 +232,18 @@ class Callable(NodeBase):
     def _path_segments(self, base_dir: str) -> list[str]:
         return []
 
+    def to_ir(self, analyzer: Analyzer) -> tuple[ir.TopLevel | None, list["Node"]]:
+        # There's really nothing in these; all the interesting bits are in
+        # the contained 'Call signature' keys. We support only the first
+        # signature at the moment, because to do otherwise would create
+        # multiple identical pathnames to the same function, which would
+        # cause the suffix tree to raise an exception while being built. An
+        # eventual solution might be to store the signatures in a one-to-
+        # many attr of Functions.
+        first_sig = self.signatures[0]  # Should always have at least one
+        first_sig.sources = self.sources
+        return first_sig.to_ir(analyzer)
+
 
 class ClassOrInterface(NodeBase):
     kindString: Literal["Class", "Interface"]
@@ -215,7 +252,7 @@ class ClassOrInterface(NodeBase):
 
     def _related_types(
         self,
-        analyzer: Any,
+        analyzer: Analyzer,
         kind: Literal["extendedTypes", "implementedTypes"],
     ) -> list[ir.Pathname]:
         """Return the unambiguous pathnames of implemented interfaces or
@@ -247,9 +284,63 @@ class ClassOrInterface(NodeBase):
             # else it's some other thing we should go implement
         return types
 
+    def _constructor_and_members(
+        self, analyzer: Analyzer
+    ) -> tuple[ir.Function | None, list[ir.Function | ir.Attribute]]:
+        """Return the constructor and other members of a class.
 
-class Interface(NodeBase):
-    extendedTypes: list["TypeD"] = []
+        In TS, a constructor may have multiple (overloaded) type signatures but
+        only one implementation. (Same with functions.) So there's at most 1
+        constructor to return. Return None for the constructor if it is
+        inherited or implied rather than explicitly present in the class.
+
+        :arg cls: A TypeDoc node of the class to take apart
+        :return: A tuple of (constructor Function, list of other members)
+
+        """
+        constructor = None
+        members = []
+        for child in self.children:
+            result, _ = child.to_ir(analyzer)
+            if not result:
+                continue
+            if child.kindString == "Constructor":
+                # This really, really should happen exactly once per class.
+                assert isinstance(result, ir.Function)
+                constructor = result
+            else:
+                assert isinstance(result, (ir.Function, ir.Attribute))
+                members.append(result)
+        return constructor, members
+
+
+class Class(ClassOrInterface):
+    kindString: Literal["Class"]
+
+    def to_ir(self, analyzer: Analyzer) -> tuple[ir.Class | None, list["Node"]]:
+        constructor, members = self._constructor_and_members(analyzer)
+        result = ir.Class(
+            constructor=constructor,
+            members=members,
+            supers=self._related_types(analyzer, kind="extendedTypes"),
+            is_abstract=self.flags.isAbstract,
+            interfaces=self._related_types(analyzer, kind="implementedTypes"),
+            **self._top_level_properties(analyzer._base_dir),
+        )
+        return result, self.children
+
+
+class Interface(ClassOrInterface):
+    kindString: Literal["Interface"]
+
+    def to_ir(self, analyzer: Analyzer) -> tuple[ir.Interface, list["Node"]]:
+        _, members = self._constructor_and_members(analyzer)
+        result = ir.Interface(
+            members=members,
+            supers=self._related_types(analyzer, kind="extendedTypes"),
+            **self._top_level_properties(analyzer._base_dir),
+        )
+        return result, self.children
 
 
 class Member(NodeBase):
@@ -259,15 +350,28 @@ class Member(NodeBase):
     ]
     type: "TypeD"
 
+    def to_ir(self, analyzer: Analyzer) -> tuple[ir.TopLevel | None, list["Node"]]:
+        result = ir.Attribute(
+            type=self.type.render_name(analyzer._index),
+            **self.member_properties(),
+            **self._top_level_properties(analyzer._base_dir),
+        )
+        return result, self.children
+
 
 class ExternalModule(NodeBase):
     kindString: Literal["External module", "Module"]
     originalName: str = ""
 
+    def short_name(self) -> str:
+        return self.name[1:-1]  # strip quotes
+
     def _path_segments(self, base_dir: str) -> list[str]:
         # 'name' contains folder names if multiple folders are passed into
         # TypeDoc. It's also got excess quotes. So we ignore it and take
         # 'originalName', which has a nice, absolute path.
+        if not self.originalName:
+            return []
         rel = relpath(self.originalName, base_dir)
         if not is_explicitly_rooted(rel):
             rel = f".{sep}{rel}"
@@ -278,16 +382,11 @@ class ExternalModule(NodeBase):
 
 
 class OtherNode(NodeBase):
-    kindString: Literal[
-        "Namespace",
-        "Type alias",
-        "Enumeration",
-        "Enumeration member",
-    ]
+    kindString: Literal["Enumeration", "Enumeration member", "Namespace", "Type alias"]
 
 
 Node = Annotated[
-    Accessor | Callable | ClassOrInterface | ExternalModule | Member | OtherNode,
+    Accessor | Callable | Class | ExternalModule | Interface | Member | OtherNode,
     Field(discriminator="kindString"),
 ]
 
@@ -306,7 +405,7 @@ class Param(Base):
     name: str
     type: "TypeD"
 
-    def _make_param(self, index: dict[int, "IndexType"]) -> ir.Param:
+    def to_ir(self, index: dict[int, "IndexType"]) -> ir.Param:
         """Make a Param from a 'parameters' JSON item"""
         default = self.defaultValue or ir.NO_DEFAULT
         return ir.Param(
@@ -332,11 +431,12 @@ class Signature(TopLevelProperties):
     parameters: list["Param"] = []
     sources: list[Source] = []
     type: "TypeD"
+    inheritedFrom: Any = None
 
     def _path_segments(self, base_dir: str) -> list[str]:
         return [self.parent.name]
 
-    def _make_returns(self, index: dict[int, "IndexType"]) -> list[ir.Return]:
+    def return_type(self, index: dict[int, "IndexType"]) -> list[ir.Return]:
         """Return the Returns a function signature can have.
 
         Because, in TypeDoc, each signature can have only 1 @return tag, we
@@ -353,6 +453,29 @@ class Signature(TopLevelProperties):
                 description=self.comment.returns.strip(),
             )
         ]
+
+    def to_ir(self, analyzer: Analyzer) -> tuple[ir.Function | None, list["Node"]]:
+        if self.inheritedFrom is not None:
+            return None, []
+        # This is the real meat of a function, method, or constructor.
+        #
+        # Constructors' .name attrs end up being like 'new Foo'. They
+        # should probably be called "constructor", but I'm not bothering
+        # with that yet because nobody uses that attr on constructors atm.
+        result = ir.Function(
+            params=[p.to_ir(analyzer._index) for p in self.parameters],
+            # Exceptions are discouraged in TS as being unrepresentable in its
+            # type system. More importantly, TypeDoc does not support them.
+            exceptions=[],
+            # Though perhaps technically true, it looks weird to the user
+            # (and in the template) if constructors have a return value:
+            returns=self.return_type(analyzer._index)
+            if self.kindString != "Constructor signature"
+            else [],
+            **self.parent.member_properties(),
+            **self._top_level_properties(analyzer._base_dir),
+        )
+        return result, self.children
 
 
 class TypeBase(Base):
@@ -555,6 +678,8 @@ def fix_exc_errors(json: Any, exc: ValidationError) -> None:
             c.parse_obj(o)
         except ValidationError as e:
             errs = e.errors()
+        else:
+            continue
 
         for err in errs:
             # Extend the loc so that it is relative to the top level object
@@ -568,4 +693,5 @@ def fix_exc_errors(json: Any, exc: ValidationError) -> None:
             print("\n")
         errors.extend(errs)
 
-    exc._error_cache = errors
+    if errors:
+        exc._error_cache = errors
