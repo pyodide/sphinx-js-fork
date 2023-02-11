@@ -408,7 +408,7 @@ def typedoc_output(
 ) -> pyd.Root:
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
-    command = Command("node_modules/typedoc/bin/typedoc")
+    command = Command("typedoc")
     if config_path:
         command.add("--tsconfig", normpath(join(sphinx_conf_dir, config_path)))
 
