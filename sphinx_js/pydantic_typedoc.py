@@ -92,6 +92,7 @@ class ExternalModule(NodeBase):
 class OtherNode(NodeBase):
     kindString: Literal[
         "Module",
+        "Namespace",
         "Type alias",
         "Enumeration",
         "Enumeration member",

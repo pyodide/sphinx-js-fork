@@ -88,11 +88,13 @@ class Analyzer:
         """
         return self._objects_by_path.get(path_suffix)
 
-    def _parent_nodes(self, node: pyd.IndexType) -> Iterator[pyd.ExternalModule]:
+    def _parent_nodes(
+        self, node: pyd.IndexType
+    ) -> Iterator[pyd.ExternalModule | pyd.OtherNode]:
         """Return an iterator of parent nodes"""
         n: pyd.IndexType | None = node
         while n and n.id != 0:
-            if n.kindString == "External module":
+            if n.kindString == "External module" or n.kindString == "Module":
                 # Found one!
                 yield n
             n = n.parent
@@ -104,19 +106,13 @@ class Analyzer:
             return Pathname(make_path_segments(node, self._base_dir))
         return None
 
-    def _containing_deppath(self, node: pyd.AnyNode) -> str | None:
+    def _containing_deppath(self, node: pyd.Node | pyd.Signature) -> str | None:
         """Return the path pointing to the module containing the given node.
         The path is absolute or relative to `root_for_relative_js_paths`.
         Raises ValueError if one isn't found.
 
         """
-        for node in self._parent_nodes(node):
-            deppath = node.originalName
-            if deppath:
-                return relpath(deppath, self._base_dir)
-            else:
-                raise ValueError("Could not find deppath")
-        raise ValueError("Could not find deppath")
+        return node.sources[0].fileName
 
     def _top_level_properties(
         self,
@@ -412,7 +408,7 @@ def typedoc_output(
 ) -> pyd.Root:
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
-    command = Command("typedoc")
+    command = Command("node_modules/typedoc/bin/typedoc")
     if config_path:
         command.add("--tsconfig", normpath(join(sphinx_conf_dir, config_path)))
 
@@ -500,7 +496,11 @@ def member_properties(
 
 
 def short_name(node: pyd.Node | pyd.Signature) -> str:
-    if node.kindString == "Module" or node.kindString == "External module":
+    if (
+        node.kindString == "Module"
+        or node.kindString == "External module"
+        or node.kindString == "Namespace"
+    ):
         return node.name[1:-1]  # strip quotes
     return node.name
 
@@ -548,7 +548,7 @@ def make_path_segments(
         or node.kindString == "Property"
         or node.kindString == "Accessor"
         or node.kindString == "Interface"
-        or node.kindString == "Module"
+        or node.kindString == "Namespace"
     ):
         # We emit a segment for a Method's child Call Signature but skip the
         # Method itself. They 2 nodes have the same names, but, by taking the
@@ -568,10 +568,11 @@ def make_path_segments(
         segments = [node.name]
         if child_was_static is False:
             delimiter = "#"
-    elif node.kindString == "External module":
+    elif node.kindString == "External module" or node.kindString == "Module":
         # 'name' contains folder names if multiple folders are passed into
         # TypeDoc. It's also got excess quotes. So we ignore it and take
         # 'originalName', which has a nice, absolute path.
+        assert node.originalName
         rel = relpath(node.originalName, base_dir)
         if not is_explicitly_rooted(rel):
             rel = f".{sep}{rel}"
