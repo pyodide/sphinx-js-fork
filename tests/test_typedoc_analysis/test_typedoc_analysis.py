@@ -5,8 +5,7 @@ from unittest import TestCase
 import pytest
 
 from sphinx_js.ir import Attribute, Class, Function, Param, Pathname, Return
-from sphinx_js.pydantic_typedoc import parse
-from sphinx_js.typedoc import Converter
+from sphinx_js.typedoc import Comment, Converter, parse
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
@@ -94,9 +93,6 @@ class PopulateIndexTests(TestCase):
         assert root.name == "misterRoot"
         # Root parent link is absent or None:
         assert root.parent is None
-
-
-from sphinx_js.pydantic_typedoc import Comment
 
 
 class PathSegmentsTests(TypeDocTestCase):
