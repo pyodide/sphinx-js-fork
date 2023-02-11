@@ -155,8 +155,10 @@ class Callable(NodeBase):
         "Function",
     ]
     signatures: list["Signature"] = []
+
     def _path_segments(self, base_dir: str) -> list[str]:
         return []
+
 
 class ClassOrInterface(NodeBase):
     kindString: Literal["Class", "Interface"]
