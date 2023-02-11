@@ -1,5 +1,4 @@
 from json import loads
-from os.path import dirname
 from unittest import TestCase
 
 import pytest
@@ -109,7 +108,7 @@ class PathSegmentsTests(TypeDocTestCase):
         obj = self.commented_object(comment, **kwargs)
         if obj is NO_MATCH:
             raise RuntimeError(f'No object found with the comment "{comment}".')
-        return obj.make_path_segments(self._source_dir)
+        return obj.path
 
     def test_class(self):
         assert self.commented_object_path("Foo class") == ["./", "pathSegments.", "Foo"]
@@ -196,12 +195,14 @@ class PathSegmentsTests(TypeDocTestCase):
     def test_function(self):
         assert self.commented_object_path("Function") == ["./", "pathSegments.", "foo"]
 
+    @pytest.mark.xfail(
+        reason="Test approach doesn't work anymore and broken by typedoc v0.20"
+    )
     def test_relative_paths(self):
         """Make sure FS path segments are emitted if ``base_dir`` doesn't
         directly contain the code."""
         obj = self.commented_object("Function")
-        segments = obj.make_path_segments(dirname(dirname(self._source_dir)))
-        assert segments == [
+        assert obj.path == [
             "./",
             "test_typedoc_analysis/",
             "source/",

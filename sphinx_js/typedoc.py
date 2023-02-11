@@ -85,6 +85,10 @@ class Converter:
             node.parent = parent
             self.index[node.id] = node
 
+        parent_kind = parent.kindString if parent else ""
+        parent_segments = parent.path if parent else []
+        self.compute_path(node, parent_kind, parent_segments)
+
         # Burrow into everything that could contain more ID'd items. We don't
         # need setSignature or getSignature for now. Do we need indexSignature?
         children: list[Sequence[IndexType]] = []
@@ -100,6 +104,37 @@ class Converter:
             self.populate_index(child, parent=node)
 
         return self
+
+    def compute_path(
+        self, node: "IndexType", parent_kind: str, parent_segments: list[str]
+    ) -> None:
+        """Compute the full, unambiguous list of path segments that points to an
+        entity described by a TypeDoc JSON node.
+
+        Example: ``['./', 'dir/', 'dir/', 'file.', 'object.', 'object#', 'object']``
+
+        TypeDoc uses a totally different, locality-sensitive resolution mechanism
+        for links: https://typedoc.org/guides/link-resolution/. It seems like a
+        less well thought-out system than JSDoc's namepaths, as it doesn't
+        distinguish between, say, static and instance properties of the same name.
+        (AFAICT, TypeDoc does not emit documentation for inner properties, as for a
+        function nested within another function.) We're sticking with our own
+        namepath-like paths, even if we eventually support {@link} syntax.
+        """
+        delimiter = "."
+        if not node.flags.isStatic and parent_kind == "Class":
+            delimiter = "#"
+
+        segs = node._path_segments(self.base_dir)
+
+        if segs and parent_segments:
+            segments = list(parent_segments)
+            segments[-1] += delimiter
+            segments.extend(segs)
+        else:
+            segments = segs or parent_segments
+
+        node.path = segments
 
     def convert_all_nodes(self, root: "Root") -> list[ir.TopLevel]:
         todo: list[Node | Signature] = list(root.children)
@@ -184,6 +219,7 @@ class Flags(BaseModel):
 
 class Base(BaseModel):
     children: list["Node"] = []
+    path: list[str] = []
     id: int | None
     kindString: str = ""
     originalName: str | None
@@ -211,11 +247,11 @@ class Base(BaseModel):
                 yield n
             n = n.parent
 
-    def _containing_module(self, converter: Converter) -> ir.Pathname | None:
+    def _containing_module(self) -> ir.Pathname | None:
         """Return the Pathname pointing to the module containing the given
         node, None if one isn't found."""
         for n in self._parent_nodes():
-            return ir.Pathname(n.make_path_segments(converter.base_dir))
+            return ir.Pathname(n.path)
         return None
 
     def _containing_deppath(self) -> str | None:
@@ -228,54 +264,6 @@ class Base(BaseModel):
 
     def _path_segments(self, base_dir: str) -> list[str]:
         raise NotImplementedError
-
-    # Optimization: Could memoize this for probably a decent perf gain: every child
-    # of an object redoes the work for all its parents.
-    def make_path_segments(self, base_dir: str) -> list[str]:
-        """Return the full, unambiguous list of path segments that points to an
-        entity described by a TypeDoc JSON node.
-
-        Example: ``['./', 'dir/', 'dir/', 'file.', 'object.', 'object#', 'object']``
-
-        :arg base_dir: Absolute path of the dir relative to which file-path
-            segments are constructed
-        :arg child_was_static: True if the child node we're computing the path of
-            is a static member of the node under consideration. False if it is.
-            None if the current node is the one we're ultimately computing the path
-            of.
-
-        TypeDoc uses a totally different, locality-sensitive resolution mechanism
-        for links: https://typedoc.org/guides/link-resolution/. It seems like a
-        less well thought-out system than JSDoc's namepaths, as it doesn't
-        distinguish between, say, static and instance properties of the same name.
-        (AFAICT, TypeDoc does not emit documentation for inner properties, as for a
-        function nested within another function.) We're sticking with our own
-        namepath-like paths, even if we eventually support {@link} syntax.
-
-        """
-        parent_list: list[Base] = []
-        n: Base = self
-        while True:
-            parent_list.append(n)
-            if not n.parent:
-                break
-            n = n.parent
-
-        segments: list[str] = []
-        parent_kind = ""
-        for node in reversed(parent_list):
-            delimiter = "."
-            if not node.flags.isStatic and parent_kind == "Class":
-                delimiter = "#"
-
-            segs = node._path_segments(base_dir)
-            if segments and segs:
-                segments[-1] += delimiter
-            if segs:
-                segments.extend(segs)
-            parent_kind = node.kindString
-
-        return segments
 
 
 class Root(Base):
@@ -310,15 +298,15 @@ class TopLevelProperties(Base):
         """Overridden by Modules and Namespaces to strip quotes."""
         return self.name
 
-    def _top_level_properties(self, converter: Converter) -> TopLevelPropertiesDict:
+    def _top_level_properties(self) -> TopLevelPropertiesDict:
         source = self.sources[0]
         if self.flags.isExported:
-            exported_from = self._containing_module(converter)
+            exported_from = self._containing_module()
         else:
             exported_from = None
         return dict(
             name=self.short_name(),
-            path=ir.Pathname(self.make_path_segments(converter.base_dir)),
+            path=ir.Pathname(self.path),
             filename=basename(source.fileName),
             deppath=self._containing_deppath(),
             description=make_description(self.comment),
@@ -358,7 +346,7 @@ class Accessor(NodeBase):
         res = ir.Attribute(
             type=type.render_name(converter),
             **self.member_properties(),
-            **self._top_level_properties(converter),
+            **self._top_level_properties(),
         )
         return res, self.children
 
@@ -421,7 +409,7 @@ class ClassOrInterface(NodeBase):
         for t in orig_types:
             if t.type == "reference" and t.id is not None:
                 rtype = converter.index[t.id]
-                pathname = ir.Pathname(rtype.make_path_segments(converter.base_dir))
+                pathname = ir.Pathname(rtype.path)
                 types.append(pathname)
             # else it's some other thing we should go implement
         return types
@@ -467,7 +455,7 @@ class Class(ClassOrInterface):
             supers=self._related_types(converter, kind="extendedTypes"),
             is_abstract=self.flags.isAbstract,
             interfaces=self._related_types(converter, kind="implementedTypes"),
-            **self._top_level_properties(converter),
+            **self._top_level_properties(),
         )
         return result, self.children
 
@@ -480,7 +468,7 @@ class Interface(ClassOrInterface):
         result = ir.Interface(
             members=members,
             supers=self._related_types(converter, kind="extendedTypes"),
-            **self._top_level_properties(converter),
+            **self._top_level_properties(),
         )
         return result, self.children
 
@@ -496,7 +484,7 @@ class Member(NodeBase):
         result = ir.Attribute(
             type=self.type.render_name(converter),
             **self.member_properties(),
-            **self._top_level_properties(converter),
+            **self._top_level_properties(),
         )
         return result, self.children
 
@@ -562,6 +550,9 @@ class Param(Base):
             default=default,
         )
 
+    def _path_segments(self, base_dir: str) -> list[str]:
+        return []
+
 
 class Signature(TopLevelProperties):
     kindString: Literal[
@@ -615,7 +606,7 @@ class Signature(TopLevelProperties):
             if self.kindString != "Constructor signature"
             else [],
             **self.parent.member_properties(),
-            **self._top_level_properties(converter),
+            **self._top_level_properties(),
         )
         return result, self.children
 

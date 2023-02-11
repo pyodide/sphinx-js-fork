@@ -83,7 +83,7 @@ class TypeDocTestCase(ThisDirTestCase):
             cls._source_dir,
             "tsconfig.json",
         )
-        Converter("source").populate_index(cls.json)
+        Converter(cls._source_dir).populate_index(cls.json)
 
 
 class TypeDocAnalyzerTestCase(TypeDocTestCase):
