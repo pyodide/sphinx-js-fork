@@ -74,10 +74,6 @@ class Converter:
         :arg parent: The parent node of ``node``
 
         """
-        # TODO: Can we just uniformly set __parent on nodes rather than doing it
-        # differently in different cases? I think the reason for the cases is that
-        # we used to set a parent ID rather than a parent pointer and not all nodes
-        # have IDs.
         if node.id is not None:  # 0 is okay; it's the root node.
             # Give anything in the map a parent:
 
@@ -235,9 +231,7 @@ class Base(BaseModel):
 
     # Optimization: Could memoize this for probably a decent perf gain: every child
     # of an object redoes the work for all its parents.
-    def make_path_segments(
-        self, base_dir: str, child_was_static: bool | None = None
-    ) -> list[str]:
+    def make_path_segments(self, base_dir: str) -> list[str]:
         """Return the full, unambiguous list of path segments that points to an
         entity described by a TypeDoc JSON node.
 
@@ -259,32 +253,29 @@ class Base(BaseModel):
         namepath-like paths, even if we eventually support {@link} syntax.
 
         """
-        node_is_static = self.flags.isStatic
+        parent_list: list[Base] = []
+        n: Base = self
+        while True:
+            parent_list.append(n)
+            if not n.parent:
+                break
+            n = n.parent
 
-        parent_segments = (
-            self.parent.make_path_segments(base_dir, child_was_static=node_is_static)
-            if self.parent
-            else []
-        )
-
-        if child_was_static is None:
-            delimiter = ""
-        elif not child_was_static and self.kindString == "Class":
-            delimiter = "#"
-        else:
+        segments: list[str] = []
+        parent_kind = ""
+        for node in reversed(parent_list):
             delimiter = "."
+            if not node.flags.isStatic and parent_kind == "Class":
+                delimiter = "#"
 
-        segments = self._path_segments(base_dir)
+            segs = node._path_segments(base_dir)
+            if segments and segs:
+                segments[-1] += delimiter
+            if segs:
+                segments.extend(segs)
+            parent_kind = node.kindString
 
-        if segments:
-            # It's not some abstract thing the user doesn't think about and we skip
-            # over.
-            segments[-1] += delimiter
-            result = parent_segments + segments
-        else:
-            # Allow some levels of the JSON to not have a corresponding path segment:
-            result = parent_segments
-        return result
+        return segments
 
 
 class Root(Base):
@@ -381,7 +372,7 @@ class Callable(NodeBase):
     signatures: list["Signature"] = []
 
     def _path_segments(self, base_dir: str) -> list[str]:
-        return []
+        return [self.name]
 
     def to_ir(self, converter: Converter) -> tuple[ir.TopLevel | None, list["Node"]]:
         # There's really nothing in these; all the interesting bits are in
@@ -585,7 +576,7 @@ class Signature(TopLevelProperties):
     inheritedFrom: Any = None
 
     def _path_segments(self, base_dir: str) -> list[str]:
-        return [self.parent.name]
+        return []
 
     def return_type(self, converter: Converter) -> list[ir.Return]:
         """Return the Returns a function signature can have.
