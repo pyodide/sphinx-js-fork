@@ -25,9 +25,7 @@ def typedoc_output(
 ) -> "Project":
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
-    from pathlib import Path
-
-    command = Command(str(Path("node_modules/typedoc/bin/typedoc").absolute()))
+    command = Command("typedoc")
     if config_path:
         command.add("--tsconfig", normpath(join(sphinx_conf_dir, config_path)))
 
@@ -43,9 +41,6 @@ def typedoc_output(
                 )
             else:
                 raise
-        import shutil
-
-        shutil.copy(temp.name, "blah.json")
         # typedoc emits a valid JSON file even if it finds no TS files in the dir:
         return parse(load(temp))
 
