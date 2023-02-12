@@ -101,12 +101,6 @@ class Converter:
         if isinstance(node, Signature):
             children.append(node.parameters)
 
-        # from pprint import pprint
-        # from json import loads
-
-        # print("\n\n", node.name)
-        # pprint(loads(node.json()), depth=1)
-
         for child in (c for l in children for c in l):
             self._populate_index_inner(
                 child,
@@ -303,8 +297,6 @@ class TopLevelProperties(Base):
         return self.name
 
     def _top_level_properties(self) -> TopLevelPropertiesDict:
-        # print("\n\n", "="*5, "filename:", self.filename)
-        # print("", "="*5, "name:", self.name)
         return dict(
             name=self.short_name(),
             path=ir.Pathname(self.path),
