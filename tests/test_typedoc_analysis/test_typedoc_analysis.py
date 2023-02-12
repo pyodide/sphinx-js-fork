@@ -391,7 +391,7 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
             ("num", "number"),
             ("str", "string"),
             ("array", "number[]"),
-            ("genericArray", "Array<number>"),
+            ("genericArray", "number[]"),
             ("tuple", "[string, number]"),
             ("color", "Color"),
             ("unk", "unknown"),

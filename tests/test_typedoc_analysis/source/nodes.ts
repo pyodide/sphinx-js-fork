@@ -1,15 +1,15 @@
-class Superclass {
+export class Superclass {
   method() {
   }
 }
 
-interface SuperInterface {
+export interface SuperInterface {
 }
 
-interface Interface extends SuperInterface {
+export interface Interface extends SuperInterface {
 }
 
-interface InterfaceWithMembers {
+export interface InterfaceWithMembers {
   callableProperty(): void;
 }
 
@@ -19,18 +19,18 @@ interface InterfaceWithMembers {
 export abstract class EmptySubclass extends Superclass implements Interface {
 }
 
-const topLevelConst = 3;
+export const topLevelConst = 3;
 
 /**
  * @param a Some number
  * @param b Some strings
  * @return The best number
  */
-function func(a: number = 1, ...b: string[]): number {
+export function func(a: number = 1, ...b: string[]): number {
   return 4;
 }
 
-class ClassWithProperties {
+export class ClassWithProperties {
   static someStatic: number;
   someOptional?: number;
   private somePrivate: number;
@@ -50,6 +50,6 @@ class ClassWithProperties {
   }
 }
 
-class Indexable {
+export class Indexable {
   [id:string]: any;  // smoketest
 }

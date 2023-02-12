@@ -1,7 +1,7 @@
 /**
  * Function
  */
-function foo(): void {
+export function foo(): void {
   /**
    * An inner function
    */
@@ -13,7 +13,7 @@ foo.adHocInner = 'innerValue';
 /**
  * Foo class
  */
-class Foo {
+export class Foo {
   /**
    * Static member
    */
@@ -62,16 +62,16 @@ class Foo {
   }
 }
 
-interface Face {
+export interface Face {
   /**
    * Interface property
    */
   moof: string;
 }
 
-namespace SomeSpace {
+export namespace SomeSpace {
   /**
    * Namespaced number
    */
-  const spacedNumber = 4;
+  export const spacedNumber = 4;
 }

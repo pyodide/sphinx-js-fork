@@ -1,6 +1,5 @@
 """Converter from TypeDoc output to IR format"""
 
-import re
 import subprocess
 from collections.abc import Sequence
 from errno import ENOENT
@@ -23,10 +22,12 @@ __all__ = ["Analyzer"]
 
 def typedoc_output(
     abs_source_paths: list[str], sphinx_conf_dir: str, config_path: str
-) -> "Root":
+) -> "Project":
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
-    command = Command("typedoc")
+    from pathlib import Path
+
+    command = Command(str(Path("node_modules/typedoc/bin/typedoc").absolute()))
     if config_path:
         command.add("--tsconfig", normpath(join(sphinx_conf_dir, config_path)))
 
@@ -42,13 +43,16 @@ def typedoc_output(
                 )
             else:
                 raise
+        import shutil
+
+        shutil.copy(temp.name, "blah.json")
         # typedoc emits a valid JSON file even if it finds no TS files in the dir:
         return parse(load(temp))
 
 
-def parse(json: dict[str, Any]) -> "Root":
+def parse(json: dict[str, Any]) -> "Project":
     try:
-        return Root.parse_obj(json)
+        return Project.parse_obj(json)
     except ValidationError as exc:
         fix_exc_errors(json, exc)
         raise
@@ -73,19 +77,20 @@ class Converter:
         node: "IndexType",
         parent: "IndexType | None",
         containing_module: list[str],
+        filename: str = "",
     ) -> None:
         if node.id is not None:  # 0 is okay; it's the root node.
             self.index[node.id] = node
 
         parent_kind = parent.kindString if parent else ""
         parent_segments = parent.path if parent else []
-        self.compute_path(node, parent_kind, parent_segments)
+        if node.sources:
+            filename = node.sources[0].fileName
+            node.filename = filename
+        self.compute_path(node, parent_kind, parent_segments, filename)
 
         if node.kindString in ["External module", "Module"]:
             containing_module = node.path
-
-        if node.flags.isExported:
-            node.exported_from = containing_module
 
         if parent and isinstance(node, Signature):
             node.parent_member_properties = parent.member_properties()
@@ -101,13 +106,26 @@ class Converter:
         if isinstance(node, Signature):
             children.append(node.parameters)
 
+        # from pprint import pprint
+        # from json import loads
+
+        # print("\n\n", node.name)
+        # pprint(loads(node.json()), depth=1)
+
         for child in (c for l in children for c in l):
             self._populate_index_inner(
-                child, parent=node, containing_module=containing_module
+                child,
+                parent=node,
+                containing_module=containing_module,
+                filename=filename,
             )
 
     def compute_path(
-        self, node: "IndexType", parent_kind: str, parent_segments: list[str]
+        self,
+        node: "IndexType",
+        parent_kind: str,
+        parent_segments: list[str],
+        filename: str,
     ) -> None:
         """Compute the full, unambiguous list of path segments that points to an
         entity described by a TypeDoc JSON node.
@@ -126,6 +144,17 @@ class Converter:
         if not node.flags.isStatic and parent_kind == "Class":
             delimiter = "#"
 
+        if (
+            parent_kind == "Project"
+            and node.kindString
+            not in [
+                "Module",
+                "External module",
+            ]
+            and not parent_segments
+        ):
+            parent_segments = make_filepath_segments(filename)
+
         segs = node._path_segments(self.base_dir)
 
         if segs and parent_segments:
@@ -137,7 +166,7 @@ class Converter:
 
         node.path = segments
 
-    def convert_all_nodes(self, root: "Root") -> list[ir.TopLevel]:
+    def convert_all_nodes(self, root: "Project") -> list[ir.TopLevel]:
         todo: list[Node | Signature] = list(root.children)
         done = []
         while todo:
@@ -153,7 +182,7 @@ class Converter:
 
 
 class Analyzer:
-    def __init__(self, json: "Root", base_dir: str):
+    def __init__(self, json: "Project", base_dir: str):
         """
         :arg json: The loaded JSON output from typedoc
         :arg base_dir: The absolute path of the dir relative to which to
@@ -211,7 +240,6 @@ class Comment(BaseModel):
 
 class Flags(BaseModel):
     isAbstract: bool = False
-    isExported: bool = False
     isOptional: bool = False
     isPrivate: bool = False
     isRest: bool = False
@@ -232,9 +260,8 @@ class Base(BaseModel):
     kindString: str = ""
     originalName: str | None
     sources: list[Source] = []
+    filename: str = ""
     flags: Flags = Field(default_factory=Flags)
-
-    exported_from: list[str] | None = None
 
     def member_properties(self) -> MemberProperties:
         return dict(
@@ -244,21 +271,13 @@ class Base(BaseModel):
             is_private=self.flags.isPrivate,
         )
 
-    def _containing_deppath(self) -> str | None:
-        """Return the path pointing to the module containing the given node.
-        The path is absolute or relative to `root_for_relative_js_paths`.
-        Raises ValueError if one isn't found.
-
-        """
-        return self.sources[0].fileName
-
     def _path_segments(self, base_dir: str) -> list[str]:
         raise NotImplementedError
 
 
-class Root(Base):
+class Project(Base):
     # These are probably never present except "name"
-    kindString: Literal["root"] = "root"
+    kindString: Literal["Project"] = "Project"
     name: str | None
 
     def _path_segments(self, base_dir: str) -> list[str]:
@@ -271,7 +290,7 @@ class TopLevelPropertiesDict(TypedDict):
     filename: str
     deppath: str | None
     description: str
-    line: int
+    line: int | None
     deprecated: bool
     examples: list[str]
     see_alsos: list[str]
@@ -289,22 +308,21 @@ class TopLevelProperties(Base):
         return self.name
 
     def _top_level_properties(self) -> TopLevelPropertiesDict:
-        source = self.sources[0]
+        # print("\n\n", "="*5, "filename:", self.filename)
+        # print("", "="*5, "name:", self.name)
         return dict(
             name=self.short_name(),
             path=ir.Pathname(self.path),
-            filename=basename(source.fileName),
-            deppath=self._containing_deppath(),
+            filename=basename(self.filename),
+            deppath=self.filename,
             description=make_description(self.comment),
-            line=source.line,
+            line=self.sources[0].line if self.sources else None,
             # These properties aren't supported by TypeDoc:
             deprecated=False,
             examples=[],
             see_alsos=[],
             properties=[],
-            exported_from=ir.Pathname(self.exported_from)
-            if self.exported_from
-            else None,
+            exported_from=ir.Pathname(make_filepath_segments(self.filename)),
         )
 
     def to_ir(
@@ -314,7 +332,7 @@ class TopLevelProperties(Base):
 
 
 class NodeBase(TopLevelProperties):
-    sources: list[Source]
+    sources: list[Source] = []
 
     def _path_segments(self, base_dir: str) -> list[str]:
         return [self.name]
@@ -479,6 +497,15 @@ class Member(NodeBase):
         return result, self.children
 
 
+def make_filepath_segments(path: str) -> list[str]:
+    if not is_explicitly_rooted(path):
+        path = f".{sep}{path}"
+    segs = path.split(sep)
+    filename = splitext(segs[-1])[0]
+    segments = [s + "/" for s in segs[:-1]] + [filename]
+    return segments
+
+
 class ExternalModule(NodeBase):
     kindString: Literal["External module", "Module"]
     originalName: str = ""
@@ -493,16 +520,13 @@ class ExternalModule(NodeBase):
         if not self.originalName:
             return []
         rel = relpath(self.originalName, base_dir)
-        if not is_explicitly_rooted(rel):
-            rel = f".{sep}{rel}"
-
-        segments = rel.split(sep)
-        filename = splitext(segments[-1])[0]
-        return [s + "/" for s in segments[:-1]] + [filename]
+        return make_filepath_segments(rel)
 
 
 class OtherNode(NodeBase):
-    kindString: Literal["Enumeration", "Enumeration member", "Namespace", "Type alias"]
+    kindString: Literal[
+        "Enumeration", "Enumeration member", "Namespace", "Type alias", "Reference"
+    ]
 
 
 Node = Annotated[
@@ -582,7 +606,8 @@ class Signature(TopLevelProperties):
         self, converter: Converter
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
         if self.inheritedFrom is not None:
-            return None, []
+            if self.comment == Comment():
+                return None, []
         # This is the real meat of a function, method, or constructor.
         #
         # Constructors' .name attrs end up being like 'new Foo'. They
@@ -683,6 +708,18 @@ class ReflectionType(TypeBase):
         return "<TODO: reflection>"
 
 
+class LiteralType(TypeBase):
+    type: Literal["literal"]
+    value: Any
+
+    def _render_name_root(self, converter: Converter) -> str:
+        if self.value is None:
+            return "null"
+        if isinstance(self.value, int):
+            return "number"
+        return "<TODO: Unknown type>"
+
+
 class StringLiteralType(TypeBase):
     type: Literal["stringLiteral"]
     name: str
@@ -706,19 +743,24 @@ class UnknownType(TypeBase):
     name: str
 
     def _render_name_root(self, converter: Converter) -> str:
-        if re.match(r"-?\d*(\.\d+)?", self.name):  # It's a number.
-            # TypeDoc apparently sticks numeric constants' values into the
-            # type name. String constants? Nope. Function ones? Nope.
-            return "number"
         return self.name
 
 
-AnyNode = Node | Root | Signature
+class OtherType(TypeBase):
+    type: Literal["indexedAccess"]
+
+    def _render_name_root(self, converter: Converter) -> str:
+        return "<TODO: not implemented>"
+
+
+AnyNode = Node | Project | Signature
 
 
 Type = (
     AndOrType
     | ArrayType
+    | LiteralType
+    | OtherType
     | OperatorType
     | ParameterType
     | ReferenceType
@@ -730,7 +772,7 @@ Type = (
 
 TypeD = Annotated[Type, Field(discriminator="TypeD")]
 
-IndexType = Node | Root | Signature | Param
+IndexType = Node | Project | Signature | Param
 
 
 for cls in list(globals().values()):

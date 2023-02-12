@@ -1,7 +1,7 @@
 /**
  * A definition of a class
  */
-class ClassDefinition {
+export class ClassDefinition {
     field: string;
 
     /**
@@ -28,17 +28,17 @@ class ClassDefinition {
     }
 }
 
-interface Interface {
+export interface Interface {
 }
 
-abstract class ClassWithSupersAndInterfacesAndAbstract extends ClassDefinition implements Interface {
+export abstract class ClassWithSupersAndInterfacesAndAbstract extends ClassDefinition implements Interface {
   /** I construct. */
   constructor() {
     super(8);
   }
 }
 
-interface InterfaceWithSupers extends Interface {
+export interface InterfaceWithSupers extends Interface {
 }
 
 export class ExportedClass {
@@ -46,10 +46,10 @@ export class ExportedClass {
   }
 }
 
-class ConstructorlessClass {
+export class ConstructorlessClass {
 }
 
-interface OptionalThings {
+export interface OptionalThings {
   foop?(): void;
   boop?: boolean;
 }

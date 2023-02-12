@@ -49,6 +49,8 @@ class TextBuilderTests(SphinxBuildTestCase):
             "\n"
             "   *abstract*\n"
             "\n"
+            '   *exported from* "class"\n'
+            "\n"
             "   **Extends:**\n"
             '      * "ClassDefinition()"\n'
             "\n"
@@ -74,7 +76,8 @@ class TextBuilderTests(SphinxBuildTestCase):
     def test_constructorless_class(self):
         """Make sure constructorless classes don't crash the renderer."""
         self._file_contents_eq(
-            "autoclass_constructorless", "class ConstructorlessClass()\n"
+            "autoclass_constructorless",
+            'class ConstructorlessClass()\n\n   *exported from* "class"\n',
         )
 
     def test_optional_members(self):
@@ -85,6 +88,8 @@ class TextBuilderTests(SphinxBuildTestCase):
             "class OptionalThings()\n"
             "\n"
             "   *interface*\n"
+            "\n"
+            '   *exported from* "class"\n'
             "\n"
             "   OptionalThings.boop?\n"
             "\n"

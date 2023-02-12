@@ -175,7 +175,7 @@ class TopLevel:
     #: The human-readable description of the entity or '' if absent
     description: ReStructuredText
     #: Line number where the object (excluding any prefixing comment) begins
-    line: int
+    line: int | None
     #: Explanation of the deprecation (which implies True) or True or False
     deprecated: ReStructuredText | bool
     #: List of preformatted textual examples
