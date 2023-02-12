@@ -226,7 +226,7 @@ class MemberProperties(TypedDict):
 
 
 class Base(BaseModel):
-    children: list["Node"] = []
+    children: Sequence["Node"] = []
     path: list[str] = []
     id: int | None
     kindString: str = ""
@@ -307,7 +307,9 @@ class TopLevelProperties(Base):
             else None,
         )
 
-    def to_ir(self, converter: Converter) -> tuple[ir.TopLevel | None, list["Node"]]:
+    def to_ir(
+        self, converter: Converter
+    ) -> tuple[ir.TopLevel | None, Sequence["Node"]]:
         return None, self.children
 
 
@@ -323,7 +325,7 @@ class Accessor(NodeBase):
     getSignature: list["Signature"] = []
     setSignature: list["Signature"] = []
 
-    def to_ir(self, converter: Converter) -> tuple[ir.Attribute, list["Node"]]:
+    def to_ir(self, converter: Converter) -> tuple[ir.Attribute, Sequence["Node"]]:
         if self.getSignature:
             # There's no signature to speak of for a getter: only a return type.
             type = self.getSignature[0].type
@@ -350,7 +352,9 @@ class Callable(NodeBase):
     def _path_segments(self, base_dir: str) -> list[str]:
         return [self.name]
 
-    def to_ir(self, converter: Converter) -> tuple[ir.TopLevel | None, list["Node"]]:
+    def to_ir(
+        self, converter: Converter
+    ) -> tuple[ir.Function | None, Sequence["Node"]]:
         # There's really nothing in these; all the interesting bits are in
         # the contained 'Call signature' keys. We support only the first
         # signature at the moment, because to do otherwise would create
@@ -367,6 +371,7 @@ class ClassOrInterface(NodeBase):
     kindString: Literal["Class", "Interface"]
     extendedTypes: list["TypeD"] = []
     implementedTypes: list["TypeD"] = []
+    children: Sequence["ClassChild"] = []
 
     def _related_types(
         self,
@@ -387,7 +392,7 @@ class ClassOrInterface(NodeBase):
         if kind == "extendedTypes":
             orig_types = self.extendedTypes
         elif kind == "implementedTypes":
-            assert self.kindString == "Class"
+            assert isinstance(self, Class)
             orig_types = self.implementedTypes
         else:
             raise ValueError(
@@ -416,18 +421,15 @@ class ClassOrInterface(NodeBase):
         :return: A tuple of (constructor Function, list of other members)
 
         """
-        constructor = None
+        constructor: ir.Function | None = None
         members = []
         for child in self.children:
-            result, _ = child.to_ir(converter)
-            if not result:
-                continue
             if child.kindString == "Constructor":
                 # This really, really should happen exactly once per class.
-                assert isinstance(result, ir.Function)
-                constructor = result
-            else:
-                assert isinstance(result, (ir.Function, ir.Attribute))
+                constructor = child.to_ir(converter)[0]
+                continue
+            result = child.to_ir(converter)[0]
+            if result:
                 members.append(result)
         return constructor, members
 
@@ -435,7 +437,7 @@ class ClassOrInterface(NodeBase):
 class Class(ClassOrInterface):
     kindString: Literal["Class"]
 
-    def to_ir(self, converter: Converter) -> tuple[ir.Class | None, list["Node"]]:
+    def to_ir(self, converter: Converter) -> tuple[ir.Class | None, Sequence["Node"]]:
         constructor, members = self._constructor_and_members(converter)
         result = ir.Class(
             constructor=constructor,
@@ -451,7 +453,7 @@ class Class(ClassOrInterface):
 class Interface(ClassOrInterface):
     kindString: Literal["Interface"]
 
-    def to_ir(self, converter: Converter) -> tuple[ir.Interface, list["Node"]]:
+    def to_ir(self, converter: Converter) -> tuple[ir.Interface, Sequence["Node"]]:
         _, members = self._constructor_and_members(converter)
         result = ir.Interface(
             members=members,
@@ -468,7 +470,7 @@ class Member(NodeBase):
     ]
     type: "TypeD"
 
-    def to_ir(self, converter: Converter) -> tuple[ir.TopLevel | None, list["Node"]]:
+    def to_ir(self, converter: Converter) -> tuple[ir.Attribute, Sequence["Node"]]:
         result = ir.Attribute(
             type=self.type.render_name(converter),
             **self.member_properties(),
@@ -507,6 +509,8 @@ Node = Annotated[
     Accessor | Callable | Class | ExternalModule | Interface | Member | OtherNode,
     Field(discriminator="kindString"),
 ]
+
+ClassChild = Annotated[Accessor | Callable | Member, Field(discriminator="kindString")]
 
 
 def make_description(comment: Comment) -> str:
@@ -564,18 +568,19 @@ class Signature(TopLevelProperties):
         return a list of either 0 or 1 item.
 
         """
-        type = self.type
-        if type.type == "intrinsic" and type.name == "void":
+        if self.type.type == "intrinsic" and self.type.name == "void":
             # Returns nothing
             return []
         return [
             ir.Return(
-                type=type.render_name(converter),
+                type=self.type.render_name(converter),
                 description=self.comment.returns.strip(),
             )
         ]
 
-    def to_ir(self, converter: Converter) -> tuple[ir.Function | None, list["Node"]]:
+    def to_ir(
+        self, converter: Converter
+    ) -> tuple[ir.Function | None, Sequence["Node"]]:
         if self.inheritedFrom is not None:
             return None, []
         # This is the real meat of a function, method, or constructor.
