@@ -717,14 +717,6 @@ class TupleType(TypeBase):
         return "[" + ", ".join(types) + "]"
 
 
-class UnknownType(TypeBase):
-    type: Literal["unknown"]
-    name: str
-
-    def _render_name_root(self, converter: Converter) -> str:
-        return self.name
-
-
 class OtherType(TypeBase):
     type: Literal["indexedAccess"]
 
@@ -745,7 +737,6 @@ Type = (
     | ReferenceType
     | ReflectionType
     | TupleType
-    | UnknownType
 )
 
 TypeD = Annotated[Type, Field(discriminator="TypeD")]
