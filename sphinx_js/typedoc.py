@@ -2,15 +2,15 @@
 
 import re
 import subprocess
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from errno import ENOENT
 from inspect import isclass
 from json import load
 from os.path import basename, join, normpath, relpath, sep, splitext
 from tempfile import NamedTemporaryFile
-from typing import Annotated, Any, Literal, Optional, TypedDict, cast
+from typing import Annotated, Any, Literal, Optional, TypedDict
 
-from pydantic import BaseConfig, BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
@@ -59,35 +59,36 @@ class Converter:
         self.base_dir: str = base_dir
         self.index: dict[int, IndexType] = {}
 
-    def populate_index(
-        self,
-        node: "IndexType",
-        parent: "IndexType | None" = None,
-    ) -> "Converter":
+    def populate_index(self, root: "IndexType") -> "Converter":
         """Create an ID-to-node mapping for all the TypeDoc output nodes.
 
         We don't unnest them, but we do add ``__parent`` keys so we can easily walk
         both up and down.
-
-        :arg index: The mapping to add keys to as we go
-        :arg node: The node to start traversing down from
-        :arg parent: The parent node of ``node``
-
         """
-        if node.id is not None:  # 0 is okay; it's the root node.
-            # Give anything in the map a parent:
+        self._populate_index_inner(root, parent=None, containing_module=[])
+        return self
 
-            # Parents are used for (1) building longnames, (2) setting memberof
-            # (which we shouldn't have to do anymore; we can just traverse
-            # children), (3) getting the module a class or interface is defined in
-            # so we can link to it, and (4) one other things, so it's worth setting
-            # them.
-            node.parent = parent
+    def _populate_index_inner(
+        self,
+        node: "IndexType",
+        parent: "IndexType | None",
+        containing_module: list[str],
+    ) -> None:
+        if node.id is not None:  # 0 is okay; it's the root node.
             self.index[node.id] = node
 
         parent_kind = parent.kindString if parent else ""
         parent_segments = parent.path if parent else []
         self.compute_path(node, parent_kind, parent_segments)
+
+        if node.kindString in ["External module", "Module"]:
+            containing_module = node.path
+
+        if node.flags.isExported:
+            node.exported_from = containing_module
+
+        if parent and isinstance(node, Signature):
+            node.parent_member_properties = parent.member_properties()
 
         # Burrow into everything that could contain more ID'd items. We don't
         # need setSignature or getSignature for now. Do we need indexSignature?
@@ -101,9 +102,9 @@ class Converter:
             children.append(node.parameters)
 
         for child in (c for l in children for c in l):
-            self.populate_index(child, parent=node)
-
-        return self
+            self._populate_index_inner(
+                child, parent=node, containing_module=containing_module
+            )
 
     def compute_path(
         self, node: "IndexType", parent_kind: str, parent_segments: list[str]
@@ -217,6 +218,13 @@ class Flags(BaseModel):
     isStatic: bool = False
 
 
+class MemberProperties(TypedDict):
+    is_abstract: bool
+    is_optional: bool
+    is_static: bool
+    is_private: bool
+
+
 class Base(BaseModel):
     children: list["Node"] = []
     path: list[str] = []
@@ -224,35 +232,17 @@ class Base(BaseModel):
     kindString: str = ""
     originalName: str | None
     sources: list[Source] = []
-    parent: Optional["IndexType"]
     flags: Flags = Field(default_factory=Flags)
 
-    class Config(BaseConfig):
-        fields = {"parent": {"exclude": True}}  # type:ignore[dict-item]
+    exported_from: list[str] | None = None
 
-    def member_properties(self) -> dict[str, bool]:
+    def member_properties(self) -> MemberProperties:
         return dict(
             is_abstract=self.flags.isAbstract,
             is_optional=self.flags.isOptional,
             is_static=self.flags.isStatic,
             is_private=self.flags.isPrivate,
         )
-
-    def _parent_nodes(self) -> Iterator["ExternalModule | OtherNode"]:
-        """Return an iterator of parent nodes"""
-        n: IndexType | None = cast(IndexType, self)
-        while n and n.id != 0:
-            if n.kindString == "External module" or n.kindString == "Module":
-                # Found one!
-                yield n
-            n = n.parent
-
-    def _containing_module(self) -> ir.Pathname | None:
-        """Return the Pathname pointing to the module containing the given
-        node, None if one isn't found."""
-        for n in self._parent_nodes():
-            return ir.Pathname(n.path)
-        return None
 
     def _containing_deppath(self) -> str | None:
         """Return the path pointing to the module containing the given node.
@@ -300,10 +290,6 @@ class TopLevelProperties(Base):
 
     def _top_level_properties(self) -> TopLevelPropertiesDict:
         source = self.sources[0]
-        if self.flags.isExported:
-            exported_from = self._containing_module()
-        else:
-            exported_from = None
         return dict(
             name=self.short_name(),
             path=ir.Pathname(self.path),
@@ -316,7 +302,9 @@ class TopLevelProperties(Base):
             examples=[],
             see_alsos=[],
             properties=[],
-            exported_from=exported_from,
+            exported_from=ir.Pathname(self.exported_from)
+            if self.exported_from
+            else None,
         )
 
     def to_ir(self, converter: Converter) -> tuple[ir.TopLevel | None, list["Node"]]:
@@ -558,13 +546,13 @@ class Signature(TopLevelProperties):
     kindString: Literal[
         "Constructor signature", "Call signature", "Get signature", "Set signature"
     ]
-    parent: "Node" = None  # type:ignore[assignment]
 
     name: str
     parameters: list["Param"] = []
     sources: list[Source] = []
     type: "TypeD"
     inheritedFrom: Any = None
+    parent_member_properties: MemberProperties = {}  # type: ignore[typeddict-item]
 
     def _path_segments(self, base_dir: str) -> list[str]:
         return []
@@ -605,7 +593,7 @@ class Signature(TopLevelProperties):
             returns=self.return_type(converter)
             if self.kindString != "Constructor signature"
             else [],
-            **self.parent.member_properties(),
+            **self.parent_member_properties,
             **self._top_level_properties(),
         )
         return result, self.children

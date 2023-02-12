@@ -80,18 +80,21 @@ class PopulateIndexTests(TestCase):
         }"""
             )
         )
-        index = Converter("").populate_index(json).index
+        index = Converter("/a/b/c/tests/").populate_index(json).index
         # Things get indexed by ID:
         function = index[2]
         assert function.name == "foo"
-        # Things get parent links:
-        assert function.parent.name == '"longnames"'
-        assert function.parent.parent.name == "misterRoot"
+        # things get paths
+        assert function.path == [
+            "./",
+            "test_typedoc_analysis/",
+            "source/",
+            "longnames.",
+            "foo",
+        ]
         # Root gets indexed by ID:
         root = index[0]
         assert root.name == "misterRoot"
-        # Root parent link is absent or None:
-        assert root.parent is None
 
 
 class PathSegmentsTests(TypeDocTestCase):
