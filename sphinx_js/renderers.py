@@ -184,6 +184,15 @@ class JsRenderer:
 
         formals = []
         used_names = set()
+        type_params = ""
+        if obj.type_params:
+            l = []
+            for tparam in obj.type_params:
+                v = tparam.name
+                if tparam.extends:
+                    v += f" extends {tparam.extends}"
+                l.append(v)
+            type_params = "<{}>".format(", ".join(type_params))
 
         for param in obj.params:
             # Turn "@param p2.subProperty" into just p2. We wouldn't want to
@@ -204,7 +213,7 @@ class JsRenderer:
                 )
                 used_names.add(name)
 
-        return "(%s)" % ", ".join(formals)
+        return "{}({})".format(type_params, ", ".join(formals))
 
     def _fields(self, obj: TopLevel) -> Iterator[tuple[list[str], str]]:
         """Return an iterable of "info fields" to be included in the directive,
@@ -285,6 +294,7 @@ class AutoClassRenderer(JsRenderer):
                 is_optional=False,
                 is_static=False,
                 is_private=False,
+                type_params=obj.type_params,
                 params=[],
                 exceptions=[],
                 returns=[],

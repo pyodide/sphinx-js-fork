@@ -96,6 +96,12 @@ class _Member:
 
 
 @dataclass
+class TypeParam:
+    name: str
+    extends: str | None
+
+
+@dataclass
 class Param:
     """A parameter of either a function or (in the case of TS, which has
     classes parametrized by type) a class."""
@@ -210,6 +216,7 @@ class Function(TopLevel, _Member):
     params: list[Param]
     exceptions: list[Exc]
     returns: list[Return]
+    type_params: list[TypeParam] = field(default_factory=list)
 
 
 @dataclass
@@ -230,6 +237,8 @@ class _MembersAndSupers:
 class Interface(TopLevel, _MembersAndSupers):
     """An interface, a la TypeScript"""
 
+    type_params: list[TypeParam] = field(default_factory=list)
+
 
 @dataclass
 class Class(TopLevel, _MembersAndSupers):
@@ -244,4 +253,5 @@ class Class(TopLevel, _MembersAndSupers):
     # itself. These are supported and extracted by jsdoc, but they end up in an
     # `undocumented: True` doclet and so are presently filtered out. But we do
     # have the space to include them someday.
+    type_params: list[TypeParam] = field(default_factory=list)
     params: list[Param] = field(default_factory=list)
