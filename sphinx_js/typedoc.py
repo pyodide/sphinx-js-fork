@@ -702,18 +702,10 @@ class LiteralType(TypeBase):
     def _render_name_root(self, converter: Converter) -> str:
         if self.value is None:
             return "null"
+        # TODO: it could be a bigint or a string?
         if isinstance(self.value, int):
             return "number"
         return "<TODO: Unknown type>"
-
-
-class StringLiteralType(TypeBase):
-    type: Literal["stringLiteral"]
-    name: str
-    value: str
-
-    def _render_name_root(self, converter: Converter) -> str:
-        return f'"{self.value}"'
 
 
 class TupleType(TypeBase):
@@ -752,7 +744,6 @@ Type = (
     | ParameterType
     | ReferenceType
     | ReflectionType
-    | StringLiteralType
     | TupleType
     | UnknownType
 )
