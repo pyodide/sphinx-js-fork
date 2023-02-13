@@ -525,7 +525,7 @@ class ExternalModule(NodeBase):
 
 class OtherNode(NodeBase):
     kindString: Literal[
-        "Enumeration", "Enumeration Member", "Namespace", "Type alias", "Reference"
+        "Enumeration", "Enumeration member", "Namespace", "Type alias", "Reference"
     ]
 
 
