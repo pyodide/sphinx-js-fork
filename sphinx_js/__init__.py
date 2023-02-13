@@ -139,12 +139,11 @@ def add_type_param_field_to_directives() -> None:
     JSConstructor.doc_field_types.insert(0, typeparam_field)
 
 
-fix_js_make_xref()
-fix_staticfunction_objtype()
-add_type_param_field_to_directives()
-
-
 def setup(app: Sphinx) -> None:
+    fix_js_make_xref()
+    fix_staticfunction_objtype()
+    add_type_param_field_to_directives()
+
     # I believe this is the best place to run jsdoc. I was tempted to use
     # app.add_source_parser(), but I think the kind of source it's referring to
     # is RSTs.
