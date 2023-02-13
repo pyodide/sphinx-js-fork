@@ -49,10 +49,8 @@ jobs:
       - name: Test
         run: tox
 
-      - name: Test Report
-        uses: dorny/test-reporter@v1
+      - uses: actions/upload-artifact@v2
         if: success() || failure()
         with:
-          name: pytest results ${{ matrix.version }}
+          name: test-results
           path: test-results.xml
-          reporter: java-junit
