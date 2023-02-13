@@ -536,12 +536,15 @@ def make_description(comment: Comment) -> str:
 class TypeParameter(BaseModel):
     name: str
     type: "OptionalTypeD"
+    comment: Comment = Field(default_factory=Comment)
 
     def to_ir(self, converter: Converter) -> ir.TypeParam:
         extends = None
         if self.type:
             extends = self.type.render_name(converter)
-        return ir.TypeParam(self.name, extends)
+        return ir.TypeParam(
+            self.name, extends, description=make_description(self.comment)
+        )
 
 
 class Param(Base):

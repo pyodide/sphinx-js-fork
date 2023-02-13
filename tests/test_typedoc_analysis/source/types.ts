@@ -82,16 +82,30 @@ export interface Lengthwise {
   length: number;
 }
 
+/**
+ * @typeParam T - the identity type
+ */
 export function constrainedIdentity<T extends Lengthwise>(arg: T): T {
   return arg;
 }
 
+/**
+ * @typeParam T - The type of the object
+ * @typeParam K - The type of the key
+ */
 export function getProperty<T, K extends keyof T>(obj: T, key: K) {
   return obj[key];
 }
 
 export function create<T>(c: { new (): T }): T {
   return new c();
+}
+
+/**
+ * @typeParam S - The type we contain
+ */
+export class ParamClass<S extends number[]> {
+
 }
 
 // Utility types (https://www.typescriptlang.org/docs/handbook/utility-types.html)

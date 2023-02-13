@@ -119,8 +119,29 @@ def fix_staticfunction_objtype() -> None:
     JSObject.get_index_text = get_index_text  # type:ignore[assignment]
 
 
+@cache
+def add_type_param_field_to_directives() -> None:
+    from sphinx.domains.javascript import (  # type: ignore[attr-defined]
+        GroupedField,
+        JSCallable,
+        JSConstructor,
+    )
+
+    typeparam_field = GroupedField(
+        "typeparam",
+        label="Type parameters",
+        rolename="func",
+        names=("typeparam",),
+        can_collapse=True,
+    )
+
+    JSCallable.doc_field_types.insert(0, typeparam_field)
+    JSConstructor.doc_field_types.insert(0, typeparam_field)
+
+
 fix_js_make_xref()
 fix_staticfunction_objtype()
+add_type_param_field_to_directives()
 
 
 def setup(app: Sphinx) -> None:
@@ -139,6 +160,7 @@ def setup(app: Sphinx) -> None:
     app.add_directive_to_domain(
         "js", "autoattribute", auto_attribute_directive_bound_to_app(app)
     )
+
     # TODO: We could add a js:module with app.add_directive_to_domain().
 
     app.add_config_value("js_language", default="javascript", rebuild="env")

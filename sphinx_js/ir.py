@@ -99,6 +99,7 @@ class _Member:
 class TypeParam:
     name: str
     extends: str | None
+    description: ReStructuredText = ReStructuredText("")
 
 
 @dataclass

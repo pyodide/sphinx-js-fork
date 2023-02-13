@@ -23,6 +23,7 @@ from .ir import (
     Pathname,
     Return,
     TopLevel,
+    TypeParam,
 )
 from .jsdoc import Analyzer as JsAnalyzer
 from .parsers import PathVisitor
@@ -184,15 +185,6 @@ class JsRenderer:
 
         formals = []
         used_names = set()
-        type_params = ""
-        if obj.type_params:
-            l = []
-            for tparam in obj.type_params:
-                v = tparam.name
-                if tparam.extends:
-                    v += f" extends {tparam.extends}"
-                l.append(v)
-            type_params = "<{}>".format(", ".join(type_params))
 
         for param in obj.params:
             # Turn "@param p2.subProperty" into just p2. We wouldn't want to
@@ -213,7 +205,7 @@ class JsRenderer:
                 )
                 used_names.add(name)
 
-        return "{}({})".format(type_params, ", ".join(formals))
+        return "({})".format(", ".join(formals))
 
     def _fields(self, obj: TopLevel) -> Iterator[tuple[list[str], str]]:
         """Return an iterable of "info fields" to be included in the directive,
@@ -225,6 +217,7 @@ class JsRenderer:
 
         """
         FIELD_TYPES: list[tuple[str, Callable[[Any], tuple[list[str], str] | None]]] = [
+            ("type_params", _type_param_formatter),
             ("params", _param_formatter),
             ("params", _param_type_formatter),
             ("properties", _param_formatter),
@@ -436,6 +429,14 @@ def _return_formatter(return_: Return) -> tuple[list[str], str]:
     tail = ("**%s** -- " % rst.escape(return_.type)) if return_.type else ""
     tail += return_.description
     return ["returns"], tail
+
+
+def _type_param_formatter(tparam: TypeParam) -> tuple[list[str], str] | None:
+    v = tparam.name
+    if tparam.extends:
+        v += f" extends {tparam.extends}"
+    heads = ["typeparam", v]
+    return heads, tparam.description
 
 
 def _param_formatter(param: Param) -> tuple[list[str], str] | None:
