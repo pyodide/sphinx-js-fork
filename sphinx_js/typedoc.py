@@ -432,6 +432,9 @@ class ClassOrInterface(NodeBase):
         for child in self.children:
             if child.kindString == "Constructor":
                 # This really, really should happen exactly once per class.
+                # Type parameter cannot appear on constructor declaration so copy
+                # it down from the class.
+                child.signatures[0].typeParameter = self.typeParameter
                 constructor = child.to_ir(converter)[0]
                 continue
             result = child.to_ir(converter)[0]

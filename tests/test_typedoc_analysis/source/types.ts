@@ -105,6 +105,9 @@ export function create<T>(c: { new (): T }): T {
  * @typeParam S - The type we contain
  */
 export class ParamClass<S extends number[]> {
+  constructor() {
+
+  }
 
 }
 

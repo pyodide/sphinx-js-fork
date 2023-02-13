@@ -504,7 +504,7 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         a._content = []
         a._options = {}
         rst = a.rst([obj.name], obj)
-        assert rst == ""
+        assert ":typeparam S extends number\\[\\]: The type we contain" in rst
 
     @pytest.mark.xfail(reason="reflection not implemented yet")
     def test_constrained_by_constructor(self):
