@@ -16,6 +16,6 @@ jobs:
     - uses: dorny/test-reporter@v1.6.0
       with:
         artifact: test-results-${{ matrix.python-version }}
-        name: JUnit Tests ${{ matrix.python-version }}
+        name: Test report - ${{ matrix.python-version }}
         path: test-results.xml
         reporter: java-junit
