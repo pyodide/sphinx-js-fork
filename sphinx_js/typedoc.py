@@ -100,6 +100,10 @@ class Converter:
 
         if isinstance(node, Signature):
             children.append(node.parameters)
+            children.append(node.typeParameter)
+
+        if isinstance(node, ClassOrInterface):
+            children.append(node.typeParameter)
 
         for child in (c for l in children for c in l):
             self._populate_index_inner(
@@ -536,7 +540,8 @@ def make_description(comment: Comment) -> str:
     return ret.strip()
 
 
-class TypeParameter(BaseModel):
+class TypeParameter(Base):
+    kindString: Literal["Type parameter"]
     name: str
     type: "OptionalTypeD"
     comment: Comment = Field(default_factory=Comment)
@@ -548,6 +553,9 @@ class TypeParameter(BaseModel):
         return ir.TypeParam(
             self.name, extends, description=make_description(self.comment)
         )
+
+    def _path_segments(self, base_dir: str) -> list[str]:
+        return []
 
 
 class Param(Base):
@@ -750,7 +758,7 @@ Type = (
 TypeD = Annotated[Type, Field(discriminator="type")]
 OptionalTypeD = Annotated[Type | None, Field(discriminator="type")]
 
-IndexType = Node | Project | Signature | Param
+IndexType = Node | Project | Signature | Param | TypeParameter
 
 
 for cls in list(globals().values()):
