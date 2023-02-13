@@ -1,11 +1,14 @@
 """Converter from TypeDoc output to IR format"""
 
+import re
 import subprocess
 from collections.abc import Sequence
 from errno import ENOENT
+from functools import cache
 from inspect import isclass
 from json import load
-from os.path import basename, join, normpath, relpath, sep, splitext
+from os.path import basename, relpath, sep, splitext
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Annotated, Any, Literal, TypedDict
 
@@ -20,6 +23,21 @@ from .suffix_tree import SuffixTree
 __all__ = ["Analyzer"]
 
 
+@cache
+def typedoc_version_info() -> tuple[tuple[int, ...], tuple[int, ...]]:
+    result = subprocess.run(
+        ["typedoc", "--version"], capture_output=True, encoding="utf8"
+    )
+    lines = result.stdout.strip().splitlines()
+    m = re.search(r"TypeDoc ([0-9]+\.[0-9]+\.[0-9]+)", lines[0])
+    assert m
+    typedoc_version = tuple(int(x) for x in m.group(1).split("."))
+    m = re.search(r"TypeScript ([0-9]+\.[0-9]+\.[0-9]+)", lines[1])
+    assert m
+    typescript_version = tuple(int(x) for x in m.group(1).split("."))
+    return typedoc_version, typescript_version
+
+
 def typedoc_output(
     abs_source_paths: list[str], sphinx_conf_dir: str, config_path: str
 ) -> "Project":
@@ -27,12 +45,16 @@ def typedoc_output(
     paths."""
     command = Command("typedoc")
     if config_path:
-        command.add("--tsconfig", normpath(join(sphinx_conf_dir, config_path)))
+        tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
+        command.add("--tsconfig", tsconfig_path)
+    typedoc_version, _ = typedoc_version_info()
+    if typedoc_version >= (0, 22, 0):
+        command.add("--entryPointStrategy", "expand")
 
     with NamedTemporaryFile(mode="w+b") as temp:
         command.add("--json", temp.name, *abs_source_paths)
         try:
-            subprocess.call(command.make())
+            subprocess.run(command.make())
         except OSError as exc:
             if exc.errno == ENOENT:
                 raise SphinxError(
