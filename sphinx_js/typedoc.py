@@ -525,7 +525,12 @@ class ExternalModule(NodeBase):
 
 class OtherNode(NodeBase):
     kindString: Literal[
-        "Enumeration", "Enumeration member", "Namespace", "Type alias", "Reference"
+        "Enumeration",
+        "Enumeration Member",  # M changed to uppercase in version 0.22
+        "Enumeration member",
+        "Namespace",
+        "Type alias",
+        "Reference",
     ]
 
 
