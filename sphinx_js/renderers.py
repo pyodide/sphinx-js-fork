@@ -1,16 +1,35 @@
+from collections.abc import Callable, Iterator
 from re import sub
+from typing import Any, Literal
 
+from docutils.nodes import Node
+from docutils.parsers.rst import Directive
 from docutils.parsers.rst import Parser as RstParser
 from docutils.statemachine import StringList
 from docutils.utils import new_document
 from jinja2 import Environment, PackageLoader
+from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 from sphinx.util import logging, rst
 
 from .analyzer_utils import dotted_path
-from .ir import Class, Function, Interface, Pathname
+from .ir import (
+    Attribute,
+    Class,
+    Exc,
+    Function,
+    Interface,
+    Param,
+    Pathname,
+    Return,
+    TopLevel,
+)
+from .jsdoc import Analyzer as JsAnalyzer
 from .parsers import PathVisitor
 from .suffix_tree import SuffixAmbiguous, SuffixNotFound
+from .typedoc import Analyzer as TsAnalyzer
+
+Analyzer = TsAnalyzer | JsAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +45,20 @@ class JsRenderer:
 
     """
 
-    def __init__(self, directive, app, arguments=None, content=None, options=None):
+    _renderer_type: Literal["function", "class", "attribute"]
+    _template: str
+
+    def _template_vars(self, name: str, obj: TopLevel) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def __init__(
+        self,
+        directive: Directive,
+        app: Sphinx,
+        arguments: list[str],
+        content: list[str] | None = None,
+        options: dict[str, Any] | None = None,
+    ):
         # Fix crash when calling eval_rst with CommonMarkParser:
         if not hasattr(directive.state.document.settings, "tab_width"):
             directive.state.document.settings.tab_width = 8
@@ -38,14 +70,20 @@ class JsRenderer:
         # on the instance so calls to template_vars don't need to concern
         # themselves with what it needs.
         self._app = app
-        self._partial_path, self._explicit_formal_params = PathVisitor().parse(
+        self._partial_path: list[str]
+        self._explicit_formal_params: str
+
+        (
+            self._partial_path,
+            self._explicit_formal_params,
+        ) = PathVisitor().parse(  # type:ignore[assignment]
             arguments[0]
         )
         self._content = content or StringList()
         self._options = options or {}
 
     @classmethod
-    def from_directive(cls, directive, app):
+    def from_directive(cls, directive: Directive, app: Sphinx) -> "JsRenderer":
         """Return one of these whose state is all derived from a directive.
 
         This is suitable for top-level calls but not for when a renderer is
@@ -64,12 +102,13 @@ class JsRenderer:
             options=directive.options,
         )
 
-    def get_object(self):
+    def get_object(self) -> TopLevel:
         """Return the IR object rendered by this renderer."""
         try:
-            obj = self._app._sphinxjs_analyzer.get_object(
-                self._partial_path, self._renderer_type
+            analyzer: Analyzer = (
+                self._app._sphinxjs_analyzer  # type:ignore[attr-defined]
             )
+            obj = analyzer.get_object(self._partial_path, self._renderer_type)
             return obj
         except SuffixNotFound as exc:
             raise SphinxError(
@@ -82,7 +121,7 @@ class JsRenderer:
                 % ("".join(exc.segments), exc.next_possible_keys)
             )
 
-    def dependencies(self):
+    def dependencies(self) -> set[str]:
         """Return a set of path(s) to the file(s) that the IR object
         rendered by this renderer is from.  Each path is absolute or
         relative to `root_for_relative_js_paths`.
@@ -96,7 +135,7 @@ class JsRenderer:
             logger.exception("Exception while retrieving paths for IR object: %s" % exc)
         return set([])
 
-    def rst_nodes(self):
+    def rst_nodes(self) -> list[Node]:
         """Render into RST nodes a thing shaped like a function, having a name
         and arguments.
 
@@ -120,7 +159,9 @@ class JsRenderer:
         RstParser().parse(rst, doc)
         return doc.children
 
-    def rst(self, partial_path, obj, use_short_name=False):
+    def rst(
+        self, partial_path: list[str], obj: TopLevel, use_short_name: bool = False
+    ) -> str:
         """Return rendered RST about an entity with the given name and IR
         object."""
         dotted_name = partial_path[-1] if use_short_name else dotted_path(partial_path)
@@ -130,7 +171,7 @@ class JsRenderer:
         template = env.get_template(self._template)
         return template.render(**self._template_vars(dotted_name, obj))
 
-    def _formal_params(self, obj):
+    def _formal_params(self, obj: Function | Class) -> str:
         """Return the JS function or class params, looking first to any
         explicit params written into the directive and falling back to those in
         comments or JS code.
@@ -165,7 +206,7 @@ class JsRenderer:
 
         return "(%s)" % ", ".join(formals)
 
-    def _fields(self, obj):
+    def _fields(self, obj: TopLevel) -> Iterator[tuple[list[str], str]]:
         """Return an iterable of "info fields" to be included in the directive,
         like params, return values, and exceptions.
 
@@ -174,7 +215,7 @@ class JsRenderer:
         tail comes after.
 
         """
-        FIELD_TYPES = [
+        FIELD_TYPES: list[tuple[str, Callable[[Any], tuple[list[str], str] | None]]] = [
             ("params", _param_formatter),
             ("params", _param_type_formatter),
             ("properties", _param_formatter),
@@ -201,7 +242,7 @@ class AutoFunctionRenderer(JsRenderer):
     _template = "function.rst"
     _renderer_type = "function"
 
-    def _template_vars(self, name, obj):
+    def _template_vars(self, name: str, obj: Function) -> dict[str, Any]:  # type: ignore[override]
         return dict(
             name=name,
             params=self._formal_params(obj),
@@ -220,7 +261,7 @@ class AutoClassRenderer(JsRenderer):
     _template = "class.rst"
     _renderer_type = "class"
 
-    def _template_vars(self, name, obj):
+    def _template_vars(self, name: str, obj: Class | Interface) -> dict[str, Any]:  # type: ignore[override]
         # TODO: At the moment, we pull most fields (params, returns,
         # exceptions, etc.) off the constructor only. We could pull them off
         # the class itself too in the future.
@@ -277,7 +318,13 @@ class AutoClassRenderer(JsRenderer):
             else "",
         )
 
-    def _members_of(self, obj, include, exclude, should_include_private):
+    def _members_of(
+        self,
+        obj: Class | Interface,
+        include: list[str],
+        exclude: list[str],
+        should_include_private: bool,
+    ) -> str:
         """Return RST describing the members of a given class.
 
         :arg obj Class: The class we're documenting
@@ -288,7 +335,7 @@ class AutoClassRenderer(JsRenderer):
 
         """
 
-        def rst_for(obj):
+        def rst_for(obj: Attribute | Function) -> str:
             renderer = (
                 AutoFunctionRenderer
                 if isinstance(obj, Function)
@@ -298,7 +345,9 @@ class AutoClassRenderer(JsRenderer):
                 [obj.name], obj, use_short_name=False
             )
 
-        def members_to_include(include):
+        def members_to_include(
+            include: list[str],
+        ) -> list[Attribute | Function]:
             """Return the members that should be included (before excludes and
             access specifiers are taken into account).
 
@@ -308,7 +357,7 @@ class AutoClassRenderer(JsRenderer):
 
             """
 
-            def sort_attributes_first_then_by_path(obj):
+            def sort_attributes_first_then_by_path(obj: Function | Attribute) -> Any:
                 """Return a sort key for IR objects."""
                 return isinstance(obj, Function), obj.path.segments
 
@@ -345,7 +394,7 @@ class AutoClassRenderer(JsRenderer):
         return "\n\n".join(
             rst_for(member)
             for member in members_to_include(include)
-            if (not member.is_private or (member.is_private and should_include_private))
+            if ((not member.is_private) or should_include_private)
             and member.name not in exclude
         )
 
@@ -354,7 +403,7 @@ class AutoAttributeRenderer(JsRenderer):
     _template = "attribute.rst"
     _renderer_type = "attribute"
 
-    def _template_vars(self, name, obj):
+    def _template_vars(self, name: str, obj: Attribute) -> dict[str, Any]:  # type: ignore[override]
         return dict(
             name=name,
             description=obj.description,
@@ -367,19 +416,19 @@ class AutoAttributeRenderer(JsRenderer):
         )
 
 
-def unwrapped(text):
+def unwrapped(text: str) -> str:
     """Return the text with line wrapping removed."""
     return sub(r"[ \t]*[\r\n]+[ \t]*", " ", text)
 
 
-def _return_formatter(return_):
+def _return_formatter(return_: Return) -> tuple[list[str], str]:
     """Derive heads and tail from ``@returns`` blocks."""
     tail = ("**%s** -- " % rst.escape(return_.type)) if return_.type else ""
     tail += return_.description
     return ["returns"], tail
 
 
-def _param_formatter(param):
+def _param_formatter(param: Param) -> tuple[list[str], str] | None:
     """Derive heads and tail from ``@param`` blocks."""
     if not param.type and not param.description:
         # There's nothing worth saying about this param.
@@ -392,7 +441,7 @@ def _param_formatter(param):
     return heads, tail
 
 
-def _param_type_formatter(param):
+def _param_type_formatter(param: Param) -> tuple[list[str], str] | None:
     """Generate types for function parameters specified in field."""
     if not param.type:
         return None
@@ -401,7 +450,7 @@ def _param_type_formatter(param):
     return heads, tail
 
 
-def _exception_formatter(exception):
+def _exception_formatter(exception: Exc) -> tuple[list[str], str]:
     """Derive heads and tail from ``@throws`` blocks."""
     heads = ["throws"]
     if exception.type:

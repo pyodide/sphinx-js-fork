@@ -23,13 +23,13 @@ let's at least have a well-documented one and one slightly more likely to
 survive template changes.
 
 """
-from dataclasses import InitVar, dataclass
-from typing import Any, List, NewType, Optional, Union
+from dataclasses import dataclass, field
+from typing import Any
 
 from .analyzer_utils import dotted_path
 
 #: Human-readable type of a value. None if we don't know the type.
-Type = NewType("Type", Optional[str])
+Type = str | None
 # In the far future, we may take full control of our RST templates rather than
 # using the js-domain directives provided by Sphinx. This would give us the
 # freedom to link type names in formal param lists and param description lists
@@ -39,7 +39,7 @@ Type = NewType("Type", Optional[str])
 # text or link-having RST.
 
 #: Pathname, full or not, to an object:
-ReStructuredText = NewType("ReStructuredText", str)
+ReStructuredText = str
 
 
 class Pathname:
@@ -49,19 +49,19 @@ class Pathname:
 
     """
 
-    def __init__(self, segments):
+    def __init__(self, segments: list[str]):
         self.segments = segments
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "".join(self.segments)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Pathname(%r)>" % self.segments
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return isinstance(other, self.__class__) and self.segments == other.segments
 
-    def dotted(self):
+    def dotted(self) -> str:
         return dotted_path(self.segments)
 
 
@@ -70,7 +70,7 @@ class _NoDefault:
     troubleshoot code paths that grab ``Param.default`` without checking
     ``Param.has_default`` first."""
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<no default value>"
 
 
@@ -104,22 +104,21 @@ class Param:
     #: The description text (like all other description fields in the IR)
     #: retains any line breaks and subsequent indentation whitespace that were
     #: in the source code.
-    description: ReStructuredText = ""
+    description: ReStructuredText = ReStructuredText("")
     has_default: bool = False
     is_variadic: bool = False
-    type: Type = None
+    type: Type | None = None
     #: Return the default value of this parameter, string-formatted so it can
     #: be immediately suffixed to an equal sign in a formal param list. For
     #: example, the number 6 becomes the string "6" to create ``foo=6``. If
-    #: has_default=True, this must be set.
-    default: InitVar[Any] = NO_DEFAULT  # noqa: flake8 thinks this is a "def".
+    # : has_default=True, this must be set.
+    default: str | _NoDefault = NO_DEFAULT
 
-    def __post_init__(self, default):
-        if self.has_default and default is NO_DEFAULT:
+    def __post_init__(self) -> None:
+        if self.has_default and self.default is NO_DEFAULT:
             raise ValueError(
                 "Tried to construct a Param with has_default=True but without `default` specified."
             )
-        self.default = default
 
 
 @dataclass
@@ -172,23 +171,23 @@ class TopLevel:
     filename: str
     #: The path to the dependency, i.e., the file the object is from.
     #: Either absolute or relative to the root_for_relative_js_paths.
-    deppath: Optional[str]
+    deppath: str | None
     #: The human-readable description of the entity or '' if absent
     description: ReStructuredText
     #: Line number where the object (excluding any prefixing comment) begins
-    line: int
+    line: int | None
     #: Explanation of the deprecation (which implies True) or True or False
-    deprecated: Union[ReStructuredText, bool]
+    deprecated: ReStructuredText | bool
     #: List of preformatted textual examples
-    examples: List[str]
+    examples: list[str]
     #: List of paths to also refer the reader to
-    see_alsos: List[str]
+    see_alsos: list[str]
     #: Explicitly documented sub-properties of the object, a la jsdoc's
     #: @properties
-    properties: List["Attribute"]
+    properties: list["Attribute"]
     #: None if not exported for use by outside code. Otherwise, the Sphinx
     #: dotted path to the module it is exported from, e.g. 'foo.bar'
-    exported_from: Optional[Pathname]
+    exported_from: Pathname | None
 
 
 @dataclass
@@ -208,9 +207,9 @@ class Attribute(TopLevel, _Member):
 class Function(TopLevel, _Member):
     """A function or a method of a class"""
 
-    params: List[Param]
-    exceptions: List[Exc]  # noqa: Linter is buggy.
-    returns: List[Return]
+    params: list[Param]
+    exceptions: list[Exc]
+    returns: list[Return]
 
 
 @dataclass
@@ -221,10 +220,10 @@ class _MembersAndSupers:
     #: we'd have to pass the doclets_by_class map in and keep it around, along
     #: with a callable that would create the member IRs from it on demand.)
     #: Does not include the default constructor.
-    members: List[Union[Function, Attribute]]
+    members: list[Function | Attribute]
     #: Objects this one extends: for example, superclasses of a class or
     #: superinterfaces of an interface
-    supers: List[Pathname]
+    supers: list[Pathname]
 
 
 @dataclass
@@ -236,12 +235,13 @@ class Interface(TopLevel, _MembersAndSupers):
 class Class(TopLevel, _MembersAndSupers):
     #: The default constructor for this class. Absent if the constructor is
     #: inherited.
-    constructor: Optional[Function]
+    constructor: Function | None
     #: Whether this is an abstract class
     is_abstract: bool
     #: Interfaces this class implements
-    interfaces: List[Pathname]
+    interfaces: list[Pathname]
     # There's room here for additional fields like @example on the class doclet
     # itself. These are supported and extracted by jsdoc, but they end up in an
     # `undocumented: True` doclet and so are presently filtered out. But we do
     # have the space to include them someday.
+    params: list[Param] = field(default_factory=list)

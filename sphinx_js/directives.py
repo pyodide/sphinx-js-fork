@@ -7,11 +7,15 @@ JSDoc output, via closure. The renderer classes, able to be top-level classes,
 can access each other and collaborate.
 
 """
+from collections.abc import Iterable
 from os.path import join, relpath
+from typing import Any
 
+from docutils.nodes import Node
 from docutils.parsers.rst import Directive
 from docutils.parsers.rst.directives import flag
 from sphinx import addnodes
+from sphinx.application import Sphinx
 from sphinx.domains.javascript import JSCallable
 
 from .renderers import AutoAttributeRenderer, AutoClassRenderer, AutoFunctionRenderer
@@ -28,7 +32,7 @@ class JsDirective(Directive):
     option_spec = {"short-name": flag}
 
 
-def note_dependencies(app, dependencies):
+def note_dependencies(app: Sphinx, dependencies: Iterable[str]) -> None:
     """Note dependencies of current document.
 
     :arg app: Sphinx application object
@@ -37,13 +41,14 @@ def note_dependencies(app, dependencies):
     for fn in dependencies:
         # Dependencies in the IR are relative to `root_for_relative_paths`, itself
         # relative to the configuration directory.
-        abs = join(app._sphinxjs_analyzer._base_dir, fn)
+        analyzer = app._sphinxjs_analyzer  # type:ignore[attr-defined]
+        abs = join(analyzer._base_dir, fn)
         # Sphinx dependencies are relative to the source directory.
         rel = relpath(abs, app.srcdir)
         app.env.note_dependency(rel)
 
 
-def auto_function_directive_bound_to_app(app):
+def auto_function_directive_bound_to_app(app: Sphinx) -> type[Directive]:
     class AutoFunctionDirective(JsDirective):
         """js:autofunction directive, which spits out a js:function directive
 
@@ -52,7 +57,7 @@ def auto_function_directive_bound_to_app(app):
 
         """
 
-        def run(self):
+        def run(self) -> list[Node]:
             renderer = AutoFunctionRenderer.from_directive(self, app)
             note_dependencies(app, renderer.dependencies())
             return renderer.rst_nodes()
@@ -60,7 +65,7 @@ def auto_function_directive_bound_to_app(app):
     return AutoFunctionDirective
 
 
-def auto_class_directive_bound_to_app(app):
+def auto_class_directive_bound_to_app(app: Sphinx) -> type[Directive]:
     class AutoClassDirective(JsDirective):
         """js:autoclass directive, which spits out a js:class directive
 
@@ -81,7 +86,7 @@ def auto_class_directive_bound_to_app(app):
             }
         )
 
-        def run(self):
+        def run(self) -> list[Node]:
             renderer = AutoClassRenderer.from_directive(self, app)
             note_dependencies(app, renderer.dependencies())
             return renderer.rst_nodes()
@@ -89,7 +94,7 @@ def auto_class_directive_bound_to_app(app):
     return AutoClassDirective
 
 
-def auto_attribute_directive_bound_to_app(app):
+def auto_attribute_directive_bound_to_app(app: Sphinx) -> type[Directive]:
     class AutoAttributeDirective(JsDirective):
         """js:autoattribute directive, which spits out a js:attribute directive
 
@@ -97,7 +102,7 @@ def auto_attribute_directive_bound_to_app(app):
 
         """
 
-        def run(self):
+        def run(self) -> list[Node]:
             renderer = AutoAttributeRenderer.from_directive(self, app)
             note_dependencies(app, renderer.dependencies())
             return renderer.rst_nodes()
@@ -105,7 +110,7 @@ def auto_attribute_directive_bound_to_app(app):
     return AutoAttributeDirective
 
 
-def _members_to_exclude(arg):
+def _members_to_exclude(arg: str | None) -> set[str]:
     """Return a set of members to exclude given a comma-delim list them.
 
     Exclude none if none are passed. This differs from autodocs' behavior,
@@ -118,7 +123,7 @@ def _members_to_exclude(arg):
 class JSStaticFunction(JSCallable):
     """Like a callable but with a different prefix."""
 
-    def get_display_prefix(self):
+    def get_display_prefix(self) -> list[Any]:
         return [
             addnodes.desc_sig_keyword("static", "static"),
             addnodes.desc_sig_space(),

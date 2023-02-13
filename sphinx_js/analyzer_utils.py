@@ -1,29 +1,37 @@
 """Conveniences shared among analyzers"""
 
 import os
+from collections.abc import Callable
 from functools import wraps
 from json import dump, load
+from typing import Any, ParamSpec, TypeVar
 
 
-def program_name_on_this_platform(program):
+def program_name_on_this_platform(program: str) -> str:
     """Return the name of the executable file on the current platform, given a
     command name with no extension."""
     return program + ".cmd" if os.name == "nt" else program
 
 
 class Command:
-    def __init__(self, program):
+    def __init__(self, program: str):
         self.program = program_name_on_this_platform(program)
-        self.args = []
+        self.args: list[str] = []
 
-    def add(self, *args):
+    def add(self, *args: str) -> None:
         self.args.extend(args)
 
-    def make(self):
+    def make(self) -> list[str]:
         return [self.program] + self.args
 
 
-def cache_to_file(get_filename):
+T = TypeVar("T")
+P = ParamSpec("P")
+
+
+def cache_to_file(
+    get_filename: Callable[..., str | None]
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Return a decorator that will cache the result of ``get_filename()`` to a
     file
 
@@ -31,9 +39,9 @@ def cache_to_file(get_filename):
         decorated function
     """
 
-    def decorator(fn):
+    def decorator(fn: Callable[P, T]) -> Callable[P, T]:
         @wraps(fn)
-        def decorated(*args, **kwargs):
+        def decorated(*args: P.args, **kwargs: P.kwargs) -> Any:
             filename = get_filename(*args, **kwargs)
             if filename and os.path.isfile(filename):
                 with open(filename, encoding="utf-8") as f:
@@ -49,7 +57,7 @@ def cache_to_file(get_filename):
     return decorator
 
 
-def is_explicitly_rooted(path):
+def is_explicitly_rooted(path: str) -> bool:
     """Return whether a relative path is explicitly rooted relative to the
     cwd, rather than starting off immediately with a file or folder name.
 
@@ -60,7 +68,7 @@ def is_explicitly_rooted(path):
     return path.startswith(("../", "./")) or path in ("..", ".")
 
 
-def dotted_path(segments):
+def dotted_path(segments: list[str]) -> str:
     """Convert a JS object path (``['dir/', 'file/', 'class#',
     'instanceMethod']``) to a dotted style that Sphinx will better index.
 

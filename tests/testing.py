@@ -3,12 +3,13 @@ from os.path import dirname, join
 from shutil import rmtree
 from unittest import TestCase
 
+from pydantic import BaseModel
 from sphinx.cmd.build import main as sphinx_main
 
 from sphinx_js.jsdoc import Analyzer as JsAnalyzer
 from sphinx_js.jsdoc import jsdoc_output
 from sphinx_js.typedoc import Analyzer as TsAnalyzer
-from sphinx_js.typedoc import index_by_id, typedoc_output
+from sphinx_js.typedoc import Converter, typedoc_output
 
 
 class ThisDirTestCase(TestCase):
@@ -82,7 +83,7 @@ class TypeDocTestCase(ThisDirTestCase):
             cls._source_dir,
             "tsconfig.json",
         )
-        index_by_id({}, cls.json)
+        Converter(cls._source_dir).populate_index(cls.json)
 
 
 class TypeDocAnalyzerTestCase(TypeDocTestCase):
@@ -113,13 +114,13 @@ def dict_where(json, already_seen=None, **kwargs):
 
     """
 
-    def object_if_matches_properties(json, **kwargs):
+    def matches_properties(json, **kwargs):
         """Return the given JSON object iff all the properties and values given
         by ``kwargs`` are in it. Else, return NO_MATCH."""
         for k, v in kwargs.items():
             if json.get(k, NO_MATCH) != v:
-                return NO_MATCH
-        return json
+                return False
+        return True
 
     if already_seen is None:
         already_seen = set()
@@ -131,10 +132,19 @@ def dict_where(json, already_seen=None, **kwargs):
                 if match is not NO_MATCH:
                     return match
     elif isinstance(json, dict):
-        match = object_if_matches_properties(json, **kwargs)
-        if match is not NO_MATCH:
-            return match
+        if matches_properties(json, **kwargs):
+            return json
         for v in json.values():
+            if id(v) not in already_seen:
+                match = dict_where(v, already_seen, **kwargs)
+                if match is not NO_MATCH:
+                    return match
+    elif isinstance(json, BaseModel):
+        if matches_properties(json.__dict__, **kwargs):
+            return json
+        for k, v in json.__dict__.items():
+            if k.startswith("_"):
+                continue
             if id(v) not in already_seen:
                 match = dict_where(v, already_seen, **kwargs)
                 if match is not NO_MATCH:

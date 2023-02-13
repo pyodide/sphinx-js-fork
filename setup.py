@@ -18,11 +18,12 @@ setup(
         "Jinja2>2.0",
         "parsimonious>=0.10.0,<0.11.0",
         "Sphinx>=4.1.0,<6.0.0",
+        "pydantic",
         # Pin markupsafe because of
         # https://github.com/pallets/jinja/issues/1585
         "markupsafe==2.0.1",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.10",
     classifiers=[
         "Intended Audience :: Developers",
         "Natural Language :: English",

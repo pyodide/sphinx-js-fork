@@ -13,6 +13,15 @@ permissions:
   checks: write
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v3
+        with:
+          python-version: 3.11.1
+      - uses: pre-commit/action@v2.0.3
+
   test:
 
     runs-on: ubuntu-latest
@@ -21,7 +30,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.10', '3.11']
         experimental: [false]
 
     name: Python ${{ matrix.python-version}}
