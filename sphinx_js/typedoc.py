@@ -2,8 +2,6 @@
 
 import subprocess
 from collections.abc import Sequence
-from errno import ENOENT
-from functools import cache
 from inspect import isclass
 from json import load
 from os.path import basename, join, normpath, relpath, sep, splitext
@@ -12,7 +10,6 @@ from typing import Annotated, Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field, ValidationError
 from sphinx.application import Sphinx
-from sphinx.errors import SphinxError
 
 from . import ir
 from .analyzer_utils import Command, is_explicitly_rooted, search_node_modules

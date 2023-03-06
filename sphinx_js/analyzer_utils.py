@@ -1,13 +1,14 @@
 """Conveniences shared among analyzers"""
 
 import os
+import shutil
 from collections.abc import Callable
-from functools import wraps, cache
+from functools import cache, wraps
 from json import dump, load
 from pathlib import Path
 from typing import Any, ParamSpec, TypeVar
+
 from sphinx.errors import SphinxError
-import shutil
 
 
 def program_name_on_this_platform(program: str) -> str:
@@ -15,8 +16,9 @@ def program_name_on_this_platform(program: str) -> str:
     command name with no extension."""
     return program + ".cmd" if os.name == "nt" else program
 
+
 @cache
-def search_node_modules(cmdname: str, cmdpath : str, dir: str | Path) -> str:
+def search_node_modules(cmdname: str, cmdpath: str, dir: str | Path) -> str:
     if "SPHINX_JS_NODE_MODULES" in os.environ:
         return str(Path(os.environ["SPHINX_JS_NODE_MODULES"]) / cmdpath)
 
@@ -31,12 +33,11 @@ def search_node_modules(cmdname: str, cmdpath : str, dir: str | Path) -> str:
         if typedoc.is_file():
             return str(typedoc.resolve())
 
-
     # perhaps it's globally installed
     result = shutil.which(cmdname)
     if result:
         return result
-    
+
     raise SphinxError(
         f'{cmdname} was not found. Install it using "npm install {cmdname}".'
     )
