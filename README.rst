@@ -14,13 +14,13 @@ sphinx-js also works with TypeScript, using the TypeDoc tool in place of JSDoc a
 Setup
 =====
 
-1. Install JSDoc (or TypeDoc if you're writing TypeScript). The tool must be on your ``$PATH``, so you might want to install it globally::
+1. Install JSDoc (or TypeDoc if you're writing TypeScript).
 
-        npm install -g jsdoc
+        npm install jsdoc
 
    ...or... ::
 
-        npm install -g typedoc
+        npm install typedoc
 
    JSDoc 3.6.3 and 4.0.0 and TypeDoc 0.15.0 are known to work.
 
@@ -339,10 +339,10 @@ Caveats
 Tests
 =====
 
-Run the tests using tox, which will also install JSDoc and TypeDoc at pinned versions::
+Run the tests using nox, which will also install JSDoc and TypeDoc at pinned versions::
 
-    pip install tox
-    tox
+    pip install nox
+    nox
 
 Version History
 ===============

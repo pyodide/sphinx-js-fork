@@ -3,6 +3,7 @@
 import subprocess
 from collections.abc import Sequence
 from errno import ENOENT
+from functools import cache
 from inspect import isclass
 from json import load
 from os.path import basename, join, normpath, relpath, sep, splitext
@@ -14,7 +15,7 @@ from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
 from . import ir
-from .analyzer_utils import Command, is_explicitly_rooted
+from .analyzer_utils import Command, is_explicitly_rooted, search_node_modules
 from .suffix_tree import SuffixTree
 
 __all__ = ["Analyzer"]
@@ -25,22 +26,15 @@ def typedoc_output(
 ) -> "Project":
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
-    command = Command("typedoc")
+    typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", sphinx_conf_dir)
+    command = Command("node")
+    command.add(typedoc)
     if config_path:
         command.add("--tsconfig", normpath(join(sphinx_conf_dir, config_path)))
 
     with NamedTemporaryFile(mode="w+b") as temp:
         command.add("--json", temp.name, *abs_source_paths)
-        try:
-            subprocess.call(command.make())
-        except OSError as exc:
-            if exc.errno == ENOENT:
-                raise SphinxError(
-                    '%s was not found. Install it using "npm install -g typedoc".'
-                    % command.program
-                )
-            else:
-                raise
+        subprocess.call(command.make())
         # typedoc emits a valid JSON file even if it finds no TS files in the dir:
         return parse(load(temp))
 
