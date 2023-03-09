@@ -14,15 +14,16 @@ sphinx-js also works with TypeScript, using the TypeDoc tool in place of JSDoc a
 Setup
 =====
 
-1. Install JSDoc (or TypeDoc if you're writing TypeScript). The tool must be on your ``$PATH``, so you might want to install it globally::
+1. Install JSDoc (or TypeDoc if you're writing TypeScript).
 
-        npm install -g jsdoc
+        npm install jsdoc
 
    ...or... ::
 
-        npm install -g typedoc
+        npm install typedoc
 
-   JSDoc 3.6.3 and 4.0.0 and TypeDoc 0.15.0 are known to work.
+   JSDoc 3.6.3 and 4.0.0 and TypeDoc 0.22 are known to work.
+
 
 2. Install sphinx-js, which will pull in Sphinx itself as a dependency::
 
@@ -312,6 +313,21 @@ Configuration Reference
 
 ``jsdoc_cache``
   Path to a file where JSDoc output will be cached. If omitted, JSDoc will be run every time Sphinx is. If you have a large number of source files, it may help to configure this value. But be careful: the cache is not automatically flushed if your source code changes; you must delete it manually.
+
+How sphinx-js finds typedoc / jsdoc
+-----------------------------------
+
+1. If the environment variable ``SPHINX_JS_NODE_MODULES`` is defined, it is
+   expected to point to a ``node_modules`` folder in which typedoc / jsdoc is installed.
+
+2. If ``SPHINX_JS_NODE_MODULES`` is not defined, we look in the directory of
+   ``conf.py`` for a ``node_modules`` folder in which typedoc / jsdoc. If this is
+   not found, we look for a ``node_modules`` folder in the parent directories
+   until we make it to the root of the file system.
+
+3. We check if ``typedoc`` / ``jsdoc`` are on the PATH, if so we use that.
+
+4. If none of the previous approaches located ``typedoc`` / ``jsdoc`` we raise an error.
 
 Example
 =======
