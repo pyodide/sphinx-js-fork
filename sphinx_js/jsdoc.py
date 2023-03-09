@@ -16,7 +16,12 @@ from typing import Any, Literal, TypedDict
 from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
-from .analyzer_utils import Command, cache_to_file, is_explicitly_rooted, search_node_modules
+from .analyzer_utils import (
+    Command,
+    cache_to_file,
+    is_explicitly_rooted,
+    search_node_modules,
+)
 from .ir import (
     NO_DEFAULT,
     Attribute,
@@ -255,7 +260,6 @@ def full_path_segments(
     return PathVisitor().visit(  # type:ignore[no-any-return]
         path_and_formal_params["path"].parse(path)
     )
-
 
 
 @cache_to_file(lambda cache, *args: cache)
