@@ -6,6 +6,11 @@ from sphinx.errors import SphinxError
 from sphinx_js.analyzer_utils import search_node_modules
 
 
+@pytest.fixture(autouse=True)
+def clear_node_modules_env(monkeypatch):
+    monkeypatch.delenv("SPHINX_JS_NODE_MODULES")
+
+
 @pytest.fixture
 def global_install(tmp_path_factory, monkeypatch):
     tmpdir = tmp_path_factory.mktemp("my_program_global")
