@@ -77,9 +77,7 @@ class JsRenderer:
         (
             self._partial_path,
             self._explicit_formal_params,
-        ) = PathVisitor().parse(  # type:ignore[assignment]
-            arguments[0]
-        )
+        ) = PathVisitor().parse(arguments[0])
         self._content = content or StringList()
         self._options = options or {}
 
