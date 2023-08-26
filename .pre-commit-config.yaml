@@ -7,6 +7,7 @@ repos:
       - id: check-added-large-files
       - id: check-case-conflict
       - id: check-merge-conflict
+        exclude: README.rst
       - id: check-symlinks
       - id: check-yaml
       - id: debug-statements
@@ -39,6 +40,7 @@ repos:
           - types-docutils
           - types-parsimonious
           - types-setuptools
+          - nox
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: "v1.9.0"

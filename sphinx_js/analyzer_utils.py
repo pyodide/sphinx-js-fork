@@ -1,16 +1,46 @@
 """Conveniences shared among analyzers"""
 
 import os
+import shutil
 from collections.abc import Callable
-from functools import wraps
+from functools import cache, wraps
 from json import dump, load
+from pathlib import Path
 from typing import Any, ParamSpec, TypeVar
+
+from sphinx.errors import SphinxError
 
 
 def program_name_on_this_platform(program: str) -> str:
     """Return the name of the executable file on the current platform, given a
     command name with no extension."""
     return program + ".cmd" if os.name == "nt" else program
+
+
+@cache
+def search_node_modules(cmdname: str, cmdpath: str, dir: str | Path) -> str:
+    if "SPHINX_JS_NODE_MODULES" in os.environ:
+        return str(Path(os.environ["SPHINX_JS_NODE_MODULES"]) / cmdpath)
+
+    # We want to include "curdir" in parent_dirs, so add a garbage suffix
+    parent_dirs = (Path(dir) / "garbage").parents
+
+    # search for local install
+    for base in parent_dirs:
+        typedoc = base / "node_modules" / cmdpath
+        print(base, typedoc)
+
+        if typedoc.is_file():
+            return str(typedoc.resolve())
+
+    # perhaps it's globally installed
+    result = shutil.which(cmdname)
+    if result:
+        return result
+
+    raise SphinxError(
+        f'{cmdname} was not found. Install it using "npm install {cmdname}".'
+    )
 
 
 class Command:

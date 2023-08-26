@@ -4,6 +4,7 @@ Analyzers run jsdoc or typedoc or whatever, squirrel away their output, and
 then lazily constitute IR objects as requested.
 
 """
+import pathlib
 import subprocess
 from collections import defaultdict
 from collections.abc import Callable
@@ -16,7 +17,12 @@ from typing import Any, Literal, TypedDict
 from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
-from .analyzer_utils import Command, cache_to_file, is_explicitly_rooted
+from .analyzer_utils import (
+    Command,
+    cache_to_file,
+    is_explicitly_rooted,
+    search_node_modules,
+)
 from .ir import (
     NO_DEFAULT,
     Attribute,
@@ -262,10 +268,12 @@ def jsdoc_output(
     cache: str | None,
     abs_source_paths: list[str],
     base_dir: str,
-    sphinx_conf_dir: str,
+    sphinx_conf_dir: str | pathlib.Path,
     config_path: str | None = None,
 ) -> list[Doclet]:
-    command = Command("jsdoc")
+    jsdoc = search_node_modules("jsdoc", "jsdoc/jsdoc.js", sphinx_conf_dir)
+    command = Command("node")
+    command.add(jsdoc)
     command.add("-X", *abs_source_paths)
     if config_path:
         command.add("-c", normpath(join(sphinx_conf_dir, config_path)))

@@ -27,7 +27,7 @@ path_and_formal_params = Grammar(
 )
 
 
-class PathVisitor(NodeVisitor):
+class PathVisitor(NodeVisitor):  # type:ignore[type-arg]
     grammar = path_and_formal_params
 
     def visit_path_and_formal_params(self, node, children):

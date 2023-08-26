@@ -2,6 +2,6 @@ recursive-include sphinx_js/templates *.rst
 include LICENSE
 include CODE_OF_CONDUCT.md
 include requirements_dev.txt
-include tox.ini
+include noxfile.py
 
 recursive-include tests *.py *.rst *.ts *.json *.js *.md

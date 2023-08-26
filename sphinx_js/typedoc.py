@@ -1,5 +1,6 @@
 """Converter from TypeDoc output to IR format"""
 
+import pathlib
 import re
 import subprocess
 from collections.abc import Sequence
@@ -17,7 +18,7 @@ from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
 from . import ir
-from .analyzer_utils import Command, is_explicitly_rooted
+from .analyzer_utils import Command, is_explicitly_rooted, search_node_modules
 from .suffix_tree import SuffixTree
 
 __all__ = ["Analyzer"]
@@ -39,11 +40,13 @@ def typedoc_version_info() -> tuple[tuple[int, ...], tuple[int, ...]]:
 
 
 def typedoc_output(
-    abs_source_paths: list[str], sphinx_conf_dir: str, config_path: str
+    abs_source_paths: list[str], sphinx_conf_dir: str | pathlib.Path, config_path: str
 ) -> "Project":
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
-    command = Command("typedoc")
+    typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", sphinx_conf_dir)
+    command = Command("node")
+    command.add(typedoc)
     if config_path:
         tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
         command.add("--tsconfig", tsconfig_path)
@@ -69,7 +72,7 @@ def typedoc_output(
 
 def parse(json: dict[str, Any]) -> "Project":
     try:
-        return Project.parse_obj(json)
+        return Project.parse_obj(json)  # type:ignore[no-any-return]
     except ValidationError as exc:
         fix_exc_errors(json, exc)
         raise
@@ -872,4 +875,4 @@ def fix_exc_errors(json: Any, exc: ValidationError) -> None:
         errors.extend(errs)
 
     if errors:
-        exc._error_cache = errors
+        exc._error_cache = errors  # type:ignore[attr-defined]

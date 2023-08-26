@@ -14,15 +14,16 @@ sphinx-js also works with TypeScript, using the TypeDoc tool in place of JSDoc a
 Setup
 =====
 
-1. Install JSDoc (or TypeDoc if you're writing TypeScript). The tool must be on your ``$PATH``, so you might want to install it globally::
+1. Install JSDoc (or TypeDoc if you're writing TypeScript).
 
-        npm install -g jsdoc
+        npm install jsdoc
 
    ...or... ::
 
-        npm install -g typedoc
+        npm install typedoc
 
-   JSDoc 3.6.3 and 4.0.0 and TypeDoc 0.15.0 are known to work.
+  JSDoc 3.6.3 and 4.0.0 and TypeDoc 0.22 are known to work.
+
 
 2. Install sphinx-js, which will pull in Sphinx itself as a dependency::
 
@@ -33,29 +34,28 @@ Setup
         cd my-project
         sphinx-quickstart
 
-          > Root path for the documentation [.]: docs
+          Please enter values for the following settings (just press Enter to
+          accept a default value, if one is given in brackets).
+
+          Selected root path: .
+
+          You have two options for placing the build directory for Sphinx output.
+          Either, you use a directory "_build" within the root path, or you separate
+          "source" and "build" directories within the root path.
           > Separate source and build directories (y/n) [n]:
-          > Name prefix for templates and static dir [_]:
+
+          The project name will occur in several places in the built documentation.
           > Project name: My Project
           > Author name(s): Fred Fredson
-          > Project version []: 1.0
-          > Project release [1.0]:
+          > Project release []: 1.0
+
+          If the documents are to be written in a language other than English,
+          you can select a language here by its language code. Sphinx will then
+          translate text that it generates into that language.
+
+          For a list of supported codes, see
+          https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-language.
           > Project language [en]:
-          > Source file suffix [.rst]:
-          > Name of your master document (without suffix) [index]:
-          > Do you want to use the epub builder (y/n) [n]:
-          > autodoc: automatically insert docstrings from modules (y/n) [n]:
-          > doctest: automatically test code snippets in doctest blocks (y/n) [n]:
-          > intersphinx: link between Sphinx documentation of different projects (y/n) [n]:
-          > todo: write "todo" entries that can be shown or hidden on build (y/n) [n]:
-          > coverage: checks for documentation coverage (y/n) [n]:
-          > imgmath: include math, rendered as PNG or SVG images (y/n) [n]:
-          > mathjax: include math, rendered in the browser by MathJax (y/n) [n]:
-          > ifconfig: conditional inclusion of content based on config values (y/n) [n]:
-          > viewcode: include links to the source code of documented Python objects (y/n) [n]:
-          > githubpages: create .nojekyll file to publish the document on GitHub pages (y/n) [n]:
-          > Create Makefile? (y/n) [y]:
-          > Create Windows command file? (y/n) [y]:
 
 4. In the generated Sphinx conf.py file, turn on ``sphinx_js`` by adding it to ``extensions``::
 
@@ -314,6 +314,21 @@ Configuration Reference
 ``jsdoc_cache``
   Path to a file where JSDoc output will be cached. If omitted, JSDoc will be run every time Sphinx is. If you have a large number of source files, it may help to configure this value. But be careful: the cache is not automatically flushed if your source code changes; you must delete it manually.
 
+How sphinx-js finds typedoc / jsdoc
+-----------------------------------
+
+1. If the environment variable ``SPHINX_JS_NODE_MODULES`` is defined, it is
+   expected to point to a ``node_modules`` folder in which typedoc / jsdoc is installed.
+
+2. If ``SPHINX_JS_NODE_MODULES`` is not defined, we look in the directory of
+   ``conf.py`` for a ``node_modules`` folder in which typedoc / jsdoc. If this is
+   not found, we look for a ``node_modules`` folder in the parent directories
+   until we make it to the root of the file system.
+
+3. We check if ``typedoc`` / ``jsdoc`` are on the PATH, if so we use that.
+
+4. If none of the previous approaches located ``typedoc`` / ``jsdoc`` we raise an error.
+
 Example
 =======
 
@@ -340,10 +355,10 @@ Caveats
 Tests
 =====
 
-Run the tests using tox, which will also install JSDoc and TypeDoc at pinned versions::
+Run the tests using nox, which will also install JSDoc and TypeDoc at pinned versions::
 
-    pip install tox
-    tox
+    pip install nox
+    nox
 
 Version History
 ===============
