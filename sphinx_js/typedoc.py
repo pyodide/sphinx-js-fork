@@ -120,8 +120,20 @@ class Converter:
 
         children.append(node.children)
         if isinstance(node, Accessor):
-            children.append(node.getSignature)
-            children.append(node.setSignature)
+            if node.getSignature:
+                if isinstance(node.getSignature, list):
+                    sig = node.getSignature[0]
+                else:
+                    sig = node.getSignature
+                node.getSignature = sig
+                children.append([sig])
+            if node.setSignature:
+                if isinstance(node.setSignature, list):
+                    sig = node.setSignature[0]
+                else:
+                    sig = node.setSignature
+                node.setSignature = sig
+                children.append([sig])
 
         if isinstance(node, Callable):
             children.append(node.signatures)
@@ -129,9 +141,11 @@ class Converter:
         if isinstance(node, Signature):
             children.append(node.parameters)
             children.append(node.typeParameter)
+            children.append(node.typeParameters)
 
         if isinstance(node, ClassOrInterface):
             children.append(node.typeParameter)
+            children.append(node.typeParameters)
 
         for child in (c for l in children for c in l):
             self._populate_index_inner(
@@ -253,10 +267,31 @@ class Source(BaseModel):
     line: int
 
 
+class Summary(BaseModel):
+    kind: Literal["text"]
+    text: str
+
+
+class Tag(BaseModel):
+    tag: str
+    content: list[Summary]
+
+
 class Comment(BaseModel):
     returns: str = ""
     shortText: str | None
     text: str | None
+    summary: list[Summary] | None
+    blockTags: list[Tag] = []
+
+    def get_returns(self) -> str:
+        result = self.returns.strip()
+        if result:
+            return result
+        for tag in self.blockTags:
+            if tag.tag == "@returns":
+                return tag.content[0].text.strip()
+        return ""
 
 
 class Flags(BaseModel):
@@ -359,17 +394,17 @@ class NodeBase(TopLevelProperties):
 
 class Accessor(NodeBase):
     kindString: Literal["Accessor"]
-    getSignature: list["Signature"] = []
-    setSignature: list["Signature"] = []
+    getSignature: "list[Signature] | Signature" = []
+    setSignature: "list[Signature] | Signature" = []
 
     def to_ir(self, converter: Converter) -> tuple[ir.Attribute, Sequence["Node"]]:
         if self.getSignature:
             # There's no signature to speak of for a getter: only a return type.
-            type = self.getSignature[0].type
+            type = self.getSignature.type  # type: ignore[union-attr]
         else:
             # ES6 says setters have exactly 1 param. I'm not sure if they
             # can have multiple signatures, though.
-            type = self.setSignature[0].parameters[0].type
+            type = self.setSignature.parameters[0].type  # type: ignore[union-attr]
         res = ir.Attribute(
             type=type.render_name(converter),
             **self.member_properties(),
@@ -410,6 +445,7 @@ class ClassOrInterface(NodeBase):
     implementedTypes: list["TypeD"] = []
     children: Sequence["ClassChild"] = []
     typeParameter: list["TypeParameter"] = []
+    typeParameters: list["TypeParameter"] = []
 
     def _related_types(
         self,
@@ -466,7 +502,9 @@ class ClassOrInterface(NodeBase):
                 # This really, really should happen exactly once per class.
                 # Type parameter cannot appear on constructor declaration so copy
                 # it down from the class.
-                child.signatures[0].typeParameter = self.typeParameter
+                child.signatures[0].typeParameter = (
+                    self.typeParameter or self.typeParameters
+                )
                 constructor = child.to_ir(converter)[0]
                 continue
             result = child.to_ir(converter)[0]
@@ -486,7 +524,9 @@ class Class(ClassOrInterface):
             supers=self._related_types(converter, kind="extendedTypes"),
             is_abstract=self.flags.isAbstract,
             interfaces=self._related_types(converter, kind="implementedTypes"),
-            type_params=[x.to_ir(converter) for x in self.typeParameter],
+            type_params=[
+                x.to_ir(converter) for x in (self.typeParameter or self.typeParameters)
+            ],
             **self._top_level_properties(),
         )
         return result, self.children
@@ -569,7 +609,10 @@ ClassChild = Annotated[Accessor | Callable | Member, Field(discriminator="kindSt
 
 def make_description(comment: Comment) -> str:
     """Construct a single comment string from a fancy object."""
-    ret = "\n\n".join(text for text in [comment.shortText, comment.text] if text)
+    if comment.summary:
+        ret = comment.summary[0].text
+    else:
+        ret = "\n\n".join(text for text in [comment.shortText, comment.text] if text)
     return ret.strip()
 
 
@@ -625,6 +668,7 @@ class Signature(TopLevelProperties):
 
     name: str
     typeParameter: list[TypeParameter] = []
+    typeParameters: list[TypeParameter] = []
     parameters: list["Param"] = []
     sources: list[Source] = []
     type: "TypeD"  # This is the return type!
@@ -644,10 +688,11 @@ class Signature(TopLevelProperties):
         if self.type.type == "intrinsic" and self.type.name == "void":
             # Returns nothing
             return []
+
         return [
             ir.Return(
                 type=self.type.render_name(converter),
-                description=self.comment.returns.strip(),
+                description=self.comment.get_returns(),
             )
         ]
 
@@ -669,7 +714,9 @@ class Signature(TopLevelProperties):
             exceptions=[],
             # Though perhaps technically true, it looks weird to the user
             # (and in the template) if constructors have a return value:
-            type_params=[x.to_ir(converter) for x in self.typeParameter],
+            type_params=[
+                x.to_ir(converter) for x in (self.typeParameter or self.typeParameters)
+            ],
             returns=self.return_type(converter)
             if self.kindString != "Constructor signature"
             else [],

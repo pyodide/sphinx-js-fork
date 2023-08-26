@@ -12,7 +12,7 @@ def tests(session: Session) -> None:
 
 
 @nox.session(python=["3.10", "3.11"])
-@nox.parametrize("typedoc", ["0.20", "0.21", "0.22"])
+@nox.parametrize("typedoc", ["0.20", "0.21", "0.22", "0.23"])
 def test_typedoc(session: Session, typedoc: str) -> None:
 
     session.install("-r", "requirements_dev.txt")

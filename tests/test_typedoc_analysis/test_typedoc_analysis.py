@@ -2,10 +2,11 @@ from json import loads
 from unittest import TestCase
 
 import pytest
+from conftest import TYPEDOC_VERSION
 
 from sphinx_js.ir import Attribute, Class, Function, Param, Pathname, Return, TypeParam
 from sphinx_js.renderers import AutoClassRenderer, AutoFunctionRenderer
-from sphinx_js.typedoc import Comment, Converter, parse
+from sphinx_js.typedoc import Comment, Converter, Summary, parse
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
@@ -105,7 +106,11 @@ class PathSegmentsTests(TypeDocTestCase):
 
     def commented_object(self, comment, **kwargs):
         """Return the object from ``json`` having the given comment short-text."""
-        return dict_where(self.json, comment=Comment(shortText=comment), **kwargs)
+        if TYPEDOC_VERSION >= (0, 23, 0):
+            comment = Comment(summary=[Summary(kind="text", text=comment)])
+        else:
+            comment = Comment(shortText=comment)
+        return dict_where(self.json, comment=comment, **kwargs)
 
     def commented_object_path(self, comment, **kwargs):
         """Return the path segments of the object with the given comment."""

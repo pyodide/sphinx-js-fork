@@ -1,3 +1,5 @@
+from conftest import TYPEDOC_VERSION
+
 from tests.testing import SphinxBuildTestCase
 
 
@@ -40,14 +42,17 @@ class TextBuilderTests(SphinxBuildTestCase):
         These are all TypeScript-specific features.
 
         """
+        CLASS_COMMENT = (
+            "   A definition of a class\n\n" if TYPEDOC_VERSION >= (0, 23, 0) else ""
+        )
+
         # The quotes around ClassDefinition() must be some weird decision in
         # Sphinx's text output. I don't care if they go away in a future
         # version of Sphinx. It doesn't affect the HTML output.
         self._file_contents_eq(
             "autoclass_class_with_interface_and_supers",
             "class ClassWithSupersAndInterfacesAndAbstract()\n"
-            "\n"
-            "   *abstract*\n"
+            "\n" + CLASS_COMMENT + "   *abstract*\n"
             "\n"
             '   *exported from* "class"\n'
             "\n"
