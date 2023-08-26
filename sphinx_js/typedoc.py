@@ -25,9 +25,9 @@ __all__ = ["Analyzer"]
 
 
 @cache
-def typedoc_version_info() -> tuple[tuple[int, ...], tuple[int, ...]]:
+def typedoc_version_info(typedoc: str) -> tuple[tuple[int, ...], tuple[int, ...]]:
     result = subprocess.run(
-        ["typedoc", "--version"], capture_output=True, encoding="utf8"
+        [typedoc, "--version"], capture_output=True, encoding="utf8"
     )
     lines = result.stdout.strip().splitlines()
     m = re.search(r"TypeDoc ([0-9]+\.[0-9]+\.[0-9]+)", lines[0])
@@ -50,7 +50,7 @@ def typedoc_output(
     if config_path:
         tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
         command.add("--tsconfig", tsconfig_path)
-    typedoc_version, _ = typedoc_version_info()
+    typedoc_version, _ = typedoc_version_info(typedoc)
     if typedoc_version >= (0, 22, 0):
         command.add("--entryPointStrategy", "expand")
 
