@@ -4,6 +4,7 @@ Analyzers run jsdoc or typedoc or whatever, squirrel away their output, and
 then lazily constitute IR objects as requested.
 
 """
+import pathlib
 import subprocess
 from collections import defaultdict
 from collections.abc import Callable
@@ -267,7 +268,7 @@ def jsdoc_output(
     cache: str | None,
     abs_source_paths: list[str],
     base_dir: str,
-    sphinx_conf_dir: str,
+    sphinx_conf_dir: str | pathlib.Path,
     config_path: str | None = None,
 ) -> list[Doclet]:
     jsdoc = search_node_modules("jsdoc", "jsdoc/jsdoc.js", sphinx_conf_dir)

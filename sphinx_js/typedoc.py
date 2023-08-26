@@ -1,5 +1,6 @@
 """Converter from TypeDoc output to IR format"""
 
+import pathlib
 import subprocess
 from collections.abc import Sequence
 from inspect import isclass
@@ -19,7 +20,7 @@ __all__ = ["Analyzer"]
 
 
 def typedoc_output(
-    abs_source_paths: list[str], sphinx_conf_dir: str, config_path: str
+    abs_source_paths: list[str], sphinx_conf_dir: str | pathlib.Path, config_path: str
 ) -> "Project":
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
@@ -38,7 +39,7 @@ def typedoc_output(
 
 def parse(json: dict[str, Any]) -> "Project":
     try:
-        return Project.parse_obj(json)
+        return Project.parse_obj(json)  # type:ignore[no-any-return]
     except ValidationError as exc:
         fix_exc_errors(json, exc)
         raise
@@ -841,4 +842,4 @@ def fix_exc_errors(json: Any, exc: ValidationError) -> None:
         errors.extend(errs)
 
     if errors:
-        exc._error_cache = errors
+        exc._error_cache = errors  # type:ignore[attr-defined]
