@@ -10,6 +10,10 @@ from sphinx_js.typedoc import Comment, Converter, Summary, parse
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
+def remove_format(s):
+    return s.replace("**", "").replace(r"\ ", "")
+
+
 class PopulateIndexTests(TestCase):
     def test_top_level_function(self):
         """Make sure nodes get indexed."""
@@ -528,8 +532,6 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         assert obj.type == "Partial<string>"
 
     def test_constrained_by_property(self):
-        def remove_format(s):
-            return s.replace("**", "").replace(r"\ ", "")
 
         obj = self.analyzer.get_object(["objProps"])
         assert remove_format(obj.params[0].type) == "{label: string}"
@@ -538,8 +540,7 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
             == "{[key: number]: string, label: string}"
         )
 
-    @pytest.mark.xfail(reason="reflection not implemented yet")
     def test_optional_property(self):
         """Make sure optional properties render properly."""
         obj = self.analyzer.get_object(["option"])
-        assert obj.type == "{a: number; b?: string}"
+        assert remove_format(obj.type) == "{a: number, b?: string}"
