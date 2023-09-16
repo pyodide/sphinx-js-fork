@@ -97,9 +97,16 @@ export function getProperty<T, K extends keyof T>(obj: T, key: K) {
   return obj[key];
 }
 
-export function create<T>(c: { new (): T }): T {
+export class A{}
+
+export function create1(c: { new (x: number): A }): A {
+  return new c(7);
+}
+
+export function create2<T>(c: { new (): T }): T {
   return new c();
 }
+
 
 /**
  * @typeParam S - The type we contain

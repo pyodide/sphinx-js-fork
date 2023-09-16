@@ -144,7 +144,7 @@ class Converter:
         if isinstance(node, (Callable, TypeLiteral)):
             children.append(node.signatures)
 
-        if isinstance(node, Member) and node.type.type == "reflection":
+        if isinstance(node, (Member, Param)) and isinstance(node.type, ReflectionType):
             children.append([node.type.declaration])
 
         if isinstance(node, Signature):
@@ -840,7 +840,20 @@ class ReflectionType(TypeBase):
 
     def _render_name_root(self, converter: Converter) -> str:
         if isinstance(self.declaration, TypeLiteral) and self.declaration.signatures:
-            return self.declaration.signatures[0].type._render_name_root(converter)
+            return self.declaration.signatures[0].type.render_name(converter)
+        if isinstance(self.declaration, Callable):
+            sig = self.declaration.signatures[0]
+            params = []
+            for param in sig.parameters:
+                name = param.name
+                type_name = param.type.render_name(converter)
+                params.append(f"{name}: {type_name}")
+            params_str = ", ".join(params)
+            ret = sig.return_type(converter)[0].type
+            sig_str = f"({params_str}): {ret}"
+            if self.declaration.kindString == "Constructor":
+                sig_str = f"{{new {sig_str}}}"
+            return sig_str
         return "<TODO: reflection>"
 
 
