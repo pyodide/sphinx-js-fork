@@ -141,8 +141,11 @@ class Converter:
                 node.setSignature = sig
                 children.append([sig])
 
-        if isinstance(node, Callable):
+        if isinstance(node, (Callable, TypeLiteral)):
             children.append(node.signatures)
+
+        if isinstance(node, Member) and node.type.type == "reflection":
+            children.append([node.type.declaration])
 
         if isinstance(node, Signature):
             children.append(node.parameters)
@@ -419,6 +422,21 @@ class Accessor(NodeBase):
         return res, self.children
 
 
+def callable_to_ir(
+    self: "Callable | TypeLiteral", converter: Converter
+) -> tuple[ir.Function | None, Sequence["Node"]]:
+    # There's really nothing in these; all the interesting bits are in
+    # the contained 'Call signature' keys. We support only the first
+    # signature at the moment, because to do otherwise would create
+    # multiple identical pathnames to the same function, which would
+    # cause the suffix tree to raise an exception while being built. An
+    # eventual solution might be to store the signatures in a one-to-
+    # many attr of Functions.
+    first_sig = self.signatures[0]  # Should always have at least one
+    first_sig.sources = self.sources
+    return first_sig.to_ir(converter)
+
+
 class Callable(NodeBase):
     kindString: Literal[
         "Constructor",
@@ -433,16 +451,7 @@ class Callable(NodeBase):
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
-        # There's really nothing in these; all the interesting bits are in
-        # the contained 'Call signature' keys. We support only the first
-        # signature at the moment, because to do otherwise would create
-        # multiple identical pathnames to the same function, which would
-        # cause the suffix tree to raise an exception while being built. An
-        # eventual solution might be to store the signatures in a one-to-
-        # many attr of Functions.
-        first_sig = self.signatures[0]  # Should always have at least one
-        first_sig.sources = self.sources
-        return first_sig.to_ir(converter)
+        return callable_to_ir(self, converter)
 
 
 class ClassOrInterface(NodeBase):
@@ -563,7 +572,15 @@ class Member(NodeBase):
     ]
     type: "TypeD"
 
-    def to_ir(self, converter: Converter) -> tuple[ir.Attribute, Sequence["Node"]]:
+    def to_ir(
+        self, converter: Converter
+    ) -> tuple[ir.Attribute | ir.Function | None, Sequence["Node"]]:
+        if (
+            self.type.type == "reflection"
+            and isinstance(self.type.declaration, TypeLiteral)
+            and self.type.declaration.signatures
+        ):
+            return self.type.declaration.to_ir(converter)
         result = ir.Attribute(
             type=self.type.render_name(converter),
             **self.member_properties(),
@@ -598,6 +615,16 @@ class ExternalModule(NodeBase):
         return make_filepath_segments(rel)
 
 
+class TypeLiteral(NodeBase):
+    kindString: Literal["Type literal"]
+    signatures: list["Signature"] = []
+
+    def to_ir(
+        self, converter: Converter
+    ) -> tuple[ir.Function | None, Sequence["Node"]]:
+        return callable_to_ir(self, converter)
+
+
 class OtherNode(NodeBase):
     kindString: Literal[
         "Enumeration",
@@ -610,7 +637,14 @@ class OtherNode(NodeBase):
 
 
 Node = Annotated[
-    Accessor | Callable | Class | ExternalModule | Interface | Member | OtherNode,
+    Accessor
+    | Callable
+    | Class
+    | ExternalModule
+    | Interface
+    | Member
+    | OtherNode
+    | TypeLiteral,
     Field(discriminator="kindString"),
 ]
 
@@ -712,6 +746,10 @@ class Signature(TopLevelProperties):
         if self.inheritedFrom is not None:
             if self.comment == Comment():
                 return None, []
+        if self.path[-1] == "__type":
+            self.path = self.path[:-1]
+            self.path[-1] = self.path[-1].removesuffix(".")
+            self.name = self.path[-1]
         # This is the real meat of a function, method, or constructor.
         #
         # Constructors' .name attrs end up being like 'new Foo'. They
@@ -798,8 +836,11 @@ class ReferenceType(TypeBase):
 
 class ReflectionType(TypeBase):
     type: Literal["reflection"]
+    declaration: Node
 
     def _render_name_root(self, converter: Converter) -> str:
+        if isinstance(self.declaration, TypeLiteral) and self.declaration.signatures:
+            return self.declaration.signatures[0].type._render_name_root(converter)
         return "<TODO: reflection>"
 
 

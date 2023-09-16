@@ -456,13 +456,14 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         assert obj.params[0].type == "T[]"
         assert obj.returns[0].type == "T[]"
 
-    @pytest.mark.xfail(reason="reflection not implemented yet")
     def test_generic_member(self):
         """Make sure members of a class have their type params taken into
         account."""
         obj = self.analyzer.get_object(["add"])
-        assert obj.type == "T"
+        assert len(obj.params) == 2
         assert obj.params[0].type == "T"
+        assert obj.params[1].type == "T"
+        assert obj.returns[0].type == "T"
 
     def test_constrained_by_interface(self):
         """Make sure ``extends SomeInterface`` constraints are rendered."""
