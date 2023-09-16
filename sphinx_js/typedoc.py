@@ -48,8 +48,10 @@ def typedoc_output(
     typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", sphinx_conf_dir)
     typedoc_version, _ = typedoc_version_info(typedoc)
     command = Command("node")
-    if typedoc_version >= (0, 24, 0):
-        os.environ["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[2])
+    os.environ["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[2])
+    if typedoc_version >= (0, 25, 0):
+        command.add(str(Path(__file__).parent / "typedoc_0.25.mjs"))
+    elif typedoc_version >= (0, 24, 0):
         command.add(str(Path(__file__).parent / "typedoc_0.24.mjs"))
     else:
         command.add(typedoc)
