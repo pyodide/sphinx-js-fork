@@ -537,3 +537,22 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         """Make sure optional properties render properly."""
         obj = self.analyzer.get_object(["option"])
         assert obj.type == "{a: number, b?: string}"
+
+    def test_code_in_description(self):
+        if TYPEDOC_VERSION < (0, 23, 0):
+            pytest.xfail("Need typedoc version 0.23 or greater")
+        obj = self.analyzer.get_object(["codeInDescription"])
+        assert (
+            obj.description
+            == """\
+Code 1 had ``single ticks around it``.
+Code 2 has ``double ticks around it``.
+Code 3 has a :sphinx:role:`before it`.
+
+.. code-block:: js
+
+    A JS code pen!
+
+
+And some closing words."""
+        )

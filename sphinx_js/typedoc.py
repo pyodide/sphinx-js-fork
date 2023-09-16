@@ -4,6 +4,7 @@ import os
 import pathlib
 import re
 import subprocess
+import textwrap
 from collections.abc import Sequence
 from errno import ENOENT
 from functools import cache
@@ -277,7 +278,7 @@ class Source(BaseModel):
 
 
 class Summary(BaseModel):
-    kind: Literal["text"]
+    kind: Literal["text", "code"]
     text: str
 
 
@@ -288,9 +289,11 @@ class Tag(BaseModel):
 
 class Comment(BaseModel):
     returns: str = ""
+    # shortText and text are for version < 0.23
     shortText: str | None
     text: str | None
-    summary: list[Summary] | None
+    # summary and blockTags are for version >= 0.23
+    summary: list[Summary] = []
     blockTags: list[Tag] = []
 
     def get_returns(self) -> str:
@@ -677,11 +680,46 @@ ClassChild = Annotated[Accessor | Callable | Member, Field(discriminator="kindSt
 
 def make_description(comment: Comment) -> str:
     """Construct a single comment string from a fancy object."""
-    if comment.summary:
-        ret = comment.summary[0].text
-    else:
-        ret = "\n\n".join(text for text in [comment.shortText, comment.text] if text)
-    return ret.strip()
+    if not (comment.summary or comment.shortText or comment.text):
+        return ""
+
+    if comment.shortText or comment.text:
+        # version <0.23
+        return "\n\n".join(
+            text for text in [comment.shortText, comment.text] if text
+        ).strip()
+
+    # version 0.23
+    content = []
+    prev = ""
+    for s in comment.summary:
+        if s.kind == "text":
+            prev = s.text
+            content.append(prev)
+            continue
+        # code
+        if s.text.startswith("```"):
+            first_line, rest = s.text.split("\n", 1)
+            mid, _last_line = rest.rsplit("\n", 1)
+            code_type = first_line.removeprefix("```")
+            start = f".. code-block:: {code_type}\n\n"
+            codeblock = textwrap.indent(mid, " " * 4)
+            end = "\n\n"
+            content.append(start + codeblock + end)
+            # A code pen
+            continue
+
+        if s.text.startswith("``"):
+            # Sphinx-style escaped, leave it alone.
+            content.append(s.text)
+            continue
+        if prev.endswith(":"):
+            # A sphinx role, leave it alone
+            content.append(s.text)
+            continue
+        # Used single uptick with code, put double upticks
+        content.append(f"`{s.text}`")
+    return "".join(content)
 
 
 class TypeParameter(Base):

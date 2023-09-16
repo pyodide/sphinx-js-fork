@@ -130,3 +130,18 @@ export function objProps(
 ) {}
 
 export let option: {a: number; b?: string};
+
+
+/**
+ * Code 1 had `single ticks around it`.
+ * Code 2 has ``double ticks around it``.
+ * Code 3 has a :sphinx:role:`before it`.
+ *
+ * ```js
+ * A JS code pen!
+ * ```
+ * And some closing words.
+ */
+export function codeInDescription() {
+
+}
