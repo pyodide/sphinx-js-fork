@@ -618,6 +618,31 @@ class ExternalModule(NodeBase):
 class TypeLiteral(NodeBase):
     kindString: Literal["Type literal"]
     signatures: list["Signature"] = []
+    indexSignature: "Signature | None" = None
+    children: Sequence["Member"] = []
+
+    def render(self, converter: Converter) -> str:
+        if self.signatures:
+            return self.signatures[0].type.render_name(converter)
+        children = []
+        index_sig = self.indexSignature
+        if index_sig:
+            assert len(index_sig.parameters) == 1
+            key = index_sig.parameters[0]
+            keyname = key.name
+            keytype = key.type.render_name(converter)
+            valuetype = index_sig.type.render_name(converter)
+            children.append(rf"\ **[{keyname}:** {keytype}\ **]:** {valuetype}")
+
+        for child in self.children:
+            maybe_optional = ""
+            if child.flags.isOptional:
+                maybe_optional = "?"
+            child_type_name = child.type.render_name(converter)
+            children.append(
+                r"\ **" + child.name + maybe_optional + ":** " + child_type_name
+            )
+        return r"\ **{**\ " + r"\ **,** ".join(children) + r"\ **}**\ "
 
     def to_ir(
         self, converter: Converter
@@ -647,6 +672,7 @@ Node = Annotated[
     | TypeLiteral,
     Field(discriminator="kindString"),
 ]
+
 
 ClassChild = Annotated[Accessor | Callable | Member, Field(discriminator="kindString")]
 
@@ -707,7 +733,11 @@ class Param(Base):
 
 class Signature(TopLevelProperties):
     kindString: Literal[
-        "Constructor signature", "Call signature", "Get signature", "Set signature"
+        "Constructor signature",
+        "Call signature",
+        "Get signature",
+        "Set signature",
+        "Index signature",
     ]
 
     name: str
@@ -839,8 +869,9 @@ class ReflectionType(TypeBase):
     declaration: Node
 
     def _render_name_root(self, converter: Converter) -> str:
-        if isinstance(self.declaration, TypeLiteral) and self.declaration.signatures:
-            return self.declaration.signatures[0].type.render_name(converter)
+        if isinstance(self.declaration, TypeLiteral):
+            return self.declaration.render(converter)
+
         if isinstance(self.declaration, Callable):
             sig = self.declaration.signatures[0]
             params = []

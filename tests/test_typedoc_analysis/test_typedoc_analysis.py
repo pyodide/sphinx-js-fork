@@ -527,10 +527,16 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         obj = self.analyzer.get_object(["partial"])
         assert obj.type == "Partial<string>"
 
-    @pytest.mark.xfail(reason="reflection not implemented yet")
     def test_constrained_by_property(self):
+        def remove_format(s):
+            return s.replace("**", "").replace(r"\ ", "")
+
         obj = self.analyzer.get_object(["objProps"])
-        assert obj.params[0].type == "{label: string}"
+        assert remove_format(obj.params[0].type) == "{label: string}"
+        assert (
+            remove_format(obj.params[1].type)
+            == "{[key: number]: string, label: string}"
+        )
 
     @pytest.mark.xfail(reason="reflection not implemented yet")
     def test_optional_property(self):

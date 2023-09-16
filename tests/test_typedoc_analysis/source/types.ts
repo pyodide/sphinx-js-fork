@@ -124,7 +124,9 @@ export let partial: Partial<string>;
 
 // Complex: nested nightmares that show our ability to handle compound typing constructs
 
-export function objProps(a: {label: string}) {
-}
+export function objProps(
+  a: { label: string },
+  b: { label: string; [key: number]: string }
+) {}
 
 export let option: {a: number; b?: string};
