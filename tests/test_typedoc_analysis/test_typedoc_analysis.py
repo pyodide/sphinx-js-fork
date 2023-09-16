@@ -515,6 +515,8 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
     def test_constrained_by_constructor(self):
         """Make sure ``new ()`` expressions and, more generally, per-property
         constraints are rendered properly."""
+        if TYPEDOC_VERSION < (0, 22, 0):
+            pytest.xfail("Need typedoc 0.22 or later")
         obj = self.analyzer.get_object(["create1"])
         assert obj.params[0].type == "{new (x: number): A}"
         obj = self.analyzer.get_object(["create2"])
