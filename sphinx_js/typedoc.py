@@ -632,17 +632,15 @@ class TypeLiteral(NodeBase):
             keyname = key.name
             keytype = key.type.render_name(converter)
             valuetype = index_sig.type.render_name(converter)
-            children.append(rf"\ **[{keyname}:** {keytype}\ **]:** {valuetype}")
+            children.append(f"[{keyname}: {keytype}]: {valuetype}")
 
         for child in self.children:
             maybe_optional = ""
             if child.flags.isOptional:
                 maybe_optional = "?"
             child_type_name = child.type.render_name(converter)
-            children.append(
-                r"\ **" + child.name + maybe_optional + ":** " + child_type_name
-            )
-        return r"\ **{**\ " + r"\ **,** ".join(children) + r"\ **}**\ "
+            children.append(child.name + maybe_optional + ": " + child_type_name)
+        return "{" + ", ".join(children) + "}"
 
     def to_ir(
         self, converter: Converter
