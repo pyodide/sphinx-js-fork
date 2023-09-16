@@ -17,7 +17,7 @@ def global_install(tmp_path_factory, monkeypatch):
     my_program = tmpdir / "my_program"
     my_program.write_text("")
     my_program.chmod(0o777)
-    monkeypatch.setenv("PATH", tmpdir, prepend=":")
+    monkeypatch.setenv("PATH", str(tmpdir), prepend=":")
     return tmpdir
 
 
@@ -43,7 +43,7 @@ def local_install(no_local_install):
 @pytest.fixture
 def env_install(monkeypatch):
     env_path = Path("/a/b/c")
-    monkeypatch.setenv("SPHINX_JS_NODE_MODULES", env_path)
+    monkeypatch.setenv("SPHINX_JS_NODE_MODULES", str(env_path))
     return env_path / my_prog_path
 
 
