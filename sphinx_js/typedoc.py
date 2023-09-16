@@ -1,5 +1,6 @@
 """Converter from TypeDoc output to IR format"""
 
+import os
 import pathlib
 import re
 import subprocess
@@ -45,19 +46,24 @@ def typedoc_output(
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
     typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", sphinx_conf_dir)
+    typedoc_version, _ = typedoc_version_info(typedoc)
     command = Command("node")
-    command.add(typedoc)
+    if typedoc_version >= (0, 24, 0):
+        os.environ["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[2])
+        command.add(str(Path(__file__).parent / "typedoc_0.24.mjs"))
+    else:
+        command.add(typedoc)
+    if typedoc_version >= (0, 22, 0):
+        command.add("--entryPointStrategy", "expand")
+
     if config_path:
         tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
         command.add("--tsconfig", tsconfig_path)
-    typedoc_version, _ = typedoc_version_info(typedoc)
-    if typedoc_version >= (0, 22, 0):
-        command.add("--entryPointStrategy", "expand")
 
     with NamedTemporaryFile(mode="w+b") as temp:
         command.add("--json", temp.name, *abs_source_paths)
         try:
-            subprocess.run(command.make())
+            subprocess.run(command.make(), check=True)
         except OSError as exc:
             if exc.errno == ENOENT:
                 raise SphinxError(
@@ -474,10 +480,14 @@ class ClassOrInterface(NodeBase):
             )
 
         for t in orig_types:
-            if t.type == "reference" and t.id is not None:
-                rtype = converter.index[t.id]
-                pathname = ir.Pathname(rtype.path)
-                types.append(pathname)
+            if t.type != "reference":
+                continue
+            id = t.id or t.target
+            if not id:
+                continue
+            rtype = converter.index[id]
+            pathname = ir.Pathname(rtype.path)
+            types.append(pathname)
             # else it's some other thing we should go implement
         return types
 
@@ -776,6 +786,7 @@ class ReferenceType(TypeBase):
     type: Literal["reference", "intrinsic"]
     name: str
     id: int | None
+    target: Any
 
     def _render_name_root(self, converter: Converter) -> str:
         # test_generic_member() (currently skipped) tests this.
