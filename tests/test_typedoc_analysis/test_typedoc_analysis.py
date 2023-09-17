@@ -559,6 +559,8 @@ And some closing words."""
 
 
     def test_destructured(self):
+        if TYPEDOC_VERSION < (0, 23, 0):
+            pytest.xfail("Need typedoc version 0.23 or greater")
         obj = self.analyzer.get_object(["destructureTest"])
         assert obj.params[0].name == "options.a"
         assert obj.params[0].type == "string"
