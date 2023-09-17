@@ -557,7 +557,6 @@ Code 3 has a :sphinx:role:`before it`.
 And some closing words."""
         )
 
-
     def test_destructured(self):
         if TYPEDOC_VERSION < (0, 23, 0):
             pytest.xfail("Need typedoc version 0.23 or greater")
