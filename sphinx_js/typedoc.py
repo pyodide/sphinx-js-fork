@@ -806,23 +806,80 @@ class Signature(TopLevelProperties):
             )
         ]
 
+    def _fix_type_suffix(self) -> None:
+        if self.path[-1] == "__type":
+            self.path = self.path[:-1]
+            self.path[-1] = self.path[-1].removesuffix(".")
+            self.name = self.path[-1]
+
+    def _destructure_param(self, param: Param) -> list[Param]:
+        """We want to document a destructured argument as if it were several
+        separate arguments. This finds complex inline object types in the arguments
+        list of a function and "destructures" them into separately documented arguments.
+
+        E.g., a function
+
+            /**
+            * @param options
+            * @destructure options
+            */
+            function f({x , y } : {
+                /** The x value */
+                x : number,
+                /** The y value */
+                y : string
+            }){ ... }
+
+        should be documented like:
+
+            options.x (number) The x value
+            options.y (number) The y value
+        """
+        type = param.type
+        assert isinstance(type, ReflectionType)
+        decl = type.declaration
+        result = []
+        for child in decl.children:
+            assert isinstance(child, Member)
+            child_param = Param(
+                name=param.name + "." + child.name, flags=Flags(), type=child.type
+            )
+            result.append(child_param)
+        return result
+
+    def _destructure_params(self) -> list[Param]:
+        destructure_targets = []
+        for tag in self.comment.blockTags:
+            if tag.tag == "@destructure":
+                destructure_targets = tag.content[0].text.split(" ")
+                break
+
+        if not destructure_targets:
+            return self.parameters
+
+        params = []
+        for p in self.parameters:
+            if p.name in destructure_targets:
+                params.extend(self._destructure_param(p))
+        return params
+
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
         if self.inheritedFrom is not None:
             if self.comment == Comment():
                 return None, []
-        if self.path[-1] == "__type":
-            self.path = self.path[:-1]
-            self.path[-1] = self.path[-1].removesuffix(".")
-            self.name = self.path[-1]
+
+        self._fix_type_suffix()
+        params = self._destructure_params()
+
         # This is the real meat of a function, method, or constructor.
         #
         # Constructors' .name attrs end up being like 'new Foo'. They
         # should probably be called "constructor", but I'm not bothering
         # with that yet because nobody uses that attr on constructors atm.
         result = ir.Function(
-            params=[p.to_ir(converter) for p in self.parameters],
+            params=[p.to_ir(converter) for p in params],
             # Exceptions are discouraged in TS as being unrepresentable in its
             # type system. More importantly, TypeDoc does not support them.
             exceptions=[],

@@ -145,3 +145,38 @@ export let option: {a: number; b?: string};
 export function codeInDescription() {
 
 }
+
+/**
+ * An example with destructured args
+ *
+ * @param options
+ * @param options.a - The 'a' string.
+ * @param options.b - The 'b' string.
+ * @destructure options
+ */
+export function destructureTest({ a, b }: { a: string; b: { c: string } }) {}
+
+/**
+ * An example with destructured args
+ *
+ * @param options
+ * @destructure options
+ */
+export function destructureTest2({
+  a,
+  b,
+}: {
+  /**  The 'a' string. */
+  a: string;
+  /** The 'b' string. */
+  b: { c: string };
+}) {}
+
+/**
+ * An example with destructured args
+ *
+ * @param options - The options.
+ * @param options.a - The 'a' string.
+ * @param options.b - The 'b' string.
+ */
+export function destructureTest3({ a, b }: { a: string; b: { c: string } }) {}
