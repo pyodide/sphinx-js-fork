@@ -3,5 +3,6 @@ include LICENSE
 include CODE_OF_CONDUCT.md
 include requirements_dev.txt
 include noxfile.py
+include sphinx_js/typedoc_0.24.mjs
 
 recursive-include tests *.py *.rst *.ts *.json *.js *.md
