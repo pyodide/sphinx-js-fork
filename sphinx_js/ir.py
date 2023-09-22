@@ -28,8 +28,25 @@ from typing import Any
 
 from .analyzer_utils import dotted_path
 
+
+@dataclass
+class TypeXRef:
+    name: str
+
+
+@dataclass
+class TypeXRefInternal(TypeXRef):
+    path: list[str]
+
+
+@dataclass
+class TypeXRefExternal(TypeXRef):
+    sourcefilename: str
+    qualifiedName: str
+
+
 #: Human-readable type of a value. None if we don't know the type.
-Type = str | None
+Type = str | list[str | TypeXRef] | None
 # In the far future, we may take full control of our RST templates rather than
 # using the js-domain directives provided by Sphinx. This would give us the
 # freedom to link type names in formal param lists and param description lists
@@ -37,6 +54,7 @@ Type = str | None
 # a class-based Type which internally preserves the structure of the type
 # (simple for JS, fancy for TS) and can, on request, render it out as either
 # text or link-having RST.
+
 
 #: Pathname, full or not, to an object:
 ReStructuredText = str
@@ -98,7 +116,7 @@ class _Member:
 @dataclass
 class TypeParam:
     name: str
-    extends: str | None
+    extends: Type
     description: ReStructuredText = ReStructuredText("")
 
 

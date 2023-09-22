@@ -5,7 +5,7 @@ import pathlib
 import re
 import subprocess
 import textwrap
-from collections.abc import Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from errno import ENOENT
 from functools import cache
 from inspect import isclass
@@ -620,26 +620,33 @@ class TypeLiteral(NodeBase):
     indexSignature: "Signature | None" = None
     children: Sequence["Member"] = []
 
-    def render(self, converter: Converter) -> str:
+    def render(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         if self.signatures:
-            return self.signatures[0].type.render_name(converter)
-        children = []
+            yield from self.signatures[0].type._render_name(converter)
+            return
+        yield "{ "
         index_sig = self.indexSignature
         if index_sig:
             assert len(index_sig.parameters) == 1
             key = index_sig.parameters[0]
-            keyname = key.name
-            keytype = key.type.render_name(converter)
-            valuetype = index_sig.type.render_name(converter)
-            children.append(f"[{keyname}: {keytype}]: {valuetype}")
+            yield "["
+            yield key.name
+            yield ": "
+            yield from key.type._render_name(converter)
+            yield "]"
+            yield ": "
+            yield from index_sig.type._render_name(converter)
+            yield "; "
 
         for child in self.children:
-            maybe_optional = ""
+            yield child.name
             if child.flags.isOptional:
-                maybe_optional = "?"
-            child_type_name = child.type.render_name(converter)
-            children.append(child.name + maybe_optional + ": " + child_type_name)
-        return "{" + ", ".join(children) + "}"
+                yield "?: "
+            else:
+                yield ": "
+            yield from child.type._render_name(converter)
+            yield "; "
+        yield "}"
 
     def to_ir(
         self, converter: Converter
@@ -884,21 +891,36 @@ class Signature(TopLevelProperties):
         return result, self.children
 
 
+def riffle(
+    t: Iterable[Iterable[str | ir.TypeXRef]], other: str
+) -> Iterator[str | ir.TypeXRef]:
+    it = iter(t)
+    try:
+        yield from next(it)
+    except StopIteration:
+        return
+    for i in it:
+        yield other
+        yield from i
+
+
 class TypeBase(Base):
     typeArguments: list["TypeD"] = []
 
-    def render_name(self, converter: Converter) -> str:
-        name = self._render_name_root(converter)
+    def render_name(self, converter: Converter) -> list[str | ir.TypeXRef]:
+        return list(self._render_name(converter))
 
-        if self.typeArguments:
-            arg_names = ", ".join(
-                arg.render_name(converter) for arg in self.typeArguments
-            )
-            name += f"<{arg_names}>"
+    def _render_name(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        yield from self._render_name_root(converter)
 
-        return name
+        if not self.typeArguments:
+            return
+        yield "<"
+        gen = (arg._render_name(converter) for arg in self.typeArguments)
+        yield from riffle(gen, ", ")
+        yield ">"
 
-    def _render_name_root(self, converter: Converter) -> str:
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         raise NotImplementedError
 
 
@@ -906,19 +928,22 @@ class AndOrType(TypeBase):
     type: Literal["union", "intersection"]
     types: list["TypeD"]
 
-    def _render_name_root(self, converter: Converter) -> str:
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         if self.type == "union":
-            return "|".join(t.render_name(converter) for t in self.types)
+            symbol = "|"
         elif self.type == "intersection":
-            return " & ".join(t.render_name(converter) for t in self.types)
+            symbol = " & "
+        gen = (t._render_name(converter) for t in self.types)
+        yield from riffle(gen, symbol)
 
 
 class ArrayType(TypeBase):
     type: Literal["array"]
     elementType: "TypeD"
 
-    def _render_name_root(self, converter: Converter) -> str:
-        return self.elementType.render_name(converter) + "[]"
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        yield from self.elementType._render_name(converter)
+        yield "[]"
 
 
 class OperatorType(TypeBase):
@@ -926,8 +951,22 @@ class OperatorType(TypeBase):
     operator: str
     target: "TypeD"
 
-    def _render_name_root(self, converter: Converter) -> str:
-        return self.operator + " " + self.target.render_name(converter)
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        yield self.operator + " "
+        yield from self.target._render_name(converter)
+
+
+class Target(BaseModel):
+    sourceFileName: str
+    qualifiedName: str
+
+
+class IntrinsicType(TypeBase):
+    type: Literal["intrinsic"]
+    name: str
+
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        yield self.name
 
 
 class IntrinsicType(TypeBase):
@@ -941,63 +980,91 @@ class IntrinsicType(TypeBase):
 class ReferenceType(TypeBase):
     type: Literal["reference"]
     name: str
-    target: Any
+    target: int | Target | None
+    refersToTypeParameter: bool = False
 
-    def _render_name_root(self, converter: Converter) -> str:
-        return self.name
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        if self.refersToTypeParameter:
+            yield self.name
+            return
+        if isinstance(self.target, int) and self.target > 0:
+            node = converter.index[self.target]
+            yield ir.TypeXRefInternal(self.name, node.path)
+            return
+        assert isinstance(self.target, Target)
+        yield ir.TypeXRefExternal(
+            self.name, self.target.sourceFileName, self.target.qualifiedName
+        )
 
 
 class ReflectionType(TypeBase):
     type: Literal["reflection"]
     declaration: Node
 
-    def _render_name_root(self, converter: Converter) -> str:
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         if isinstance(self.declaration, TypeLiteral):
-            return self.declaration.render(converter)
+            yield from self.declaration.render(converter)
+            return
 
         if isinstance(self.declaration, Callable):
-            sig = self.declaration.signatures[0]
-            params = []
-            for param in sig.parameters:
-                name = param.name
-                type_name = param.type.render_name(converter)
-                params.append(f"{name}: {type_name}")
-            params_str = ", ".join(params)
-            ret = sig.return_type(converter)[0].type
-            sig_str = f"({params_str}): {ret}"
             if self.declaration.kindString == "Constructor":
-                sig_str = f"{{new {sig_str}}}"
-            return sig_str
-        return "<TODO: reflection>"
+                yield "{new ("
+            else:
+                yield "("
+            sig = self.declaration.signatures[0]
+
+            def inner(param: Param) -> Iterator[str | ir.TypeXRef]:
+                yield param.name + ": "
+                yield from param.type._render_name(converter)
+
+            yield from riffle((inner(param) for param in sig.parameters), ", ")
+
+            yield "): "
+            ret = sig.return_type(converter)[0].type
+            assert ret
+            if isinstance(ret, str):
+                yield ret
+            else:
+                yield from ret
+            if self.declaration.kindString == "Constructor":
+                yield "}"
+            return
+        yield "<TODO: reflection>"
+        return
 
 
 class LiteralType(TypeBase):
     type: Literal["literal"]
     value: Any
 
-    def _render_name_root(self, converter: Converter) -> str:
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         if self.value is None:
-            return "null"
+            yield "null"
+            return
         # TODO: it could be a bigint or a string?
         if isinstance(self.value, int):
-            return "number"
-        return "<TODO: Unknown type>"
+            yield "number"
+            return
+        yield "<TODO: Unknown type>"
+        return
 
 
 class TupleType(TypeBase):
     type: Literal["tuple"]
     elements: list["TypeD"]
 
-    def _render_name_root(self, converter: Converter) -> str:
-        types = [t.render_name(converter) for t in self.elements]
-        return "[" + ", ".join(types) + "]"
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        types = (t._render_name(converter) for t in self.elements)
+        yield "["
+        yield from riffle(types, ", ")
+        yield "]"
 
 
 class OtherType(TypeBase):
     type: Literal["indexedAccess"]
 
-    def _render_name_root(self, converter: Converter) -> str:
-        return "<TODO: not implemented>"
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        yield "<TODO: not implemented>"
 
 
 AnyNode = Node | Project | Signature

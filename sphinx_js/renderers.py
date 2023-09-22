@@ -23,7 +23,9 @@ from .ir import (
     Pathname,
     Return,
     TopLevel,
+    Type,
     TypeParam,
+    TypeXRef,
 )
 from .jsdoc import Analyzer as JsAnalyzer
 from .parsers import PathVisitor
@@ -205,16 +207,51 @@ class JsRenderer:
 
         return "({})".format(", ".join(formals))
 
+    def format_type(self, type: Type, escape: bool = False) -> str:
+        if not type:
+            return ""
+        if isinstance(type, str):
+            return self.format_type([type])
+        it = iter(type)
+
+        def strs() -> Iterator[str]:
+            for elem in it:
+                if isinstance(elem, str):
+                    yield elem
+                else:
+                    xref.append(elem)
+                    return
+
+        res = []
+        while True:
+            xref: list[TypeXRef] = []
+            s = "".join(strs())
+            if escape:
+                s = rst.escape(s)
+            res.append(s)
+            if not xref:
+                break
+            res.append(self.render_xref(xref[0], escape))
+
+        return "".join(res)
+
+    def render_xref(self, s: TypeXRef, escape: bool = False) -> str:
+        if escape:
+            return rst.escape(s.name)
+        return s.name
+
     def _return_formatter(self, return_: Return) -> tuple[list[str], str]:
         """Derive heads and tail from ``@returns`` blocks."""
-        tail = ("**%s** -- " % rst.escape(return_.type)) if return_.type else ""
+        tail = ""
+        if return_.type:
+            tail += "**%s** -- " % self.format_type(return_.type, escape=True)
         tail += return_.description
         return ["returns"], tail
 
     def _type_param_formatter(self, tparam: TypeParam) -> tuple[list[str], str] | None:
         v = tparam.name
         if tparam.extends:
-            v += f" extends {tparam.extends}"
+            v += " extends " + self.format_type(tparam.extends)
         heads = ["typeparam", v]
         return heads, tparam.description
 
@@ -225,8 +262,9 @@ class JsRenderer:
             return None
         heads = ["param"]
         if param.type:
-            heads.append(param.type)
+            heads.append(self.format_type(param.type))
         heads.append(param.name)
+
         tail = param.description
         return heads, tail
 
@@ -235,14 +273,14 @@ class JsRenderer:
         if not param.type:
             return None
         heads = ["type", param.name]
-        tail = rst.escape(param.type)
+        tail = self.format_type(param.type)
         return heads, tail
 
     def _exception_formatter(self, exception: Exc) -> tuple[list[str], str]:
         """Derive heads and tail from ``@throws`` blocks."""
         heads = ["throws"]
         if exception.type:
-            heads.append(exception.type)
+            heads.append(self.format_type(exception.type))
         tail = exception.description
         return heads, tail
 
@@ -453,7 +491,7 @@ class AutoAttributeRenderer(JsRenderer):
             is_optional=obj.is_optional,
             see_also=obj.see_alsos,
             examples=obj.examples,
-            type=obj.type,
+            type=self.format_type(obj.type),
             content="\n".join(self._content),
         )
 

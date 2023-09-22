@@ -361,7 +361,7 @@ class Tests(SphinxBuildTestCase):
             "injection(a_, b)\n\n"
             "   Arguments:\n"
             "      * **a_** -- Snorf\n\n"
-            "      * **b** (*type_*) -- >>Borf_<<\n\n"
+            "      * **b** (>>type_<<) -- >>Borf_<<\n\n"
             "   Returns:\n"
             "      **rtype_** -- >>Dorf_<<\n",
         )
