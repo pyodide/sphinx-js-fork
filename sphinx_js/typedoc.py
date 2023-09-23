@@ -946,8 +946,16 @@ class OperatorType(TypeBase):
         return self.operator + " " + self.target.render_name(converter)
 
 
+class IntrinsicType(TypeBase):
+    type: Literal["intrinsic"]
+    name: str
+
+    def _render_name_root(self, converter: Converter) -> str:
+        return self.name
+
+
 class ReferenceType(TypeBase):
-    type: Literal["reference", "intrinsic"]
+    type: Literal["reference"]
     name: str
     id: int | None
     target: Any
@@ -1022,6 +1030,7 @@ Type = (
     | LiteralType
     | OtherType
     | OperatorType
+    | IntrinsicType
     | ReferenceType
     | ReflectionType
     | TupleType
