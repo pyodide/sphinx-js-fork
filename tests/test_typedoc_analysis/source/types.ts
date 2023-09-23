@@ -180,3 +180,10 @@ export function destructureTest2({
  * @param options.b - The 'b' string.
  */
 export function destructureTest3({ a, b }: { a: string; b: { c: string } }) {}
+
+/**
+ * An example with a function as argument
+ *
+ * @param a - A number reducer.
+ */
+export function funcArg(a: (b: number, c: number) => number) {}

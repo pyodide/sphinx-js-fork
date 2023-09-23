@@ -615,3 +615,8 @@ And some closing words."""
         obj = self.analyzer.get_object(["destructureTest3"])
         assert obj.params[0].name == "options"
         assert join_type(obj.params[0].type) == "{ a: string; b: { c: string; }; }"
+
+    def test_funcarg(self):
+        obj = self.analyzer.get_object(["funcArg"])
+        assert obj.params[0].name == "a"
+        assert join_type(obj.params[0].type) == "(b: number, c: number): number"

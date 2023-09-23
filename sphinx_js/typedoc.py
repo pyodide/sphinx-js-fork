@@ -616,13 +616,15 @@ class ExternalModule(NodeBase):
 
 class TypeLiteral(NodeBase):
     kindString: Literal["Type literal"]
+    variant: Literal["declaration"]
+
     signatures: list["Signature"] = []
     indexSignature: "Signature | None" = None
     children: Sequence["Member"] = []
 
     def render(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         if self.signatures:
-            yield from self.signatures[0].type._render_name(converter)
+            yield from self.signatures[0].render(converter)
             return
         yield "{ "
         index_sig = self.indexSignature
@@ -857,6 +859,23 @@ class Signature(TopLevelProperties):
                 params.extend(self._destructure_param(p))
         return params
 
+    def render(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        yield "("
+
+        def inner(param: Param) -> Iterator[str | ir.TypeXRef]:
+            yield param.name + ": "
+            yield from param.type._render_name(converter)
+
+        yield from riffle((inner(param) for param in self.parameters), ", ")
+
+        yield "): "
+        ret = self.return_type(converter)[0].type
+        assert ret
+        if isinstance(ret, str):
+            yield ret
+        else:
+            yield from ret
+
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
@@ -1000,24 +1019,8 @@ class ReflectionType(TypeBase):
 
         if isinstance(self.declaration, Callable):
             if self.declaration.kindString == "Constructor":
-                yield "{new ("
-            else:
-                yield "("
-            sig = self.declaration.signatures[0]
-
-            def inner(param: Param) -> Iterator[str | ir.TypeXRef]:
-                yield param.name + ": "
-                yield from param.type._render_name(converter)
-
-            yield from riffle((inner(param) for param in sig.parameters), ", ")
-
-            yield "): "
-            ret = sig.return_type(converter)[0].type
-            assert ret
-            if isinstance(ret, str):
-                yield ret
-            else:
-                yield from ret
+                yield "{new "
+            yield from self.declaration.signatures[0].render(converter)
             if self.declaration.kindString == "Constructor":
                 yield "}"
             return
