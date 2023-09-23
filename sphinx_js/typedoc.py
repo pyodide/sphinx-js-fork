@@ -25,7 +25,7 @@ from .suffix_tree import SuffixTree
 
 __all__ = ["Analyzer"]
 
-MIN_TYPEDOC_VERSION = (0, 23, 0)
+MIN_TYPEDOC_VERSION = (0, 24, 0)
 
 
 @cache
@@ -491,10 +491,9 @@ class ClassOrInterface(NodeBase):
         for t in orig_types:
             if t.type != "reference":
                 continue
-            id = t.id or t.target
-            if not id:
+            if not t.target:
                 continue
-            rtype = converter.index[id]
+            rtype = converter.index[t.target]
             pathname = ir.Pathname(rtype.path)
             types.append(pathname)
             # else it's some other thing we should go implement
@@ -942,14 +941,9 @@ class IntrinsicType(TypeBase):
 class ReferenceType(TypeBase):
     type: Literal["reference"]
     name: str
-    id: int | None
     target: Any
 
     def _render_name_root(self, converter: Converter) -> str:
-        # test_generic_member() (currently skipped) tests this.
-        if self.id:
-            node = converter.index[self.id]
-            assert node.name
         return self.name
 
 
