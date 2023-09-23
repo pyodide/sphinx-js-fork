@@ -25,6 +25,8 @@ from .suffix_tree import SuffixTree
 
 __all__ = ["Analyzer"]
 
+MIN_TYPEDOC_VERSION = (0, 22, 0)
+
 
 @cache
 def typedoc_version_info(typedoc: str) -> tuple[tuple[int, ...], tuple[int, ...]]:
@@ -41,6 +43,10 @@ def typedoc_version_info(typedoc: str) -> tuple[tuple[int, ...], tuple[int, ...]
     return typedoc_version, typescript_version
 
 
+def version_to_str(t: Sequence[int]) -> str:
+    return ".".join(str(x) for x in t)
+
+
 def typedoc_output(
     abs_source_paths: list[str], sphinx_conf_dir: str | pathlib.Path, config_path: str
 ) -> "Project":
@@ -48,14 +54,18 @@ def typedoc_output(
     paths."""
     typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", sphinx_conf_dir)
     typedoc_version, _ = typedoc_version_info(typedoc)
+    if typedoc_version < MIN_TYPEDOC_VERSION:
+        raise RuntimeError(
+            f"Typedoc version {version_to_str(typedoc_version)} is too old, minimum required is {version_to_str(MIN_TYPEDOC_VERSION)}"
+        )
+
     command = Command("node")
     os.environ["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[2])
     if typedoc_version >= (0, 24, 0):
         command.add(str(Path(__file__).parent / "typedoc_0.24.mjs"))
     else:
         command.add(typedoc)
-    if typedoc_version >= (0, 22, 0):
-        command.add("--entryPointStrategy", "expand")
+    command.add("--entryPointStrategy", "expand")
 
     if config_path:
         tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
@@ -657,8 +667,7 @@ class TypeLiteral(NodeBase):
 class OtherNode(NodeBase):
     kindString: Literal[
         "Enumeration",
-        "Enumeration Member",  # M changed to uppercase in version 0.22
-        "Enumeration member",
+        "Enumeration Member",
         "Namespace",
         "Type alias",
         "Reference",
