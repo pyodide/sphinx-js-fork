@@ -969,14 +969,6 @@ class IntrinsicType(TypeBase):
         yield self.name
 
 
-class IntrinsicType(TypeBase):
-    type: Literal["intrinsic"]
-    name: str
-
-    def _render_name_root(self, converter: Converter) -> str:
-        return self.name
-
-
 class ReferenceType(TypeBase):
     type: Literal["reference"]
     name: str
