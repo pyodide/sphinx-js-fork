@@ -25,7 +25,7 @@ from .suffix_tree import SuffixTree
 
 __all__ = ["Analyzer"]
 
-MIN_TYPEDOC_VERSION = (0, 22, 0)
+MIN_TYPEDOC_VERSION = (0, 23, 0)
 
 
 @cache
@@ -138,19 +138,9 @@ class Converter:
         children.append(node.children)
         if isinstance(node, Accessor):
             if node.getSignature:
-                if isinstance(node.getSignature, list):
-                    sig = node.getSignature[0]
-                else:
-                    sig = node.getSignature
-                node.getSignature = sig
-                children.append([sig])
+                children.append([node.getSignature])
             if node.setSignature:
-                if isinstance(node.setSignature, list):
-                    sig = node.setSignature[0]
-                else:
-                    sig = node.setSignature
-                node.setSignature = sig
-                children.append([sig])
+                children.append([node.setSignature])
 
         if isinstance(node, (Callable, TypeLiteral)):
             children.append(node.signatures)
@@ -299,10 +289,6 @@ class Tag(BaseModel):
 
 class Comment(BaseModel):
     returns: str = ""
-    # shortText and text are for version < 0.23
-    shortText: str | None
-    text: str | None
-    # summary and blockTags are for version >= 0.23
     summary: list[Summary] = []
     blockTags: list[Tag] = []
 
@@ -416,13 +402,12 @@ class NodeBase(TopLevelProperties):
 
 class Accessor(NodeBase):
     kindString: Literal["Accessor"]
-    getSignature: "list[Signature] | Signature" = []
-    setSignature: "list[Signature] | Signature" = []
+    getSignature: "Signature | None" = None
+    setSignature: "Signature | None" = None
 
     def to_ir(self, converter: Converter) -> tuple[ir.Attribute, Sequence["Node"]]:
         if self.getSignature:
             # There's no signature to speak of for a getter: only a return type.
-            assert isinstance(self.getSignature, Signature)
             type = self.getSignature.type
         else:
             # ES6 says setters have exactly 1 param. I'm not sure if they
@@ -692,16 +677,8 @@ ClassChild = Annotated[Accessor | Callable | Member, Field(discriminator="kindSt
 
 def make_description(comment: Comment) -> str:
     """Construct a single comment string from a fancy object."""
-    if not (comment.summary or comment.shortText or comment.text):
+    if not comment.summary:
         return ""
-
-    if comment.shortText or comment.text:
-        # version <0.23
-        return "\n\n".join(
-            text for text in [comment.shortText, comment.text] if text
-        ).strip()
-
-    # version 0.23
     content = []
     prev = ""
     for s in comment.summary:
