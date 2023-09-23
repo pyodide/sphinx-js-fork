@@ -491,7 +491,7 @@ class ClassOrInterface(NodeBase):
         for t in orig_types:
             if t.type != "reference":
                 continue
-            if not t.target:
+            if not isinstance(t.target, int):
                 continue
             rtype = converter.index[t.target]
             pathname = ir.Pathname(rtype.path)
