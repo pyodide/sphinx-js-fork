@@ -26,6 +26,7 @@ from .ir import (
     Type,
     TypeParam,
     TypeXRef,
+    TypeXRefInternal,
 )
 from .jsdoc import Analyzer as JsAnalyzer
 from .parsers import PathVisitor
@@ -236,17 +237,23 @@ class JsRenderer:
         return "".join(res)
 
     def render_xref(self, s: TypeXRef, escape: bool = False) -> str:
+        if isinstance(s, TypeXRefInternal):
+            name = rst.escape(s.name)
+            result = f":js:class:`{name}`"
+        else:
+            result = s.name
         if escape:
-            return rst.escape(s.name)
-        return s.name
+            result = rst.escape(result)
+        return result
 
     def _return_formatter(self, return_: Return) -> tuple[list[str], str]:
         """Derive heads and tail from ``@returns`` blocks."""
-        tail = ""
+        tail = []
         if return_.type:
-            tail += "**%s** -- " % self.format_type(return_.type, escape=True)
-        tail += return_.description
-        return ["returns"], tail
+            tail.append(self.format_type(return_.type, escape=False))
+        if return_.description:
+            tail.append(return_.description)
+        return ["returns"], " -- ".join(tail)
 
     def _type_param_formatter(self, tparam: TypeParam) -> tuple[list[str], str] | None:
         v = tparam.name
