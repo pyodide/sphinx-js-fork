@@ -182,7 +182,7 @@ class JsRenderer:
             elif not had_blank:
                 lines.append("")
                 had_blank = True
-        result = "\n".join(lines)  + "\n"
+        result = "\n".join(lines) + "\n"
         return result
 
     def _formal_params(self, obj: Function | Class) -> str:
