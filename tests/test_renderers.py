@@ -2,26 +2,38 @@ from textwrap import dedent, indent
 
 import pytest
 
-from sphinx_js.ir import Exc, Function, Param, Return, TypeParam, TypeXRefInternal, DescriptionText, DescriptionCode
+from sphinx_js.ir import (
+    DescriptionCode,
+    DescriptionText,
+    Exc,
+    Function,
+    Param,
+    Return,
+    TypeParam,
+    TypeXRefInternal,
+)
 from sphinx_js.renderers import AutoFunctionRenderer, JsRenderer
 
 
 def setindent(txt):
     return indent(dedent(txt), " " * 3)
 
+
 def test_render_description():
     renderer = JsRenderer.__new__(JsRenderer)
-    renderer.render_description([
-        DescriptionText(text='Code 1 had '),
-        DescriptionCode(code='`single ticks around it`'),
-        DescriptionText(text='.\nCode 2 has '),
-        DescriptionCode(code='``double ticks around it``'),
-        DescriptionText(text='.\nCode 3 has a :sphinx:role:'),
-        DescriptionCode(code='`before it`'),
-        DescriptionText(text='.\n\n'),
-        DescriptionCode(code='```js\nA JS code pen!\n```'),
-        DescriptionText(text='\nAnd some closing words.'),
-    ]) == dedent(
+    assert renderer.render_description(
+        [
+            DescriptionText(text="Code 1 had "),
+            DescriptionCode(code="`single ticks around it`"),
+            DescriptionText(text=".\nCode 2 has "),
+            DescriptionCode(code="``double ticks around it``"),
+            DescriptionText(text=".\nCode 3 has a :sphinx:role:"),
+            DescriptionCode(code="`before it`"),
+            DescriptionText(text=".\n\n"),
+            DescriptionCode(code="```js\nA JS code pen!\n```"),
+            DescriptionText(text="\nAnd some closing words."),
+        ]
+    ) == dedent(
         """\
         Code 1 had ``single ticks around it``.
         Code 2 has ``double ticks around it``.

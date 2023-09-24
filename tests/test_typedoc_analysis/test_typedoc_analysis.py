@@ -7,8 +7,8 @@ import pytest
 from sphinx_js.ir import (
     Attribute,
     Class,
-    DescriptionText,
     DescriptionCode,
+    DescriptionText,
     Function,
     Param,
     Pathname,
@@ -30,6 +30,7 @@ def join_type(t: Type) -> str:
     if isinstance(t, str):
         return t
     return "".join(e.name if isinstance(e, TypeXRef) else e for e in t)
+
 
 def join_descri(t: Type) -> str:
     if not t:
@@ -346,7 +347,9 @@ class ConvertNodeTests(TypeDocAnalyzerTestCase):
             ),
         ]
         assert func.exceptions == []
-        assert func.returns == [Return(type=["number"], description=[DescriptionText("The best number")])]
+        assert func.returns == [
+            Return(type=["number"], description=[DescriptionText("The best number")])
+        ]
 
     def test_constructor(self):
         """Make sure constructors get attached to classes and analyzed into
@@ -520,7 +523,7 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
             extends=[
                 TypeXRefInternal(name="Lengthwise", path=["./", "types.", "Lengthwise"])
             ],
-            description=[DescriptionText('the identity type')],
+            description=[DescriptionText("the identity type")],
         )
 
     def test_constrained_by_key(self):
@@ -532,12 +535,16 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         # TODO?
         # assert obj.returns[0].type == "<TODO: not implemented>"
         assert obj.type_params[0] == TypeParam(
-            name="T", extends=None, description=[DescriptionText("The type of the object")]
+            name="T",
+            extends=None,
+            description=[DescriptionText("The type of the object")],
         )
         tp = copy(obj.type_params[1])
         tp.extends = join_type(tp.extends)
         assert tp == TypeParam(
-            name="K", extends="string|number|symbol", description=[DescriptionText("The type of the key")]
+            name="K",
+            extends="string|number|symbol",
+            description=[DescriptionText("The type of the key")],
         )
 
         # TODO: this part maybe belongs in a unit test for the renderer or something
@@ -556,7 +563,9 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         tp = copy(obj.type_params[0])
         tp.extends = join_type(tp.extends)
         assert tp == TypeParam(
-            name="S", extends="number[]", description=[DescriptionText("The type we contain")]
+            name="S",
+            extends="number[]",
+            description=[DescriptionText("The type we contain")],
         )
         a = AutoClassRenderer.__new__(AutoClassRenderer)
         a._explicit_formal_params = None
@@ -595,20 +604,17 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
 
     def test_code_in_description(self):
         obj = self.analyzer.get_object(["codeInDescription"])
-        assert (
-            obj.description == 
-            [
-                DescriptionText(text='Code 1 had '),
-                DescriptionCode(code='`single ticks around it`'),
-                DescriptionText(text='.\nCode 2 has '),
-                DescriptionCode(code='``double ticks around it``'),
-                DescriptionText(text='.\nCode 3 has a :sphinx:role:'),
-                DescriptionCode(code='`before it`'),
-                DescriptionText(text='.\n\n'),
-                DescriptionCode(code='```js\nA JS code pen!\n```'),
-                DescriptionText(text='\nAnd some closing words.'),
-            ]
-        )
+        assert obj.description == [
+            DescriptionText(text="Code 1 had "),
+            DescriptionCode(code="`single ticks around it`"),
+            DescriptionText(text=".\nCode 2 has "),
+            DescriptionCode(code="``double ticks around it``"),
+            DescriptionText(text=".\nCode 3 has a :sphinx:role:"),
+            DescriptionCode(code="`before it`"),
+            DescriptionText(text=".\n\n"),
+            DescriptionCode(code="```js\nA JS code pen!\n```"),
+            DescriptionText(text="\nAnd some closing words."),
+        ]
 
     def test_destructured(self):
         obj = self.analyzer.get_object(["destructureTest"])
