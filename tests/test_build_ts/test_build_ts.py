@@ -145,5 +145,5 @@ class HtmlBuilderTests(SphinxBuildTestCase):
         assert href.get_text() == "ConstructorlessClass()"
 
         thunk_links = get_links("thunk")
-        assert thunk_links[1].get_text() == "ConstructorlessClass()"
-        assert thunk_links[2].get_text() == "OptionalThings()"
+        assert thunk_links[1].get_text() == "OptionalThings()"
+        assert thunk_links[2].get_text() == "ConstructorlessClass()"
