@@ -171,7 +171,19 @@ class JsRenderer:
         # Render to RST using Jinja:
         env = Environment(loader=PackageLoader("sphinx_js", "templates"))
         template = env.get_template(self._template)
-        return template.render(**self._template_vars(dotted_name, obj))
+        result = template.render(**self._template_vars(dotted_name, obj))
+        result = result.strip()
+        had_blank = False
+        lines = []
+        for line in result.splitlines():
+            if line.strip():
+                had_blank = False
+                lines.append(line)
+            elif not had_blank:
+                lines.append("")
+                had_blank = True
+        result = "\n".join(lines)  + "\n"
+        return result
 
     def _formal_params(self, obj: Function | Class) -> str:
         """Return the JS function or class params, looking first to any
@@ -272,8 +284,6 @@ class JsRenderer:
             # There's nothing worth saying about this param.
             return None
         heads = ["param"]
-        if param.type:
-            heads.append(self.format_type(param.type))
         heads.append(param.name)
 
         tail = param.description

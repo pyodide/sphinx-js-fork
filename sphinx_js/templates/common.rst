@@ -15,6 +15,7 @@
 .. code-block:: js
 
    {{ example|indent(3) }}
+
 {% endfor %}
 {%- endif %}
 {% endmacro %}
