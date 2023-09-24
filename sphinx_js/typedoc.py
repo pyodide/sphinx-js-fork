@@ -868,7 +868,7 @@ class Signature(TopLevelProperties):
 
         yield from riffle((inner(param) for param in self.parameters), ", ")
 
-        yield "): "
+        yield ") => "
         return_type = self.return_type(converter)
         if return_type:
             ret = return_type[0].type

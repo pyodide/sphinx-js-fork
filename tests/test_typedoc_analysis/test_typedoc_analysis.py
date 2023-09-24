@@ -560,9 +560,9 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         """Make sure ``new ()`` expressions and, more generally, per-property
         constraints are rendered properly."""
         obj = self.analyzer.get_object(["create1"])
-        assert join_type(obj.params[0].type) == "{new (x: number): A}"
+        assert join_type(obj.params[0].type) == "{new (x: number) => A}"
         obj = self.analyzer.get_object(["create2"])
-        assert join_type(obj.params[0].type) == "{new (): T}"
+        assert join_type(obj.params[0].type) == "{new () => T}"
 
     def test_utility_types(self):
         """Test that a representative one of TS's utility types renders."""
@@ -619,4 +619,4 @@ And some closing words."""
     def test_funcarg(self):
         obj = self.analyzer.get_object(["funcArg"])
         assert obj.params[0].name == "a"
-        assert join_type(obj.params[0].type) == "(b: number, c: number): number"
+        assert join_type(obj.params[0].type) == "(b: number, c: number) => number"
