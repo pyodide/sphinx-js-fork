@@ -53,3 +53,16 @@ export interface OptionalThings {
   foop?(): void;
   boop?: boolean;
 }
+
+/**
+ * Words words words
+ * @param a An optional thing
+ * @returns The result
+ */
+export function blah(a: OptionalThings) : ConstructorlessClass {
+  return 0 as ConstructorlessClass;
+}
+
+export function thunk(b : typeof blah) {
+
+}

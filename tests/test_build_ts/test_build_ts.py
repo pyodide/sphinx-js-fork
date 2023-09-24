@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup
 from conftest import TYPEDOC_VERSION
 
 from tests.testing import SphinxBuildTestCase
@@ -121,3 +122,28 @@ class HtmlBuilderTests(SphinxBuildTestCase):
         assert 'href="index.html#class.Interface"' in self._file_contents(
             "autoclass_class_with_interface_and_supers"
         )
+
+    def test_xrefs(self):
+        soup = BeautifulSoup(self._file_contents("xrefs"), "html.parser")
+
+        def get_links(id):
+            return soup.find(id=id).parent.find_all("a")
+
+        links = get_links("blah")
+        href = links[1]
+        assert href.attrs["class"] == ["reference", "internal"]
+        assert href.attrs["href"] == "autoclass_interface_optionals.html#OptionalThings"
+        assert href.attrs["title"] == "OptionalThings"
+        assert next(href.children).name == "code"
+        assert href.get_text() == "OptionalThings()"
+
+        href = links[2]
+        assert href.attrs["class"] == ["reference", "internal"]
+        assert (
+            href.attrs["href"] == "autoclass_constructorless.html#ConstructorlessClass"
+        )
+        assert href.get_text() == "ConstructorlessClass()"
+
+        thunk_links = get_links("thunk")
+        assert thunk_links[1].get_text() == "ConstructorlessClass()"
+        assert thunk_links[2].get_text() == "OptionalThings()"

@@ -208,11 +208,15 @@ class JsRenderer:
 
         return "({})".format(", ".join(formals))
 
-    def format_type(self, type: Type, escape: bool = False) -> str:
+    def format_type(self, type: Type, escape: bool = False, bold: bool = True) -> str:
         if not type:
             return ""
         if isinstance(type, str):
-            return self.format_type([type])
+            if bold:
+                type = "**%s**" % type
+            if escape:
+                type = rst.escape(type)
+            return type
         it = iter(type)
 
         def strs() -> Iterator[str]:
@@ -287,7 +291,7 @@ class JsRenderer:
         """Derive heads and tail from ``@throws`` blocks."""
         heads = ["throws"]
         if exception.type:
-            heads.append(self.format_type(exception.type))
+            heads.append(self.format_type(exception.type, bold=False))
         tail = exception.description
         return heads, tail
 

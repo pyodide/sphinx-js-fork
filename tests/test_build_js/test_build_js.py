@@ -43,14 +43,14 @@ class Tests(SphinxBuildTestCase):
         """Make sure @typedef uses can be documented with autofunction."""
         self._file_contents_eq(
             "autofunction_typedef",
-            "TypeDefinition()\n\n   Arguments:\n      * **width** (*Number*) -- width in pixels\n",
+            "TypeDefinition()\n\n   Arguments:\n      * **width** (**Number**) -- width in pixels\n",
         )
 
     def test_autofunction_callback(self):
         """Make sure @callback uses can be documented with autofunction."""
         self._file_contents_eq(
             "autofunction_callback",
-            "requestCallback(responseCode)\n\n   Some global callback\n\n   Arguments:\n      * **responseCode** (*number*) --\n",
+            "requestCallback(responseCode)\n\n   Some global callback\n\n   Arguments:\n      * **responseCode** (**number**) --\n",
         )
 
     def test_autofunction_example(self):
@@ -71,10 +71,10 @@ class Tests(SphinxBuildTestCase):
             "autofunction_destructured_params",
             "destructuredParams(p1, p2)\n\n"
             "   Arguments:\n"
-            "      * **p1** (*number*) --\n\n"
-            "      * **p2** (*Object*) --\n\n"
-            "      * **p2.foo** (*string*) --\n\n"
-            "      * **p2.bar** (*string*) --\n",
+            "      * **p1** (**number**) --\n\n"
+            "      * **p2** (**Object**) --\n\n"
+            "      * **p2.foo** (**string**) --\n\n"
+            "      * **p2.bar** (**string**) --\n",
         )
 
     def test_autofunction_defaults_in_doclet(self):
@@ -84,9 +84,9 @@ class Tests(SphinxBuildTestCase):
             "autofunction_defaults_doclet",
             'defaultsDocumentedInDoclet(func=() => 5, str="a string with \\" quote", strNum="42", strBool="true", num=5, nil=null)\n\n'
             "   Arguments:\n"
-            "      * **func** (*function*) --\n\n"
-            "      * **strNum** (*string*) --\n\n"
-            "      * **strBool** (*string*) --\n",
+            "      * **func** (**function**) --\n\n"
+            "      * **strNum** (**string**) --\n\n"
+            "      * **strBool** (**string**) --\n",
         )
 
     def test_autofunction_defaults_in_code(self):
@@ -361,7 +361,7 @@ class Tests(SphinxBuildTestCase):
             "injection(a_, b)\n\n"
             "   Arguments:\n"
             "      * **a_** -- Snorf\n\n"
-            "      * **b** (>>type_<<) -- >>Borf_<<\n\n"
+            "      * **b** (**type_**) -- >>Borf_<<\n\n"
             "   Returns:\n"
             "      **rtype_** -- >>Dorf_<<\n",
         )
@@ -377,7 +377,7 @@ class Tests(SphinxBuildTestCase):
         switched from " | " as the union separator back to "|".
 
         """
-        assert "* **fnodeA** (*Node|Fnode*) --" in self._file_contents("union")
+        assert "* **fnodeA** (**Node|Fnode**) --" in self._file_contents("union")
 
     def test_field_list_unwrapping(self):
         """Ensure the tails of field lists have line breaks and leading
@@ -414,7 +414,7 @@ DESCRIPTION = """
 FIELDS = """
 
    Arguments:
-      * **node** (*Node*) -- Something of a single type
+      * **node** (**Node**) -- Something of a single type
 
    Throws:
       **PartyError|FartyError** -- Something with multiple types and a
