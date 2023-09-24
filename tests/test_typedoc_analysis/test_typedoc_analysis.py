@@ -7,6 +7,8 @@ import pytest
 from sphinx_js.ir import (
     Attribute,
     Class,
+    DescriptionText,
+    DescriptionCode,
     Function,
     Param,
     Pathname,
@@ -18,11 +20,18 @@ from sphinx_js.ir import (
     TypeXRefInternal,
 )
 from sphinx_js.renderers import AutoClassRenderer, AutoFunctionRenderer
-from sphinx_js.typedoc import Comment, Converter, Summary, parse
+from sphinx_js.typedoc import Comment, Converter, DescriptionItem, parse
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
 def join_type(t: Type) -> str:
+    if not t:
+        return ""
+    if isinstance(t, str):
+        return t
+    return "".join(e.name if isinstance(e, TypeXRef) else e for e in t)
+
+def join_descri(t: Type) -> str:
     if not t:
         return ""
     if isinstance(t, str):
@@ -126,7 +135,7 @@ class PathSegmentsTests(TypeDocTestCase):
 
     def commented_object(self, comment, **kwargs):
         """Return the object from ``json`` having the given comment short-text."""
-        comment = Comment(summary=[Summary(kind="text", text=comment)])
+        comment = Comment(summary=[DescriptionItem(kind="text", text=comment)])
         return dict_where(self.json, comment=comment, **kwargs)
 
     def commented_object_path(self, comment, **kwargs):
@@ -281,7 +290,7 @@ class ConvertNodeTests(TypeDocAnalyzerTestCase):
         assert subclass.name == "EmptySubclass"
         assert subclass.path == Pathname(["./", "nodes.", "EmptySubclass"])
         assert subclass.filename == "nodes.ts"
-        assert subclass.description == "An empty subclass"
+        assert subclass.description == [DescriptionText("An empty subclass")]
         assert subclass.deprecated is False
         assert subclass.examples == []
         assert subclass.see_alsos == []
@@ -322,7 +331,7 @@ class ConvertNodeTests(TypeDocAnalyzerTestCase):
         assert func.params == [
             Param(
                 name="a",
-                description="Some number",
+                description=[DescriptionText("Some number")],
                 has_default=True,
                 is_variadic=False,
                 type=["number"],
@@ -330,14 +339,14 @@ class ConvertNodeTests(TypeDocAnalyzerTestCase):
             ),
             Param(
                 name="b",
-                description="Some strings",
+                description=[DescriptionText("Some strings")],
                 has_default=False,
                 is_variadic=True,
                 type=["string", "[]"],
             ),
         ]
         assert func.exceptions == []
-        assert func.returns == [Return(type=["number"], description="The best number")]
+        assert func.returns == [Return(type=["number"], description=[DescriptionText("The best number")])]
 
     def test_constructor(self):
         """Make sure constructors get attached to classes and analyzed into
@@ -511,7 +520,7 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
             extends=[
                 TypeXRefInternal(name="Lengthwise", path=["./", "types.", "Lengthwise"])
             ],
-            description="the identity type",
+            description=[DescriptionText('the identity type')],
         )
 
     def test_constrained_by_key(self):
@@ -523,12 +532,12 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         # TODO?
         # assert obj.returns[0].type == "<TODO: not implemented>"
         assert obj.type_params[0] == TypeParam(
-            name="T", extends=None, description="The type of the object"
+            name="T", extends=None, description=[DescriptionText("The type of the object")]
         )
         tp = copy(obj.type_params[1])
         tp.extends = join_type(tp.extends)
         assert tp == TypeParam(
-            name="K", extends="string|number|symbol", description="The type of the key"
+            name="K", extends="string|number|symbol", description=[DescriptionText("The type of the key")]
         )
 
         # TODO: this part maybe belongs in a unit test for the renderer or something
@@ -547,7 +556,7 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         tp = copy(obj.type_params[0])
         tp.extends = join_type(tp.extends)
         assert tp == TypeParam(
-            name="S", extends="number[]", description="The type we contain"
+            name="S", extends="number[]", description=[DescriptionText("The type we contain")]
         )
         a = AutoClassRenderer.__new__(AutoClassRenderer)
         a._explicit_formal_params = None
@@ -587,18 +596,18 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
     def test_code_in_description(self):
         obj = self.analyzer.get_object(["codeInDescription"])
         assert (
-            obj.description
-            == """\
-Code 1 had ``single ticks around it``.
-Code 2 has ``double ticks around it``.
-Code 3 has a :sphinx:role:`before it`.
-
-.. code-block:: js
-
-    A JS code pen!
-
-
-And some closing words."""
+            obj.description == 
+            [
+                DescriptionText(text='Code 1 had '),
+                DescriptionCode(code='`single ticks around it`'),
+                DescriptionText(text='.\nCode 2 has '),
+                DescriptionCode(code='``double ticks around it``'),
+                DescriptionText(text='.\nCode 3 has a :sphinx:role:'),
+                DescriptionCode(code='`before it`'),
+                DescriptionText(text='.\n\n'),
+                DescriptionCode(code='```js\nA JS code pen!\n```'),
+                DescriptionText(text='\nAnd some closing words.'),
+            ]
         )
 
     def test_destructured(self):

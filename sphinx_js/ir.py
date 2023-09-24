@@ -23,6 +23,7 @@ let's at least have a well-documented one and one slightly more likely to
 survive template changes.
 
 """
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -45,19 +46,22 @@ class TypeXRefExternal(TypeXRef):
     qualifiedName: str
 
 
+@dataclass
+class DescriptionText:
+    text: str
+
+
+@dataclass
+class DescriptionCode:
+    code: str
+
+
+DescriptionItem = DescriptionText | DescriptionCode
+
+Description = str | Sequence[DescriptionItem]
+
 #: Human-readable type of a value. None if we don't know the type.
 Type = str | list[str | TypeXRef] | None
-# In the far future, we may take full control of our RST templates rather than
-# using the js-domain directives provided by Sphinx. This would give us the
-# freedom to link type names in formal param lists and param description lists
-# to their definitions. To do this, we could replace the string-based Type with
-# a class-based Type which internally preserves the structure of the type
-# (simple for JS, fancy for TS) and can, on request, render it out as either
-# text or link-having RST.
-
-
-#: Pathname, full or not, to an object:
-ReStructuredText = str
 
 
 class Pathname:
@@ -117,7 +121,7 @@ class _Member:
 class TypeParam:
     name: str
     extends: Type
-    description: ReStructuredText = ReStructuredText("")
+    description: Description = ""
 
 
 @dataclass
@@ -129,7 +133,7 @@ class Param:
     #: The description text (like all other description fields in the IR)
     #: retains any line breaks and subsequent indentation whitespace that were
     #: in the source code.
-    description: ReStructuredText = ReStructuredText("")
+    description: Description = ""
     has_default: bool = False
     is_variadic: bool = False
     type: Type | None = None
@@ -152,7 +156,7 @@ class Exc:
 
     #: The type of exception can have
     type: Type
-    description: ReStructuredText
+    description: Description
 
 
 @dataclass
@@ -161,7 +165,7 @@ class Return:
 
     #: The type this kind of return value can have
     type: Type
-    description: ReStructuredText
+    description: Description
 
 
 @dataclass
@@ -198,11 +202,11 @@ class TopLevel:
     #: Either absolute or relative to the root_for_relative_js_paths.
     deppath: str | None
     #: The human-readable description of the entity or '' if absent
-    description: ReStructuredText
+    description: Description
     #: Line number where the object (excluding any prefixing comment) begins
     line: int | None
     #: Explanation of the deprecation (which implies True) or True or False
-    deprecated: ReStructuredText | bool
+    deprecated: Description | bool
     #: List of preformatted textual examples
     examples: list[str]
     #: List of paths to also refer the reader to

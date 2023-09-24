@@ -1,3 +1,4 @@
+import textwrap
 from collections.abc import Callable, Iterator
 from re import sub
 from typing import Any, Literal
@@ -16,6 +17,8 @@ from .analyzer_utils import dotted_path
 from .ir import (
     Attribute,
     Class,
+    Description,
+    DescriptionText,
     Exc,
     Function,
     Interface,
@@ -220,7 +223,42 @@ class JsRenderer:
 
         return "({})".format(", ".join(formals))
 
-    def format_type(self, type: Type, escape: bool = False, bold: bool = True) -> str:
+    def render_description(self, description: Description) -> str:
+        """Construct a single comment string from a fancy object."""
+        if isinstance(description, str):
+            return description
+        content = []
+        prev = ""
+        for s in description:
+            if isinstance(s, DescriptionText):
+                prev = s.text
+                content.append(prev)
+                continue
+            # code
+            if s.code.startswith("```"):
+                first_line, rest = s.code.split("\n", 1)
+                mid, _last_line = rest.rsplit("\n", 1)
+                code_type = first_line.removeprefix("```")
+                start = f".. code-block:: {code_type}\n\n"
+                codeblock = textwrap.indent(mid, " " * 4)
+                end = "\n\n"
+                content.append(start + codeblock + end)
+                # A code pen
+                continue
+
+            if s.code.startswith("``"):
+                # Sphinx-style escaped, leave it alone.
+                content.append(s.code)
+                continue
+            if prev.endswith(":"):
+                # A sphinx role, leave it alone
+                content.append(s.code)
+                continue
+            # Used single uptick with code, put double upticks
+            content.append(f"`{s.code}`")
+        return "".join(content)
+
+    def render_type(self, type: Type, escape: bool = False, bold: bool = True) -> str:
         if not type:
             return ""
         if isinstance(type, str):
@@ -266,17 +304,17 @@ class JsRenderer:
         """Derive heads and tail from ``@returns`` blocks."""
         tail = []
         if return_.type:
-            tail.append(self.format_type(return_.type, escape=False))
+            tail.append(self.render_type(return_.type, escape=False))
         if return_.description:
-            tail.append(return_.description)
+            tail.append(self.render_description(return_.description))
         return ["returns"], " -- ".join(tail)
 
     def _type_param_formatter(self, tparam: TypeParam) -> tuple[list[str], str] | None:
         v = tparam.name
         if tparam.extends:
-            v += " extends " + self.format_type(tparam.extends)
+            v += " extends " + self.render_type(tparam.extends)
         heads = ["typeparam", v]
-        return heads, tparam.description
+        return heads, self.render_description(tparam.description)
 
     def _param_formatter(self, param: Param) -> tuple[list[str], str] | None:
         """Derive heads and tail from ``@param`` blocks."""
@@ -286,7 +324,7 @@ class JsRenderer:
         heads = ["param"]
         heads.append(param.name)
 
-        tail = param.description
+        tail = self.render_description(param.description)
         return heads, tail
 
     def _param_type_formatter(self, param: Param) -> tuple[list[str], str] | None:
@@ -294,15 +332,15 @@ class JsRenderer:
         if not param.type:
             return None
         heads = ["type", param.name]
-        tail = self.format_type(param.type)
+        tail = self.render_type(param.type)
         return heads, tail
 
     def _exception_formatter(self, exception: Exc) -> tuple[list[str], str]:
         """Derive heads and tail from ``@throws`` blocks."""
         heads = ["throws"]
         if exception.type:
-            heads.append(self.format_type(exception.type, bold=False))
-        tail = exception.description
+            heads.append(self.render_type(exception.type, bold=False))
+        tail = self.render_description(exception.description)
         return heads, tail
 
     def _fields(self, obj: TopLevel) -> Iterator[tuple[list[str], str]]:
@@ -347,7 +385,7 @@ class AutoFunctionRenderer(JsRenderer):
             name=name,
             params=self._formal_params(obj),
             fields=self._fields(obj),
-            description=obj.description,
+            description=self.render_description(obj.description),
             examples=obj.examples,
             deprecated=obj.deprecated,
             is_optional=obj.is_optional,
@@ -400,14 +438,14 @@ class AutoClassRenderer(JsRenderer):
             deprecated=constructor.deprecated,
             see_also=constructor.see_alsos,
             exported_from=obj.exported_from,
-            class_comment=obj.description,
+            class_comment=self.render_description(obj.description),
             is_abstract=isinstance(obj, Class) and obj.is_abstract,
             interfaces=obj.interfaces if isinstance(obj, Class) else [],
             is_interface=isinstance(
                 obj, Interface
             ),  # TODO: Make interfaces not look so much like classes. This will require taking complete control of templating from Sphinx.
             supers=obj.supers,
-            constructor_comment=constructor.description,
+            constructor_comment=self.render_description(constructor.description),
             content="\n".join(self._content),
             members=self._members_of(
                 obj,
@@ -507,12 +545,12 @@ class AutoAttributeRenderer(JsRenderer):
     def _template_vars(self, name: str, obj: Attribute) -> dict[str, Any]:  # type: ignore[override]
         return dict(
             name=name,
-            description=obj.description,
+            description=self.render_description(obj.description),
             deprecated=obj.deprecated,
             is_optional=obj.is_optional,
             see_also=obj.see_alsos,
             examples=obj.examples,
-            type=self.format_type(obj.type),
+            type=self.render_type(obj.type),
             content="\n".join(self._content),
         )
 

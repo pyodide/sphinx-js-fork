@@ -4,10 +4,10 @@ import os
 import pathlib
 import re
 import subprocess
-import textwrap
+from collections import defaultdict
 from collections.abc import Iterable, Iterator, Sequence
 from errno import ENOENT
-from functools import cache
+from functools import cache, partial
 from inspect import isclass
 from json import load
 from os.path import basename, relpath, sep, splitext
@@ -277,29 +277,42 @@ class Source(BaseModel):
     line: int
 
 
-class Summary(BaseModel):
+class DescriptionItem(BaseModel):
     kind: Literal["text", "code"]
     text: str
+
+    def to_ir(self) -> ir.DescriptionItem:
+        if self.kind == "text":
+            return ir.DescriptionText(self.text)
+        return ir.DescriptionCode(self.text)
 
 
 class Tag(BaseModel):
     tag: str
-    content: list[Summary]
+    content: list[DescriptionItem]
+
+
+def description_to_ir(desc: Sequence[DescriptionItem]) -> Sequence[ir.DescriptionItem]:
+    return [item.to_ir() for item in desc]
 
 
 class Comment(BaseModel):
-    returns: str = ""
-    summary: list[Summary] = []
+    summary: list[DescriptionItem] = []
     blockTags: list[Tag] = []
+    tags: dict[str, list[Sequence[DescriptionItem]]] = Field(
+        default_factory=partial(defaultdict, list)
+    )
 
-    def get_returns(self) -> str:
-        result = self.returns.strip()
-        if result:
-            return result
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
         for tag in self.blockTags:
-            if tag.tag == "@returns":
-                return tag.content[0].text.strip()
-        return ""
+            self.tags[tag.tag.removeprefix("@")].append(tag.content)
+
+    def get_description(self) -> Sequence[ir.DescriptionItem]:
+        return description_to_ir(self.summary)
+
+    def get_returns(self) -> Sequence[ir.DescriptionItem]:
+        return description_to_ir(next(iter(self.tags["returns"]), []))
 
 
 class Flags(BaseModel):
@@ -353,7 +366,7 @@ class TopLevelPropertiesDict(TypedDict):
     path: ir.Pathname
     filename: str
     deppath: str | None
-    description: str
+    description: Sequence[ir.DescriptionItem]
     line: int | None
     deprecated: bool
     examples: list[str]
@@ -377,7 +390,7 @@ class TopLevelProperties(Base):
             path=ir.Pathname(self.path),
             filename=basename(self.filename),
             deppath=self.filename,
-            description=make_description(self.comment),
+            description=self.comment.get_description(),
             line=self.sources[0].line if self.sources else None,
             # These properties aren't supported by TypeDoc:
             deprecated=False,
@@ -682,42 +695,6 @@ Node = Annotated[
 ClassChild = Annotated[Accessor | Callable | Member, Field(discriminator="kindString")]
 
 
-def make_description(comment: Comment) -> str:
-    """Construct a single comment string from a fancy object."""
-    if not comment.summary:
-        return ""
-    content = []
-    prev = ""
-    for s in comment.summary:
-        if s.kind == "text":
-            prev = s.text
-            content.append(prev)
-            continue
-        # code
-        if s.text.startswith("```"):
-            first_line, rest = s.text.split("\n", 1)
-            mid, _last_line = rest.rsplit("\n", 1)
-            code_type = first_line.removeprefix("```")
-            start = f".. code-block:: {code_type}\n\n"
-            codeblock = textwrap.indent(mid, " " * 4)
-            end = "\n\n"
-            content.append(start + codeblock + end)
-            # A code pen
-            continue
-
-        if s.text.startswith("``"):
-            # Sphinx-style escaped, leave it alone.
-            content.append(s.text)
-            continue
-        if prev.endswith(":"):
-            # A sphinx role, leave it alone
-            content.append(s.text)
-            continue
-        # Used single uptick with code, put double upticks
-        content.append(f"`{s.text}`")
-    return "".join(content)
-
-
 class TypeParameter(Base):
     kindString: Literal["Type parameter"]
     name: str
@@ -729,7 +706,7 @@ class TypeParameter(Base):
         if self.type:
             extends = self.type.render_name(converter)
         return ir.TypeParam(
-            self.name, extends, description=make_description(self.comment)
+            self.name, extends, description=self.comment.get_description()
         )
 
     def _path_segments(self, base_dir: str) -> list[str]:
@@ -749,7 +726,7 @@ class Param(Base):
         default = self.defaultValue or ir.NO_DEFAULT
         return ir.Param(
             name=self.name,
-            description=make_description(self.comment),
+            description=self.comment.get_description(),
             has_default=self.defaultValue is not None,
             is_variadic=self.flags.isRest,
             # For now, we just pass a single string in as the type rather than
