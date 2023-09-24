@@ -178,7 +178,7 @@ class JsRenderer:
         for line in result.splitlines():
             if line.strip():
                 had_blank = False
-                lines.append(line)
+                lines.append(line.rstrip())
             elif not had_blank:
                 lines.append("")
                 had_blank = True
