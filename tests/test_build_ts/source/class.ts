@@ -66,3 +66,9 @@ export function blah(a: OptionalThings) : ConstructorlessClass {
 export function thunk(b : typeof blah) {
 
 }
+
+/**
+ * A problematic self referential function
+ * @param b troublemaker
+ */
+export function quik(b: typeof quik)  {}

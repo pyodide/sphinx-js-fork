@@ -869,7 +869,11 @@ class Signature(TopLevelProperties):
         yield from riffle((inner(param) for param in self.parameters), ", ")
 
         yield "): "
-        ret = self.return_type(converter)[0].type
+        return_type = self.return_type(converter)
+        if return_type:
+            ret = return_type[0].type
+        else:
+            ret = "void"
         assert ret
         if isinstance(ret, str):
             yield ret
@@ -1062,6 +1066,14 @@ class OtherType(TypeBase):
         yield "<TODO: not implemented>"
 
 
+class UnknownType(TypeBase):
+    type: Literal["unknown"]
+    name: str
+
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        yield self.name
+
+
 AnyNode = Node | Project | Signature
 
 
@@ -1075,6 +1087,7 @@ Type = (
     | ReferenceType
     | ReflectionType
     | TupleType
+    | UnknownType
 )
 
 TypeD = Annotated[Type, Field(discriminator="type")]
