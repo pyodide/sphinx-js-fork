@@ -76,5 +76,5 @@ export function selfReferential(b: typeof selfReferential)  {}
 
 /**
  * @deprecated since v20!
-*/
+ */
 export function deprecatedFunction() {}
