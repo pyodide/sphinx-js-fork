@@ -587,7 +587,12 @@ class TypeNameTests(TypeDocAnalyzerTestCase):
         obj = self.analyzer.get_object(["partial"])
         t = deepcopy(obj.type)
         t[0].sourcefilename = "xxx"
-        assert t == [TypeXRefExternal("Partial", "xxx", "Partial"), "<", "string", ">"]
+        assert t == [
+            TypeXRefExternal("Partial", "typescript", "xxx", "Partial"),
+            "<",
+            "string",
+            ">",
+        ]
 
     def test_constrained_by_property(self):
 

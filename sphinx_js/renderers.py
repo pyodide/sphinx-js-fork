@@ -1,5 +1,6 @@
 import textwrap
 from collections.abc import Callable, Iterator
+from functools import partial
 from re import sub
 from typing import Any, Literal
 
@@ -10,6 +11,7 @@ from docutils.statemachine import StringList
 from docutils.utils import new_document
 from jinja2 import Environment, PackageLoader
 from sphinx.application import Sphinx
+from sphinx.config import Config
 from sphinx.errors import SphinxError
 from sphinx.util import logging, rst
 
@@ -29,6 +31,7 @@ from .ir import (
     Type,
     TypeParam,
     TypeXRef,
+    TypeXRefExternal,
     TypeXRefInternal,
 )
 from .jsdoc import Analyzer as JsAnalyzer
@@ -54,9 +57,26 @@ class JsRenderer:
 
     _renderer_type: Literal["function", "class", "attribute"]
     _template: str
+    _xref_formatter: Callable[[TypeXRefExternal], str]
+    _partial_path: list[str]
+    _explicit_formal_params: str
+    _content: list[str]
+    _options: dict[str, Any]
 
     def _template_vars(self, name: str, obj: TopLevel) -> dict[str, Any]:
         raise NotImplementedError
+
+    def _set_xref_formatter(
+        self, formatter: Callable[[Config, TypeXRefExternal], str] | None
+    ) -> None:
+        if formatter:
+            self._xref_formatter = partial(formatter, self._app.config)
+            return
+
+        def default_xref_formatter(xref: TypeXRefExternal) -> str:
+            return xref.name
+
+        self._xref_formatter = default_xref_formatter
 
     def __init__(
         self,
@@ -71,15 +91,13 @@ class JsRenderer:
             directive.state.document.settings.tab_width = 8
 
         self._directive = directive
+        self._app = app
+        self._set_xref_formatter(app.config.ts_xref_formatter)
 
         # content, arguments, options, app: all need to be accessible to
         # template_vars, so we bring them in on construction and stow them away
         # on the instance so calls to template_vars don't need to concern
         # themselves with what it needs.
-        self._app = app
-        self._partial_path: list[str]
-        self._explicit_formal_params: str
-
         (
             self._partial_path,
             self._explicit_formal_params,
@@ -295,7 +313,8 @@ class JsRenderer:
             name = rst.escape(s.name)
             result = f":js:class:`{name}`"
         else:
-            result = s.name
+            assert isinstance(s, TypeXRefExternal)
+            result = self._xref_formatter(s)
         if escape:
             result = rst.escape(result)
         return result

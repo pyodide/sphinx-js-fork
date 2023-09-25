@@ -985,6 +985,7 @@ class ReferenceType(TypeBase):
     type: Literal["reference"]
     name: str
     target: int | Target | None
+    package: str | None = None
     refersToTypeParameter: bool = False
 
     def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
@@ -996,8 +997,12 @@ class ReferenceType(TypeBase):
             yield ir.TypeXRefInternal(self.name, node.path)
             return
         assert isinstance(self.target, Target)
+        assert self.package
         yield ir.TypeXRefExternal(
-            self.name, self.target.sourceFileName, self.target.qualifiedName
+            self.name,
+            self.package,
+            self.target.sourceFileName,
+            self.target.qualifiedName,
         )
 
 

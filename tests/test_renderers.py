@@ -10,6 +10,7 @@ from sphinx_js.ir import (
     Param,
     Return,
     TypeParam,
+    TypeXRefExternal,
     TypeXRefInternal,
 )
 from sphinx_js.renderers import AutoFunctionRenderer, JsRenderer
@@ -50,15 +51,29 @@ def test_render_description():
 
 
 @pytest.fixture()
-def function_render() -> AutoFunctionRenderer:
+def function_renderer():
+    class _config:
+        pass
+
+    class _app:
+        config = _config
+
     renderer = AutoFunctionRenderer.__new__(AutoFunctionRenderer)
+    renderer._app = _app
     renderer._explicit_formal_params = None
     renderer._content = []
+    renderer._set_xref_formatter(None)
+    return renderer
 
+
+@pytest.fixture()
+def function_render(function_renderer) -> AutoFunctionRenderer:
     def function_render(partial_path=None, use_short_name=False, **args):
         if not partial_path:
             partial_path = ["blah"]
-        return renderer.rst(partial_path, make_function(**args), use_short_name)
+        return function_renderer.rst(
+            partial_path, make_function(**args), use_short_name
+        )
 
     return function_render
 
@@ -200,6 +215,25 @@ def test_func_render_type_params(function_render):
            :type b: **S**
         """
     )
+
+
+def test_render_xref(function_renderer: AutoFunctionRenderer):
+    assert (
+        function_renderer.render_type([TypeXRefInternal(name="A", path=["a.", "A"])])
+        == ":js:class:`A`"
+    )
+    xref_external = TypeXRefExternal("A", "blah", "a.ts", "a.A")
+    assert function_renderer.render_type([xref_external]) == "A"
+    res = []
+
+    def xref_render(config, val):
+        res.append([config, val])
+        return val.package + "::" + val.name
+
+    function_renderer._set_xref_formatter(xref_render)
+    assert function_renderer.render_type([xref_external]) == "blah::A"
+    assert res[0][0] == function_renderer._app.config
+    assert res[0][1] == xref_external
 
 
 def test_func_render_param_type(function_render):

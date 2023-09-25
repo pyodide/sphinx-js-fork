@@ -43,6 +43,7 @@ class TypeXRefInternal(TypeXRef):
 
 @define
 class TypeXRefExternal(TypeXRef):
+    package: str
     sourcefilename: str
     qualifiedName: str
 
