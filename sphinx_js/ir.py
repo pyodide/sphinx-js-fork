@@ -24,34 +24,35 @@ survive template changes.
 
 """
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from typing import Any
+
+from attrs import Factory, define
 
 from .analyzer_utils import dotted_path
 
 
-@dataclass
+@define
 class TypeXRef:
     name: str
 
 
-@dataclass
+@define
 class TypeXRefInternal(TypeXRef):
     path: list[str]
 
 
-@dataclass
+@define
 class TypeXRefExternal(TypeXRef):
     sourcefilename: str
     qualifiedName: str
 
 
-@dataclass
+@define
 class DescriptionText:
     text: str
 
 
-@dataclass
+@define
 class DescriptionCode:
     code: str
 
@@ -99,7 +100,7 @@ class _NoDefault:
 NO_DEFAULT = _NoDefault()
 
 
-@dataclass
+@define(slots=False)
 class _Member:
     """An IR object that is a member of another, as a method is a member of a
     class or interface"""
@@ -117,14 +118,14 @@ class _Member:
     is_private: bool
 
 
-@dataclass
+@define
 class TypeParam:
     name: str
     extends: Type
     description: Description = ""
 
 
-@dataclass
+@define
 class Param:
     """A parameter of either a function or (in the case of TS, which has
     classes parametrized by type) a class."""
@@ -143,14 +144,14 @@ class Param:
     # : has_default=True, this must be set.
     default: str | _NoDefault = NO_DEFAULT
 
-    def __post_init__(self) -> None:
+    def __attrs_post_init__(self) -> None:
         if self.has_default and self.default is NO_DEFAULT:
             raise ValueError(
                 "Tried to construct a Param with has_default=True but without `default` specified."
             )
 
 
-@dataclass
+@define
 class Exc:
     """One kind of exception that can be raised by a function"""
 
@@ -159,7 +160,7 @@ class Exc:
     description: Description
 
 
-@dataclass
+@define
 class Return:
     """One kind of thing a function can return"""
 
@@ -168,7 +169,7 @@ class Return:
     description: Description
 
 
-@dataclass
+@define(slots=False)
 class TopLevel:
     """A language object with an independent existence
 
@@ -219,7 +220,7 @@ class TopLevel:
     exported_from: Pathname | None
 
 
-@dataclass
+@define(slots=False)
 class Attribute(TopLevel, _Member):
     """A property of an object
 
@@ -232,17 +233,17 @@ class Attribute(TopLevel, _Member):
     type: Type
 
 
-@dataclass
+@define
 class Function(TopLevel, _Member):
     """A function or a method of a class"""
 
     params: list[Param]
     exceptions: list[Exc]
     returns: list[Return]
-    type_params: list[TypeParam] = field(default_factory=list)
+    type_params: list[TypeParam] = Factory(list)
 
 
-@dataclass
+@define
 class _MembersAndSupers:
     """An IR object that can contain members and extend other types"""
 
@@ -256,14 +257,14 @@ class _MembersAndSupers:
     supers: list[Pathname]
 
 
-@dataclass
+@define
 class Interface(TopLevel, _MembersAndSupers):
     """An interface, a la TypeScript"""
 
-    type_params: list[TypeParam] = field(default_factory=list)
+    type_params: list[TypeParam] = Factory(list)
 
 
-@dataclass
+@define
 class Class(TopLevel, _MembersAndSupers):
     #: The default constructor for this class. Absent if the constructor is
     #: inherited.
@@ -276,5 +277,5 @@ class Class(TopLevel, _MembersAndSupers):
     # itself. These are supported and extracted by jsdoc, but they end up in an
     # `undocumented: True` doclet and so are presently filtered out. But we do
     # have the space to include them someday.
-    type_params: list[TypeParam] = field(default_factory=list)
-    params: list[Param] = field(default_factory=list)
+    type_params: list[TypeParam] = Factory(list)
+    params: list[Param] = Factory(list)

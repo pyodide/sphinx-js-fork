@@ -33,14 +33,15 @@ repos:
         exclude: (tests/)
         args: []
         additional_dependencies:
+          - attrs
           - jinja2
+          - nox
           - pydantic
           - pytest
           - sphinx
           - types-docutils
           - types-parsimonious
           - types-setuptools
-          - nox
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: "v1.9.0"

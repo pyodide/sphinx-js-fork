@@ -22,6 +22,7 @@ setup(
         # Pin markupsafe because of
         # https://github.com/pallets/jinja/issues/1585
         "markupsafe==2.0.1",
+        "attrs",
     ],
     python_requires=">=3.10",
     classifiers=[
