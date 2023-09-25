@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 from bs4 import BeautifulSoup
 from conftest import TYPEDOC_VERSION
 
@@ -102,6 +104,20 @@ class TextBuilderTests(SphinxBuildTestCase):
             "      **type:** boolean\n"
             "\n"
             "   OptionalThings.foop?()\n",
+        )
+
+    def test_deprecated(self):
+        self._file_contents_eq(
+            "deprecated",
+            dedent(
+                """\
+                deprecatedFunction()
+
+                   Note:
+
+                     Deprecated: since v20!
+                """
+            ),
         )
 
 

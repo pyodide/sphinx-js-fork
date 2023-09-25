@@ -71,4 +71,10 @@ export function thunk(b : typeof blah) {
  * A problematic self referential function
  * @param b troublemaker
  */
-export function quik(b: typeof quik)  {}
+export function selfReferential(b: typeof selfReferential)  {}
+
+
+/**
+ * @deprecated since v20!
+*/
+export function deprecatedFunction() {}

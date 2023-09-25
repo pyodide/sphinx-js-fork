@@ -311,8 +311,15 @@ class Comment(BaseModel):
     def get_description(self) -> Sequence[ir.DescriptionItem]:
         return description_to_ir(self.summary)
 
-    def get_returns(self) -> Sequence[ir.DescriptionItem]:
-        return description_to_ir(next(iter(self.tags["returns"]), []))
+    def get_tag_list(self, tag: str) -> list[Sequence[ir.DescriptionItem]]:
+        return [description_to_ir(t) for t in self.tags[tag]]
+
+    def get_tag_one(self, tag: str) -> Sequence[ir.DescriptionItem]:
+        l = self.tags[tag]
+        if not l:
+            return []
+        assert len(l) == 1
+        return description_to_ir(l[0])
 
 
 class Flags(BaseModel):
@@ -368,7 +375,7 @@ class TopLevelPropertiesDict(TypedDict):
     deppath: str | None
     description: Sequence[ir.DescriptionItem]
     line: int | None
-    deprecated: bool
+    deprecated: Sequence[ir.DescriptionItem] | bool
     examples: list[str]
     see_alsos: list[str]
     properties: list[ir.Attribute]
@@ -385,6 +392,8 @@ class TopLevelProperties(Base):
         return self.name
 
     def _top_level_properties(self) -> TopLevelPropertiesDict:
+        deprecated: Sequence[ir.DescriptionItem] | bool
+        deprecated = self.comment.get_tag_one("deprecated") or False
         return dict(
             name=self.short_name(),
             path=ir.Pathname(self.path),
@@ -393,7 +402,7 @@ class TopLevelProperties(Base):
             description=self.comment.get_description(),
             line=self.sources[0].line if self.sources else None,
             # These properties aren't supported by TypeDoc:
-            deprecated=False,
+            deprecated=deprecated,
             examples=[],
             see_alsos=[],
             properties=[],
@@ -775,7 +784,7 @@ class Signature(TopLevelProperties):
         return [
             ir.Return(
                 type=self.type.render_name(converter),
-                description=self.comment.get_returns(),
+                description=self.comment.get_tag_one("returns"),
             )
         ]
 

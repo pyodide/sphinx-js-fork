@@ -381,13 +381,16 @@ class AutoFunctionRenderer(JsRenderer):
     _renderer_type = "function"
 
     def _template_vars(self, name: str, obj: Function) -> dict[str, Any]:  # type: ignore[override]
+        deprecated = obj.deprecated
+        if not isinstance(deprecated, bool):
+            deprecated = self.render_description(deprecated)
         return dict(
             name=name,
             params=self._formal_params(obj),
             fields=self._fields(obj),
             description=self.render_description(obj.description),
             examples=obj.examples,
-            deprecated=obj.deprecated,
+            deprecated=deprecated,
             is_optional=obj.is_optional,
             is_static=obj.is_static,
             see_also=obj.see_alsos,
