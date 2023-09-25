@@ -205,6 +205,7 @@ class Analyzer:
             is_abstract=False,
             is_optional=False,
             is_static=is_static(doclet),
+            is_async=False,
             is_private=is_private(doclet),
             exceptions=exceptions_to_ir(doclet.get("exceptions", [])),
             returns=returns_to_ir(doclet.get("returns", [])),

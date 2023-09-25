@@ -120,11 +120,23 @@ def _members_to_exclude(arg: str | None) -> set[str]:
     return set(a.strip() for a in (arg or "").split(","))
 
 
-class JSStaticFunction(JSCallable):
-    """Like a callable but with a different prefix."""
+class JSFunction(JSCallable):
+    option_spec = {
+        **JSCallable.option_spec,
+        "static": flag,
+        "async": flag,
+    }
 
-    def get_display_prefix(self) -> list[Any]:
-        return [
-            addnodes.desc_sig_keyword("static", "static"),
-            addnodes.desc_sig_space(),
-        ]
+    def get_display_prefix(
+        self,
+    ) -> list[Any]:
+        result = []
+        for name in ["static", "async"]:
+            if name in self.options:
+                result.extend(
+                    [
+                        addnodes.desc_sig_keyword(name, name),
+                        addnodes.desc_sig_space(),
+                    ]
+                )
+        return result

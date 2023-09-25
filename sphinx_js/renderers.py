@@ -393,6 +393,7 @@ class AutoFunctionRenderer(JsRenderer):
             deprecated=deprecated,
             is_optional=obj.is_optional,
             is_static=obj.is_static,
+            is_async=obj.is_async,
             see_also=obj.see_alsos,
             content="\n".join(self._content),
         )
@@ -425,6 +426,7 @@ class AutoClassRenderer(JsRenderer):
                 is_abstract=False,
                 is_optional=False,
                 is_static=False,
+                is_async=False,
                 is_private=False,
                 type_params=obj.type_params,
                 params=[],

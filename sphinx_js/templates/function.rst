@@ -1,10 +1,12 @@
 {% import 'common.rst' as common %}
 
-{% if is_static %}
-.. js:staticfunction:: {{ name }}{{ '?' if is_optional else '' }}{{ params }}
-{% else %}
 .. js:function:: {{ name }}{{ '?' if is_optional else '' }}{{ params }}
-{% endif %}
+   {% if is_static -%}
+   :static:
+   {% endif %}
+   {%- if is_async -%}
+   :async:
+   {% endif %}
 
    {{ common.deprecated(deprecated)|indent(3) }}
 

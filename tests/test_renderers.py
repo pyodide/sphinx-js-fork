@@ -69,6 +69,7 @@ def make_function(**args):
             is_abstract=False,
             is_optional=False,
             is_static=False,
+            is_async=False,
             is_private=False,
             name="",
             path=[],
@@ -117,7 +118,12 @@ def test_func_render_flags(function_render):
     # TODO: look into this.
     assert function_render(is_abstract=True) == DEFAULT_RESULT
     assert function_render(is_optional=True) == ".. js:function:: blah?()\n"
-    assert function_render(is_static=True) == ".. js:staticfunction:: blah()\n"
+    assert function_render(is_static=True) == ".. js:function:: blah()\n   :static:\n"
+    assert function_render(is_async=True) == ".. js:function:: blah()\n   :async:\n"
+    assert (
+        function_render(is_async=True, is_static=True)
+        == ".. js:function:: blah()\n   :static:\n   :async:\n"
+    )
     assert function_render(is_private=True) == DEFAULT_RESULT
 
 

@@ -138,6 +138,19 @@ class TextBuilderTests(SphinxBuildTestCase):
             ),
         )
 
+    def test_async(self):
+        self._file_contents_eq(
+            "async_function",
+            dedent(
+                """\
+                async asyncFunction()
+
+                   Returns:
+                      Promise<void>
+                """
+            ),
+        )
+
 
 class HtmlBuilderTests(SphinxBuildTestCase):
     """Tests which require an HTML build of our Sphinx tree, for checking

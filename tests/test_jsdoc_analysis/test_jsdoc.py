@@ -66,6 +66,7 @@ class FunctionTests(JsDocTestCase):
             is_abstract=False,
             is_optional=False,
             is_static=False,
+            is_async=False,
             params=[
                 Param(
                     name="bar",

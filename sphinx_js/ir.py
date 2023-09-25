@@ -236,6 +236,7 @@ class Attribute(TopLevel, _Member):
 class Function(TopLevel, _Member):
     """A function or a method of a class"""
 
+    is_async: bool
     params: list[Param]
     exceptions: list[Exc]
     returns: list[Return]

@@ -88,3 +88,5 @@ export function deprecatedFunction() {}
  * ```
  */
 export function exampleFunction() {}
+
+export async function asyncFunction() {}

@@ -6,7 +6,7 @@ from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
 from .directives import (
-    JSStaticFunction,
+    JSFunction,
     auto_attribute_directive_bound_to_app,
     auto_class_directive_bound_to_app,
     auto_function_directive_bound_to_app,
@@ -86,37 +86,12 @@ def fix_js_make_xref() -> None:
 # Cache this to guarantee it only runs once.
 @cache
 def fix_staticfunction_objtype() -> None:
-    """Add support for staticfunction objtype
-
-    This adds a new staticfunction objtype to javascript domain class attribute.
-    Can't do this with ``app.add_object_type()`` because that adds it to the
-    std domain.
-
-    This also monkeypatches ``JSObject.get_index_text`` to have the right name
-    for static functions.
-
+    """Override js:function directive with one that understands static and async
+    prefixes
     """
-    from sphinx.domains import ObjType
-    from sphinx.domains.javascript import JavaScriptDomain, JSObject
-    from sphinx.locale import _
+    from sphinx.domains.javascript import JavaScriptDomain
 
-    if "staticfunction" in JavaScriptDomain.object_types:
-        return
-    JavaScriptDomain.object_types["staticfunction"] = ObjType(
-        _("static function"), "func"
-    )
-
-    orig_get_index_text = JSObject.get_index_text
-
-    def get_index_text(self: Any, objectname: str, name_obj: Any) -> Any:
-        name, obj = name_obj
-        if self.objtype == "staticfunction":
-            if not obj:
-                return _("%s() (built-in static function)") % name
-            return _("%s() (%s static method)") % (name, obj)
-        return orig_get_index_text(self, objectname, name_obj)
-
-    JSObject.get_index_text = get_index_text  # type:ignore[assignment]
+    JavaScriptDomain.directives["function"] = JSFunction
 
 
 @cache
@@ -149,7 +124,6 @@ def setup(app: Sphinx) -> None:
     # is RSTs.
     app.connect("builder-inited", analyze)
 
-    app.add_directive_to_domain("js", "staticfunction", JSStaticFunction)
     app.add_directive_to_domain(
         "js", "autofunction", auto_function_directive_bound_to_app(app)
     )

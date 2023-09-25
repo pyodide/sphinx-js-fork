@@ -875,7 +875,9 @@ class Signature(TopLevelProperties):
 
         self._fix_type_suffix()
         params = self._destructure_params()
-
+        # Would be nice if we could statically determine that the function was
+        # defined with `async` keyword but this is probably good enough
+        is_async = isinstance(self.type, ReferenceType) and self.type.name == "Promise"
         # This is the real meat of a function, method, or constructor.
         #
         # Constructors' .name attrs end up being like 'new Foo'. They
@@ -894,6 +896,7 @@ class Signature(TopLevelProperties):
             returns=self.return_type(converter)
             if self.kindString != "Constructor signature"
             else [],
+            is_async=is_async,
             **self.parent_member_properties,
             **self._top_level_properties(),
         )
