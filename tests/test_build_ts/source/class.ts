@@ -78,3 +78,13 @@ export function selfReferential(b: typeof selfReferential)  {}
  * @deprecated since v20!
  */
 export function deprecatedFunction() {}
+
+
+/**
+ * @example This is an example.
+ * @example This is another example.
+ * ```py
+ * Something python
+ * ```
+ */
+export function exampleFunction() {}

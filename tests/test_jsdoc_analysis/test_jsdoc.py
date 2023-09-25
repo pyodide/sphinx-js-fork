@@ -1,4 +1,12 @@
-from sphinx_js.ir import Attribute, Exc, Function, Param, Pathname, Return
+from sphinx_js.ir import (
+    Attribute,
+    DescriptionCode,
+    Exc,
+    Function,
+    Param,
+    Pathname,
+    Return,
+)
 from sphinx_js.jsdoc import full_path_segments
 from tests.testing import JsDocTestCase
 
@@ -105,10 +113,7 @@ class ClassTests(JsDocTestCase):
             15,  # jsdoc 3.6.3
         )
         # We ignore examples and other fields from the class doclet so far. This could change someday.
-        assert cls.examples in (
-            ["Example in class"],  # jsdoc, 4.0.0
-            ["Example in constructor"],  # jsdoc 3.6.3
-        )
+        assert cls.examples == [[DescriptionCode(code="```js\nExample in class\n```")]]
 
         # Members:
         getter, private_method = cls.members  # default constructor not included here
@@ -131,10 +136,9 @@ class ClassTests(JsDocTestCase):
         )  # Same path as class. This might differ in different languages.
         assert constructor.filename == "class.js"
         assert constructor.description == "Constructor doc."
-        assert constructor.examples in (
-            ["Example in class"],  # jsdoc 4.0.0
-            ["Example in constructor"],  # jsdoc 3.6.3
-        )
+        assert constructor.examples == [
+            [DescriptionCode(code="```js\nExample in class\n```")]
+        ]
         assert constructor.params == [
             Param(
                 name="ho",

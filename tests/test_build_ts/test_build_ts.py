@@ -120,6 +120,24 @@ class TextBuilderTests(SphinxBuildTestCase):
             ),
         )
 
+    def test_example(self):
+        self._file_contents_eq(
+            "example",
+            dedent(
+                """\
+                exampleFunction()
+
+                   Example:
+
+                      This is an example.
+
+                   Example: This is another example.
+
+                      Something python
+                """
+            ),
+        )
+
 
 class HtmlBuilderTests(SphinxBuildTestCase):
     """Tests which require an HTML build of our Sphinx tree, for checking

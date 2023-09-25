@@ -208,7 +208,7 @@ class TopLevel:
     #: Explanation of the deprecation (which implies True) or True or False
     deprecated: Description | bool
     #: List of preformatted textual examples
-    examples: list[str]
+    examples: Sequence[Description]
     #: List of paths to also refer the reader to
     see_alsos: list[str]
     #: Explicitly documented sub-properties of the object, a la jsdoc's

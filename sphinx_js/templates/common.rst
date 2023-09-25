@@ -8,16 +8,12 @@
 {% endmacro %}
 
 {% macro examples(items) %}
-{% if items -%}
-.. admonition:: Example {%- if items|length > 1 -%} s {%- endif %}
+{% for example in items %}
 
-   {% for example in items -%}
-   .. code-block:: js
+.. admonition:: Example
 
-      {{ example|indent(6) }}
-
-   {% endfor %}
-{%- endif %}
+   {{ example|indent(3) }}
+{% endfor %}
 {% endmacro %}
 
 {% macro see_also(items) %}

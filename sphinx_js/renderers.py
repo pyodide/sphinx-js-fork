@@ -242,7 +242,7 @@ class JsRenderer:
                 start = f".. code-block:: {code_type}\n\n"
                 codeblock = textwrap.indent(mid, " " * 4)
                 end = "\n\n"
-                content.append(start + codeblock + end)
+                content.append("\n" + start + codeblock + end)
                 # A code pen
                 continue
 
@@ -389,7 +389,7 @@ class AutoFunctionRenderer(JsRenderer):
             params=self._formal_params(obj),
             fields=self._fields(obj),
             description=self.render_description(obj.description),
-            examples=obj.examples,
+            examples=[self.render_description(x) for x in obj.examples],
             deprecated=deprecated,
             is_optional=obj.is_optional,
             is_static=obj.is_static,
@@ -437,7 +437,7 @@ class AutoClassRenderer(JsRenderer):
             name=name,
             params=self._formal_params(constructor),
             fields=self._fields(constructor),
-            examples=constructor.examples,
+            examples=[self.render_description(ex) for ex in constructor.examples],
             deprecated=constructor.deprecated,
             see_also=constructor.see_alsos,
             exported_from=obj.exported_from,
@@ -552,7 +552,7 @@ class AutoAttributeRenderer(JsRenderer):
             deprecated=obj.deprecated,
             is_optional=obj.is_optional,
             see_also=obj.see_alsos,
-            examples=obj.examples,
+            examples=[self.render_description(ex) for ex in obj.examples],
             type=self.render_type(obj.type),
             content="\n".join(self._content),
         )

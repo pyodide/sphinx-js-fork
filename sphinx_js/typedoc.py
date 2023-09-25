@@ -376,7 +376,7 @@ class TopLevelPropertiesDict(TypedDict):
     description: Sequence[ir.DescriptionItem]
     line: int | None
     deprecated: Sequence[ir.DescriptionItem] | bool
-    examples: list[str]
+    examples: Sequence[ir.Description]
     see_alsos: list[str]
     properties: list[ir.Attribute]
     exported_from: ir.Pathname | None
@@ -403,7 +403,7 @@ class TopLevelProperties(Base):
             line=self.sources[0].line if self.sources else None,
             # These properties aren't supported by TypeDoc:
             deprecated=deprecated,
-            examples=[],
+            examples=self.comment.get_tag_list("example"),
             see_alsos=[],
             properties=[],
             exported_from=ir.Pathname(make_filepath_segments(self.filename)),

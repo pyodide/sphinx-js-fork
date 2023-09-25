@@ -27,6 +27,7 @@ from .ir import (
     NO_DEFAULT,
     Attribute,
     Class,
+    DescriptionCode,
     Exc,
     Function,
     Param,
@@ -378,7 +379,10 @@ def top_level_properties(
         #    class, so it gets filled out elsewhere.
         line=doclet["meta"]["lineno"],
         deprecated=doclet.get("deprecated", False),
-        examples=doclet.get("examples", []),
+        examples=[
+            [DescriptionCode("```js\n" + x + "\n```")]
+            for x in doclet.get("examples", [])
+        ],
         see_alsos=doclet.get("see", []),
         properties=properties_to_ir(doclet.get("properties", [])),
     )

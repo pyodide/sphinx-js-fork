@@ -39,6 +39,7 @@ def test_render_description():
         Code 2 has ``double ticks around it``.
         Code 3 has a :sphinx:role:`before it`.
 
+
         .. code-block:: js
 
             A JS code pen!
@@ -279,19 +280,6 @@ def test_func_render_callouts(function_render):
            Deprecated: v0.24
         """,
     )
-    assert function_render(examples=["ex1", "ex2"]) == DEFAULT_RESULT + setindent(
-        """
-        .. admonition:: Examples
-
-           .. code-block:: js
-
-              ex1
-
-           .. code-block:: js
-
-              ex2
-        """,
-    )
     assert function_render(see_alsos=["see", "this too"]) == DEFAULT_RESULT + setindent(
         """
         .. seealso::
@@ -325,12 +313,60 @@ def test_all(function_render):
 
            .. admonition:: Example
 
-              .. code-block:: js
-
-                 ex1
+              ex1
 
            .. seealso::
 
               - :any:`see`
        """
+    )
+
+
+def test_examples(function_render):
+    assert function_render(examples=["ex1", "ex2"]) == DEFAULT_RESULT + setindent(
+        """
+        .. admonition:: Example
+
+           ex1
+
+        .. admonition:: Example
+
+           ex2
+        """,
+    )
+
+    assert function_render(
+        examples=[[DescriptionText(text="This is another example.\n")]]
+    ) == DEFAULT_RESULT + setindent(
+        """
+           .. admonition:: Example
+
+              This is another example.
+        """
+    )
+
+    assert function_render(
+        examples=[
+            [DescriptionCode(code="```ts\nThis is an example.\n```")],
+            [
+                DescriptionText(text="This is another example.\n"),
+                DescriptionCode(code="```py\nSomething python\n```"),
+            ],
+        ]
+    ) == DEFAULT_RESULT + setindent(
+        """
+           .. admonition:: Example
+
+              .. code-block:: ts
+
+                  This is an example.
+
+           .. admonition:: Example
+
+              This is another example.
+
+              .. code-block:: py
+
+                  Something python
+        """
     )
