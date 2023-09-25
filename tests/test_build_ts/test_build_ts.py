@@ -6,7 +6,7 @@ from conftest import TYPEDOC_VERSION
 from tests.testing import SphinxBuildTestCase
 
 
-class TextBuilderTests(SphinxBuildTestCase):
+class TestTextBuilder(SphinxBuildTestCase):
     """Tests which require our big TS Sphinx tree to be built (as text)"""
 
     def test_autoclass_constructor(self):
@@ -152,7 +152,7 @@ class TextBuilderTests(SphinxBuildTestCase):
         )
 
 
-class HtmlBuilderTests(SphinxBuildTestCase):
+class TestHtmlBuilder(SphinxBuildTestCase):
     """Tests which require an HTML build of our Sphinx tree, for checking
     links"""
 

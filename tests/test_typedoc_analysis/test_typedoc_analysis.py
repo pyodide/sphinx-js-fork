@@ -40,7 +40,7 @@ def join_descri(t: Type) -> str:
     return "".join(e.name if isinstance(e, TypeXRef) else e for e in t)
 
 
-class PopulateIndexTests(TestCase):
+class TestPopulateIndex(TestCase):
     def test_top_level_function(self):
         """Make sure nodes get indexed."""
         # A simple TypeDoc JSON dump of a source file with a single, top-level
@@ -129,7 +129,7 @@ class PopulateIndexTests(TestCase):
         assert root.name == "misterRoot"
 
 
-class PathSegmentsTests(TypeDocTestCase):
+class TestPathSegments(TypeDocTestCase):
     """Make sure ``make_path_segments() `` works on all its manifold cases."""
 
     files = ["pathSegments.ts"]
@@ -256,7 +256,7 @@ class PathSegmentsTests(TypeDocTestCase):
         ]
 
 
-class ConvertNodeTests(TypeDocAnalyzerTestCase):
+class TestConvertNode(TypeDocAnalyzerTestCase):
     """Test all the branches of ``convert_node()`` by analyzing every kind of
     TypeDoc JSON object."""
 
@@ -414,7 +414,7 @@ class ConvertNodeTests(TypeDocAnalyzerTestCase):
         assert setter.type == ["string"]
 
 
-class TypeNameTests(TypeDocAnalyzerTestCase):
+class TestTypeName(TypeDocAnalyzerTestCase):
     """Make sure our rendering of TypeScript types into text works."""
 
     files = ["types.ts"]

@@ -1,7 +1,6 @@
 import sys
 from os.path import dirname, join
 from shutil import rmtree
-from unittest import TestCase
 
 from pydantic import BaseModel
 from sphinx.cmd.build import main as sphinx_main
@@ -12,7 +11,7 @@ from sphinx_js.typedoc import Analyzer as TsAnalyzer
 from sphinx_js.typedoc import Converter, typedoc_output
 
 
-class ThisDirTestCase(TestCase):
+class ThisDirTestCase:
     """A TestCase that knows how to find the directory the subclass is defined
     in"""
 

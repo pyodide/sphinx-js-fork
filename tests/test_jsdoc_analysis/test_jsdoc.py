@@ -30,7 +30,7 @@ def test_doclet_full_path():
     ]
 
 
-class FunctionTests(JsDocTestCase):
+class TestFunction(JsDocTestCase):
     file = "function.js"
 
     def test_top_level_and_function(self):
@@ -95,7 +95,7 @@ class FunctionTests(JsDocTestCase):
         )
 
 
-class ClassTests(JsDocTestCase):
+class TestClass(JsDocTestCase):
     file = "class.js"
 
     def test_class(self):
