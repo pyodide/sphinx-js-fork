@@ -59,7 +59,7 @@ class Tests(SphinxBuildTestCase):
             "autofunction_example",
             "exampleTag()\n\n"
             "   JSDoc example tag\n\n"
-            "   **Examples:**\n\n"
+            "   Example:\n\n"
             "      // This is the example.\n"
             "      exampleTag();\n",
         )
@@ -268,7 +268,7 @@ class Tests(SphinxBuildTestCase):
             "autoclass_example",
             "class ExampleClass()\n\n"
             "   JSDoc example tag for class\n\n"
-            "   **Examples:**\n\n"
+            "   Example:\n\n"
             "      // This is the example.\n"
             "      new ExampleClass();\n",
         )
@@ -306,7 +306,7 @@ class Tests(SphinxBuildTestCase):
             "autoattribute_example",
             "ExampleAttribute\n\n"
             "   JSDoc example tag for attribute\n\n"
-            "   **Examples:**\n\n"
+            "   Example:\n\n"
             "      // This is the example.\n"
             "      console.log(ExampleAttribute);\n",
         )

@@ -9,14 +9,14 @@
 
 {% macro examples(items) %}
 {% if items -%}
-**Examples:**
+.. admonition:: Example {%- if items|length > 1 -%} s {%- endif %}
 
-{% for example in items -%}
-.. code-block:: js
+   {% for example in items -%}
+   .. code-block:: js
 
-   {{ example|indent(3) }}
+      {{ example|indent(6) }}
 
-{% endfor %}
+   {% endfor %}
 {%- endif %}
 {% endmacro %}
 

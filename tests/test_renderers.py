@@ -281,15 +281,15 @@ def test_func_render_callouts(function_render):
     )
     assert function_render(examples=["ex1", "ex2"]) == DEFAULT_RESULT + setindent(
         """
-        **Examples:**
+        .. admonition:: Examples
 
-        .. code-block:: js
+           .. code-block:: js
 
-           ex1
+              ex1
 
-        .. code-block:: js
+           .. code-block:: js
 
-           ex2
+              ex2
         """,
     )
     assert function_render(see_alsos=["see", "this too"]) == DEFAULT_RESULT + setindent(
@@ -299,4 +299,38 @@ def test_func_render_callouts(function_render):
            - :any:`see`
            - :any:`this too`
         """,
+    )
+
+
+def test_all(function_render):
+    assert function_render(
+        description="description",
+        params=[Param("a", "xx")],
+        deprecated=True,
+        exceptions=[Exc("TypeError", "")],
+        examples=["ex1"],
+        see_alsos=["see"],
+    ) == dedent(
+        """\
+        .. js:function:: blah(a)
+
+           .. note::
+
+              Deprecated.
+
+           description
+
+           :param a: xx
+           :throws TypeError:
+
+           .. admonition:: Example
+
+              .. code-block:: js
+
+                 ex1
+
+           .. seealso::
+
+              - :any:`see`
+       """
     )
