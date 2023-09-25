@@ -90,3 +90,11 @@ export function deprecatedFunction() {}
 export function exampleFunction() {}
 
 export async function asyncFunction() {}
+
+export class Iterable {
+  *[Symbol.iterator] (): Iterator<number> {
+    yield 1;
+    yield 2;
+    yield 3;
+  }
+}

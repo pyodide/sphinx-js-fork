@@ -873,6 +873,11 @@ class Signature(TopLevelProperties):
             if self.comment == Comment():
                 return None, []
 
+        if self.name.startswith("["):
+            # a symbol.
+            # \u2024 looks like a period but is not a period.
+            # This isn't ideal, but otherwise the coloring is weird.
+            self.name = "[Symbol\u2024" + self.name[1:]
         self._fix_type_suffix()
         params = self._destructure_params()
         # Would be nice if we could statically determine that the function was

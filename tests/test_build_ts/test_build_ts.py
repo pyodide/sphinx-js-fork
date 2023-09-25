@@ -151,6 +151,23 @@ class TestTextBuilder(SphinxBuildTestCase):
             ),
         )
 
+    def test_symbol(self):
+        self._file_contents_eq(
+            "symbol",
+            dedent(
+                """\
+                class Iterable()
+
+                   *exported from* "class"
+
+                   Iterable.[Symbol․iterator]()
+
+                      Returns:
+                         Iterator<number, any, undefined>
+                """
+            ),
+        )
+
 
 class TestHtmlBuilder(SphinxBuildTestCase):
     """Tests which require an HTML build of our Sphinx tree, for checking
