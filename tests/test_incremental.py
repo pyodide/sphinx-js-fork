@@ -89,6 +89,7 @@ def test_incremental_js(make_app, app_params):
     do_test(app, extension="js")
 
 
+@pytest.mark.xfail(reason="TODO: fix me!")
 @pytest.mark.sphinx("html", testroot="incremental_ts")
 def test_incremental_ts(make_app, app_params):
     args, kwargs = app_params

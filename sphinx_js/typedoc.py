@@ -47,7 +47,10 @@ def version_to_str(t: Sequence[int]) -> str:
 
 
 def typedoc_output(
-    abs_source_paths: list[str], sphinx_conf_dir: str | pathlib.Path, config_path: str, base_dir: str
+    abs_source_paths: list[str],
+    sphinx_conf_dir: str | pathlib.Path,
+    config_path: str,
+    base_dir: str,
 ) -> "Project":
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
@@ -70,7 +73,12 @@ def typedoc_output(
         tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
         command.add("--tsconfig", tsconfig_path)
 
+    # We want to use the url field to compute the file paths.
+
+    # --disableGit prevents typedoc from doing complicated magic with git that
+    # makes the url field harder to understand.
     command.add("--disableGit")
+    # sourceLinkTemplate makes the url field contain just the file path
     command.add("--sourceLinkTemplate", "{path}")
     command.add("--basePath", base_dir)
 
@@ -102,7 +110,6 @@ class Converter:
     def __init__(self, base_dir: str):
         self.base_dir: str = base_dir
         self.index: dict[int, IndexType] = {}
-        git_root = Path(base_dir)
 
     def populate_index(self, root: "IndexType") -> "Converter":
         """Create an ID-to-node mapping for all the TypeDoc output nodes.
@@ -116,7 +123,7 @@ class Converter:
     def _url_to_filepath(self, url: str) -> list[str]:
         if not url:
             return []
-        entries = url.split("/")
+        entries = ["."] + url.split("/")
         entries[-1] = entries[-1].rsplit(".")[0]
         for i in range(len(entries) - 1):
             entries[i] += "/"

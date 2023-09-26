@@ -76,7 +76,7 @@ class TestPopulateIndex(TestCase):
                                 {
                                     "fileName": "longnames.ts",
                                     "line": 1,
-                                    "url": "blob/commithash/tests/test_typedoc_analysis/source/longnames.ts"
+                                    "url": "test_typedoc_analysis/source/longnames.ts"
                                 }
                             ]
                         }
