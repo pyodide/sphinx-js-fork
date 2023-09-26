@@ -611,6 +611,10 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         obj = self.analyzer.get_object(["destructureTest3"])
         assert obj.params[0].name == "options"
         assert join_type(obj.params[0].type) == "{ a: string; b: { c: string; }; }"
+        obj = self.analyzer.get_object(["destructureTest4"])
+        assert obj.params[0].name == "destructureThisPlease.a"
+        assert join_type(obj.params[0].type) == "string"
+        assert obj.params[0].description == [DescriptionText(text="The 'a' string.")]
 
     def test_funcarg(self):
         obj = self.analyzer.get_object(["funcArg"])

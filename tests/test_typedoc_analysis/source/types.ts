@@ -181,6 +181,15 @@ export function destructureTest2({
  */
 export function destructureTest3({ a, b }: { a: string; b: { c: string } }) {}
 
+
+/**
+ * A test for should_destructure_arg
+ */
+export function destructureTest4(destructureThisPlease: {
+  /**  The 'a' string. */
+  a: string;
+}) {}
+
 /**
  * An example with a function as argument
  *

@@ -4,6 +4,7 @@ import os
 import pathlib
 import re
 import subprocess
+import typing
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Sequence
 from errno import ENOENT
@@ -104,9 +105,21 @@ def parse(json: dict[str, Any]) -> "Project":
 
 
 class Converter:
-    def __init__(self, base_dir: str):
+    base_dir: str
+    index: dict[int, "IndexType"]
+    _should_destructure_arg: typing.Callable[["Signature", "Param"], bool]
+
+    def __init__(
+        self,
+        base_dir: str,
+        should_destructure_arg: typing.Callable[["Signature", "Param"], bool]
+        | None = None,
+    ):
         self.base_dir: str = base_dir
         self.index: dict[int, IndexType] = {}
+        if not should_destructure_arg:
+            should_destructure_arg = lambda sig, param: False
+        self._should_destructure_arg = should_destructure_arg
 
     def populate_index(self, root: "IndexType") -> "Converter":
         """Create an ID-to-node mapping for all the TypeDoc output nodes.
@@ -232,14 +245,20 @@ class Converter:
 
 
 class Analyzer:
-    def __init__(self, json: "Project", base_dir: str):
+    def __init__(
+        self,
+        json: "Project",
+        base_dir: str,
+        should_destructure_arg: typing.Callable[["Signature", "Param"], bool]
+        | None = None,
+    ):
         """
         :arg json: The loaded JSON output from typedoc
         :arg base_dir: The absolute path of the dir relative to which to
             construct file-path segments of object paths
 
         """
-        converter = Converter(base_dir).populate_index(json)
+        converter = Converter(base_dir, should_destructure_arg).populate_index(json)
         ir_objects = converter.convert_all_nodes(json)
 
         self._base_dir = base_dir
@@ -253,7 +272,7 @@ class Analyzer:
         json = typedoc_output(
             abs_source_paths, app.confdir, app.config.jsdoc_config_path, base_dir
         )
-        return cls(json, base_dir)
+        return cls(json, base_dir, app.config.ts_should_destructure_arg)
 
     def get_object(
         self,
@@ -816,20 +835,21 @@ class Signature(TopLevelProperties):
             )
         return result
 
-    def _destructure_params(self) -> list[Param]:
-        destructure_targets = []
-        for tag in self.comment.blockTags:
-            if tag.tag == "@destructure":
-                destructure_targets = tag.content[0].text.split(" ")
-                break
-
-        if not destructure_targets:
-            return self.parameters
+    def _destructure_params(self, converter: Converter) -> list[Param]:
+        destructure_targets: list[str] = []
+        for tag_content in self.comment.get_tag_list("destructure"):
+            tag = tag_content[0]
+            assert isinstance(tag, ir.DescriptionText)
+            destructure_targets.extend(tag.text.split(" "))
 
         params = []
         for p in self.parameters:
-            if p.name in destructure_targets:
+            if p.name in destructure_targets or converter._should_destructure_arg(
+                self, p
+            ):
                 params.extend(self._destructure_param(p))
+            else:
+                params.append(p)
         return params
 
     def render(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
@@ -866,7 +886,7 @@ class Signature(TopLevelProperties):
             # This isn't ideal, but otherwise the coloring is weird.
             self.name = "[Symbol\u2024" + self.name[1:]
         self._fix_type_suffix()
-        params = self._destructure_params()
+        params = self._destructure_params(converter)
         # Would be nice if we could statically determine that the function was
         # defined with `async` keyword but this is probably good enough
         is_async = isinstance(self.type, ReferenceType) and self.type.name == "Promise"

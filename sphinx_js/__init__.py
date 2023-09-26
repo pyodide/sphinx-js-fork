@@ -142,6 +142,7 @@ def setup(app: Sphinx) -> None:
     )
     app.add_config_value("jsdoc_config_path", default=None, rebuild="env")
     app.add_config_value("ts_xref_formatter", None, "env")
+    app.add_config_value("ts_should_destructure_arg", None, "env")
 
     # We could use a callable as the "default" param here, but then we would
     # have had to duplicate or build framework around the logic that promotes
