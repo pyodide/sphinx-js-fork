@@ -82,7 +82,7 @@ class TypeDocTestCase(ThisDirTestCase):
             [join(cls._source_dir, file) for file in cls.files],
             cls._source_dir,
             "tsconfig.json",
-            cls._source_dir
+            cls._source_dir,
         )
         Converter(cls._source_dir).populate_index(cls.json)
 
