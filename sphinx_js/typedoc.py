@@ -1073,6 +1073,17 @@ class UnknownType(TypeBase):
         yield self.name
 
 
+class PredicateType(TypeBase):
+    type: Literal["predicate"]
+    name: str
+    targetType: "TypeD"
+
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        yield self.name
+        yield " is "
+        yield from self.targetType.render_name(converter)
+
+
 AnyNode = Node | Project | Signature
 
 
@@ -1086,6 +1097,7 @@ Type = (
     | ReferenceType
     | ReflectionType
     | TupleType
+    | PredicateType
     | UnknownType
 )
 

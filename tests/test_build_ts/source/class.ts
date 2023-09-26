@@ -98,3 +98,7 @@ export class Iterable {
     yield 3;
   }
 }
+
+export function predicate(c): c is ConstructorlessClass {
+  return false;
+}

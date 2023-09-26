@@ -168,6 +168,22 @@ class TestTextBuilder(SphinxBuildTestCase):
             ),
         )
 
+    def test_predicate(self):
+        self._file_contents_eq(
+            "predicate",
+            dedent(
+                """\
+                predicate(c)
+
+                   Arguments:
+                      * **c** (*any*) --
+
+                   Returns:
+                      c is "ConstructorlessClass()"
+                """
+            ),
+        )
+
 
 class TestHtmlBuilder(SphinxBuildTestCase):
     """Tests which require an HTML build of our Sphinx tree, for checking
