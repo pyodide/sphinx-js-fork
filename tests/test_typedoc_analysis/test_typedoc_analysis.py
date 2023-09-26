@@ -597,13 +597,17 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         obj = self.analyzer.get_object(["destructureTest"])
         assert obj.params[0].name == "options.a"
         assert join_type(obj.params[0].type) == "string"
+        assert obj.params[0].description == [DescriptionText(text="The 'a' string.")]
         assert obj.params[1].name == "options.b"
         assert join_type(obj.params[1].type) == "{ c: string; }"
+        assert obj.params[1].description == [DescriptionText(text="The 'b' string.")]
         obj = self.analyzer.get_object(["destructureTest2"])
         assert obj.params[0].name == "options.a"
         assert join_type(obj.params[0].type) == "string"
+        assert obj.params[0].description == [DescriptionText(text="The 'a' string.")]
         assert obj.params[1].name == "options.b"
         assert join_type(obj.params[1].type) == "{ c: string; }"
+        assert obj.params[1].description == [DescriptionText(text="The 'b' object.")]
         obj = self.analyzer.get_object(["destructureTest3"])
         assert obj.params[0].name == "options"
         assert join_type(obj.params[0].type) == "{ a: string; b: { c: string; }; }"

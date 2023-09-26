@@ -806,10 +806,14 @@ class Signature(TopLevelProperties):
         result = []
         for child in decl.children:
             assert isinstance(child, Member)
-            child_param = Param(
-                name=param.name + "." + child.name, flags=Flags(), type=child.type
+            result.append(
+                Param(
+                    name=param.name + "." + child.name,
+                    flags=Flags(),
+                    type=child.type,
+                    comment=child.comment,
+                )
             )
-            result.append(child_param)
         return result
 
     def _destructure_params(self) -> list[Param]:

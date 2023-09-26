@@ -168,7 +168,7 @@ export function destructureTest2({
 }: {
   /**  The 'a' string. */
   a: string;
-  /** The 'b' string. */
+  /** The 'b' object. */
   b: { c: string };
 }) {}
 
