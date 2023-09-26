@@ -47,72 +47,45 @@ class TestPopulateIndex(TestCase):
         # function with no params or return value:
         json = parse(
             loads(
-                r"""{
-          "id": 0,
-          "name": "misterRoot",
-          "children": [
-            {
-              "id": 1,
-              "name": "\"longnames\"",
-              "kindString": "External module",
-              "originalName": "/a/b/c/tests/test_typedoc_analysis/source/longnames.ts",
-              "children": [
+                r"""
                 {
-                  "id": 2,
-                  "name": "foo",
-                  "kindString": "Function",
-                  "signatures": [
-                    {
-                      "id": 3,
-                      "name": "foo",
-                      "kindString": "Call signature",
-                      "comment": {
-                        "shortText": "Foo function."
-                      },
-                      "type": {
-                        "type": "intrinsic",
-                        "name": "void"
-                      }
-                    }
-                  ],
-                  "sources": [
-                    {
-                      "fileName": "longnames.ts",
-                      "line": 4,
-                      "character": 12
-                    }
-                  ]
+                    "id": 0,
+                    "name": "misterRoot",
+                    "children": [
+                        {
+                            "id": 1,
+                            "name": "longnames",
+                            "kindString": "Module",
+                            "children": [
+                                {
+                                    "id": 2,
+                                    "name": "foo",
+                                    "kindString": "Function",
+                                    "signatures": [
+                                        {
+                                            "id": 3,
+                                            "name": "foo",
+                                            "kindString": "Call signature",
+                                            "comment": {"shortText": "Foo function."},
+                                            "type": {"type": "intrinsic", "name": "void"}
+                                        }
+                                    ]
+                                }
+                            ],
+                            "sources": [
+                                {
+                                    "fileName": "longnames.ts",
+                                    "line": 1,
+                                    "url": "blob/commithash/tests/test_typedoc_analysis/source/longnames.ts"
+                                }
+                            ]
+                        }
+                    ]
                 }
-              ],
-              "groups": [
-                {
-                  "title": "Functions",
-                  "children": [
-                    2
-                  ]
-                }
-              ],
-              "sources": [
-                {
-                  "fileName": "longnames.ts",
-                  "line": 1,
-                  "character": 0
-                }
-              ]
-            }
-          ],
-          "groups": [
-            {
-              "title": "External modules",
-              "children": [
-                1
-              ]
-            }
-          ]
-        }"""
+                """
             )
         )
-        index = Converter("/a/b/c/tests/").populate_index(json).index
+        index = Converter("./tests/").populate_index(json).index
         # Things get indexed by ID:
         function = index[2]
         assert function.name == "foo"
@@ -290,7 +263,6 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         # have the filling of them factored out.
         assert subclass.name == "EmptySubclass"
         assert subclass.path == Pathname(["./", "nodes.", "EmptySubclass"])
-        assert subclass.filename == "nodes.ts"
         assert subclass.description == [DescriptionText("An empty subclass")]
         assert subclass.deprecated is False
         assert subclass.examples == []

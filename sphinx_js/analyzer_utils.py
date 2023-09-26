@@ -107,6 +107,8 @@ def dotted_path(segments: list[str]) -> str:
     into this and construct a full path based on that.
 
     """
+    if not segments:
+        return ""
     segments_without_separators = [
         s[:-1] for s in segments[:-1] if s not in ["./", "../"]
     ]

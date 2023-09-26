@@ -10,7 +10,6 @@ from errno import ENOENT
 from functools import cache, partial
 from inspect import isclass
 from json import load
-from os.path import basename, relpath, sep, splitext
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Annotated, Any, Literal, TypedDict
@@ -20,7 +19,7 @@ from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
 from . import ir
-from .analyzer_utils import Command, is_explicitly_rooted, search_node_modules
+from .analyzer_utils import Command, search_node_modules
 from .suffix_tree import SuffixTree
 
 __all__ = ["Analyzer"]
@@ -109,12 +108,28 @@ class Converter:
         self._populate_index_inner(root, parent=None, containing_module=[])
         return self
 
+    def _url_to_filepath(self, url: str) -> list[str]:
+        if not url:
+            return []
+        # url looks like "https://github.com/project/repo/blob/<hash>/path/to/file.ts#lineno
+        entries = url.split("/")
+        blob_idx = entries.index("blob")
+        # have to skip blob and hash too
+        entries = entries[blob_idx + 2 :]
+        entries[-1] = entries[-1].rsplit(".")[0]
+        a = Path("/".join(entries)).resolve().relative_to(Path(self.base_dir).resolve())
+        entries = ["."]
+        entries.extend(a.parts)
+        for i in range(len(entries) - 1):
+            entries[i] += "/"
+        return entries
+
     def _populate_index_inner(
         self,
         node: "IndexType",
         parent: "IndexType | None",
         containing_module: list[str],
-        filename: str = "",
+        filepath: list[str] | None = None,
     ) -> None:
         if node.id is not None:  # 0 is okay; it's the root node.
             self.index[node.id] = node
@@ -122,11 +137,12 @@ class Converter:
         parent_kind = parent.kindString if parent else ""
         parent_segments = parent.path if parent else []
         if node.sources:
-            filename = node.sources[0].fileName
-            node.filename = filename
-        self.compute_path(node, parent_kind, parent_segments, filename)
+            filepath = self._url_to_filepath(node.sources[0].url)
+        if filepath:
+            node.filepath = filepath
+        self.compute_path(node, parent_kind, parent_segments, filepath)
 
-        if node.kindString in ["External module", "Module"]:
+        if node.kindString == "Module":
             containing_module = node.path
 
         if parent and isinstance(node, Signature):
@@ -162,7 +178,7 @@ class Converter:
                 child,
                 parent=node,
                 containing_module=containing_module,
-                filename=filename,
+                filepath=filepath,
             )
 
     def compute_path(
@@ -170,7 +186,7 @@ class Converter:
         node: "IndexType",
         parent_kind: str,
         parent_segments: list[str],
-        filename: str,
+        filepath: list[str] | None,
     ) -> None:
         """Compute the full, unambiguous list of path segments that points to an
         entity described by a TypeDoc JSON node.
@@ -189,16 +205,8 @@ class Converter:
         if not node.flags.isStatic and parent_kind == "Class":
             delimiter = "#"
 
-        if (
-            parent_kind == "Project"
-            and node.kindString
-            not in [
-                "Module",
-                "External module",
-            ]
-            and not parent_segments
-        ):
-            parent_segments = make_filepath_segments(filename)
+        filepath2 = filepath or []
+        parent_segments = parent_segments or filepath2
 
         segs = node._path_segments(self.base_dir)
 
@@ -275,6 +283,8 @@ class Analyzer:
 class Source(BaseModel):
     fileName: str
     line: int
+    character: int = 0
+    url: str = ""
 
 
 class DescriptionItem(BaseModel):
@@ -342,9 +352,8 @@ class Base(BaseModel):
     path: list[str] = []
     id: int | None
     kindString: str = ""
-    originalName: str | None
     sources: list[Source] = []
-    filename: str = ""
+    filepath: list[str] = []
     flags: Flags = Field(default_factory=Flags)
 
     def member_properties(self) -> MemberProperties:
@@ -397,8 +406,8 @@ class TopLevelProperties(Base):
         return dict(
             name=self.short_name(),
             path=ir.Pathname(self.path),
-            filename=basename(self.filename),
-            deppath=self.filename,
+            filename="",
+            deppath="".join(self.filepath),
             description=self.comment.get_description(),
             line=self.sources[0].line if self.sources else None,
             # These properties aren't supported by TypeDoc:
@@ -406,7 +415,7 @@ class TopLevelProperties(Base):
             examples=self.comment.get_tag_list("example"),
             see_alsos=[],
             properties=[],
-            exported_from=ir.Pathname(make_filepath_segments(self.filename)),
+            exported_from=ir.Pathname(self.filepath),
         )
 
     def to_ir(
@@ -610,30 +619,14 @@ class Member(NodeBase):
         return result, self.children
 
 
-def make_filepath_segments(path: str) -> list[str]:
-    if not is_explicitly_rooted(path):
-        path = f".{sep}{path}"
-    segs = path.split(sep)
-    filename = splitext(segs[-1])[0]
-    segments = [s + "/" for s in segs[:-1]] + [filename]
-    return segments
-
-
-class ExternalModule(NodeBase):
-    kindString: Literal["External module", "Module"]
-    originalName: str = ""
+class Module(NodeBase):
+    kindString: Literal["Module"]
 
     def short_name(self) -> str:
         return self.name[1:-1]  # strip quotes
 
     def _path_segments(self, base_dir: str) -> list[str]:
-        # 'name' contains folder names if multiple folders are passed into
-        # TypeDoc. It's also got excess quotes. So we ignore it and take
-        # 'originalName', which has a nice, absolute path.
-        if not self.originalName:
-            return []
-        rel = relpath(self.originalName, base_dir)
-        return make_filepath_segments(rel)
+        return []
 
 
 class TypeLiteral(NodeBase):
@@ -689,14 +682,7 @@ class OtherNode(NodeBase):
 
 
 Node = Annotated[
-    Accessor
-    | Callable
-    | Class
-    | ExternalModule
-    | Interface
-    | Member
-    | OtherNode
-    | TypeLiteral,
+    Accessor | Callable | Class | Module | Interface | Member | OtherNode | TypeLiteral,
     Field(discriminator="kindString"),
 ]
 
