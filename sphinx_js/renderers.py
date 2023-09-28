@@ -313,12 +313,7 @@ class JsRenderer:
         return "".join(res)
 
     def render_xref(self, s: TypeXRef, escape: bool = False) -> str:
-        if isinstance(s, TypeXRefInternal):
-            name = rst.escape(s.name)
-            result = f":js:class:`{name}`"
-        else:
-            assert isinstance(s, TypeXRefExternal)
-            result = self._xref_formatter(s)
+        result = self._xref_formatter(s)
         if escape:
             result = rst.escape(result)
         return result
