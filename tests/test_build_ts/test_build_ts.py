@@ -111,11 +111,17 @@ class TestTextBuilder(SphinxBuildTestCase):
             "deprecated",
             dedent(
                 """\
-                deprecatedFunction()
+                deprecatedFunction1()
 
                    Note:
 
                      Deprecated: since v20!
+
+                deprecatedFunction2()
+
+                   Note:
+
+                     Deprecated.
                 """
             ),
         )

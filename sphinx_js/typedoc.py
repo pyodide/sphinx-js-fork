@@ -437,7 +437,9 @@ class TopLevelProperties(Base):
 
     def _top_level_properties(self) -> TopLevelPropertiesDict:
         deprecated: Sequence[ir.DescriptionItem] | bool
-        deprecated = self.comment.get_tag_one("deprecated") or False
+        deprecated = self.comment.get_tag_one("deprecated")
+        if not deprecated:
+            deprecated = "deprecated" in self.comment.tags
         return dict(
             name=self.short_name(),
             path=ir.Pathname(self.path),
