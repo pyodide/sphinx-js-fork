@@ -190,6 +190,30 @@ class TestTextBuilder(SphinxBuildTestCase):
             ),
         )
 
+    def test_get_set(self):
+        self._file_contents_eq(
+            "getset",
+            dedent(
+                """\
+                class GetSetDocs()
+
+                   *exported from* "class"
+
+                   GetSetDocs.a
+
+                      **type:** number
+
+                      Getter with comment
+
+                   GetSetDocs.b
+
+                      **type:** any
+
+                      Setter with comment
+                """
+            ),
+        )
+
 
 class TestHtmlBuilder(SphinxBuildTestCase):
     """Tests which require an HTML build of our Sphinx tree, for checking

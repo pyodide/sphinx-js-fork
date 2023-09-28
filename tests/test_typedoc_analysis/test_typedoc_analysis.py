@@ -110,7 +110,7 @@ class TestPathSegments(TypeDocTestCase):
     def commented_object(self, comment, **kwargs):
         """Return the object from ``json`` having the given comment short-text."""
         comment = Comment(summary=[DescriptionItem(kind="text", text=comment)])
-        return dict_where(self.json, comment=comment, **kwargs)
+        return dict_where(self.json, comment_=comment, **kwargs)
 
     def commented_object_path(self, comment, **kwargs):
         """Return the path segments of the object with the given comment."""

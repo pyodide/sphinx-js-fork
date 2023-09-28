@@ -122,3 +122,18 @@ export function weirdCodeInDescription() {
 export function spinxLinkInDescription() {
 
 }
+
+
+export class GetSetDocs {
+  /**
+   * Getter with comment
+   */
+  get a() {
+    return 7;
+  }
+
+  /**
+   * Setter with comment
+   */
+  set b(x) {}
+}

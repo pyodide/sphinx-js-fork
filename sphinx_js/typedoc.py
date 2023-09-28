@@ -429,7 +429,11 @@ class TopLevelPropertiesDict(TypedDict):
 class TopLevelProperties(Base):
     name: str
     kindString: str
-    comment: Comment = Field(default_factory=Comment)
+    comment_: Comment = Field(default_factory=Comment, alias="comment")
+
+    @property
+    def comment(self) -> Comment:
+        return self.comment_
 
     def short_name(self) -> str:
         """Overridden by Modules and Namespaces to strip quotes."""
@@ -472,6 +476,14 @@ class Accessor(NodeBase):
     kindString: Literal["Accessor"]
     getSignature: "Signature | None" = None
     setSignature: "Signature | None" = None
+
+    @property
+    def comment(self) -> Comment:
+        if self.getSignature:
+            return self.getSignature.comment
+        if self.setSignature:
+            return self.setSignature.comment
+        return self.comment_
 
     def to_ir(self, converter: Converter) -> tuple[ir.Attribute, Sequence["Node"]]:
         if self.getSignature:
@@ -731,7 +743,11 @@ class TypeParameter(Base):
     kindString: Literal["Type parameter"]
     name: str
     type: "OptionalTypeD"
-    comment: Comment = Field(default_factory=Comment)
+    comment_: Comment = Field(default_factory=Comment, alias="comment")
+
+    @property
+    def comment(self) -> Comment:
+        return self.comment_
 
     def to_ir(self, converter: Converter) -> ir.TypeParam:
         extends = None
@@ -747,7 +763,12 @@ class TypeParameter(Base):
 
 class Param(Base):
     kindString: Literal["Parameter"] = "Parameter"
-    comment: Comment = Field(default_factory=Comment)
+    comment_: Comment = Field(default_factory=Comment, alias="comment")
+
+    @property
+    def comment(self) -> Comment:
+        return self.comment_
+
     defaultValue: str | None
     flags: Flags
     name: str
