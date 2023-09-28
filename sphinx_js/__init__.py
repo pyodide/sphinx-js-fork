@@ -142,6 +142,7 @@ def setup(app: Sphinx) -> None:
     )
     app.add_config_value("jsdoc_config_path", default=None, rebuild="env")
     app.add_config_value("ts_type_xref_formatter", None, "env")
+    app.add_config_value("ts_type_bold", False, "env")
     app.add_config_value("ts_should_destructure_arg", None, "env")
     app.add_config_value("ts_post_convert", None, "env")
 
