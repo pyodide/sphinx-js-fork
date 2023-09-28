@@ -103,8 +103,12 @@ class JsRenderer:
         self._directive = directive
         self._app = app
         self._set_type_xref_formatter(app.config.ts_type_xref_formatter)
+        def bold_formatter(conf, text):
+            parts = ["**" + part + "**" for part in text.split(" ") if part]
+            return " ".join(parts).strip()
+
         if app.config.ts_type_bold:
-            self._set_type_text_formatter(lambda conf, text: "**" + text + "**")
+            self._set_type_text_formatter(bold_formatter)
         else:
             self._set_type_text_formatter(None)
         
