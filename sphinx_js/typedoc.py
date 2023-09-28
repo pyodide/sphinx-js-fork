@@ -366,6 +366,9 @@ class Comment(BaseModel):
         return description_to_ir(l[0])
 
 
+DEFAULT_COMMENT = Comment()
+
+
 class Flags(BaseModel):
     isAbstract: bool = False
     isExternal: bool = False
@@ -524,6 +527,12 @@ class Callable(NodeBase):
         "Function",
     ]
     signatures: list["Signature"] = []
+
+    @property
+    def comment(self) -> Comment:
+        if self.comment_ != DEFAULT_COMMENT:
+            return self.comment_
+        return self.signatures[0].comment_
 
     def _path_segments(self, base_dir: str) -> list[str]:
         return [self.name]
@@ -686,6 +695,14 @@ class TypeLiteral(NodeBase):
     indexSignature: "Signature | None" = None
     children: Sequence["Member"] = []
 
+    @property
+    def comment(self) -> Comment:
+        if self.comment_ != DEFAULT_COMMENT:
+            return self.comment_
+        if self.signatures:
+            return self.signatures[0].comment
+        return DEFAULT_COMMENT
+
     def render(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         if self.signatures:
             yield from self.signatures[0].render(converter)
@@ -767,7 +784,11 @@ class Param(Base):
 
     @property
     def comment(self) -> Comment:
-        return self.comment_
+        if self.comment_ != DEFAULT_COMMENT:
+            return self.comment_
+        if isinstance(self.type, ReflectionType):
+            return self.type.comment
+        return DEFAULT_COMMENT
 
     defaultValue: str | None
     flags: Flags
@@ -1068,6 +1089,12 @@ class ReferenceType(TypeBase):
 class ReflectionType(TypeBase):
     type: Literal["reflection"]
     declaration: Node
+
+    @property
+    def comment(self) -> Comment:
+        if self.comment_ != DEFAULT_COMMENT:
+            return self.comment_
+        return self.declaration.comment
 
     def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         if isinstance(self.declaration, TypeLiteral):
