@@ -73,6 +73,7 @@ def function_renderer():
     renderer._explicit_formal_params = None
     renderer._content = []
     renderer._set_type_xref_formatter(ts_xref_formatter)
+    renderer._set_type_text_formatter(None)
     return renderer
 
 
