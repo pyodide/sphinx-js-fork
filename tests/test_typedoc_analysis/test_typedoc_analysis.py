@@ -18,6 +18,7 @@ from sphinx_js.ir import (
     TypeXRef,
     TypeXRefExternal,
     TypeXRefInternal,
+    TypeXRefIntrinsic,
 )
 from sphinx_js.renderers import AutoClassRenderer, AutoFunctionRenderer
 from sphinx_js.typedoc import Comment, Converter, DescriptionItem, parse
@@ -307,7 +308,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
                 description=[DescriptionText("Some number")],
                 has_default=True,
                 is_variadic=False,
-                type=["number"],
+                type=[TypeXRefIntrinsic("number")],
                 default="1",
             ),
             Param(
@@ -315,12 +316,15 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
                 description=[DescriptionText("Some strings")],
                 has_default=False,
                 is_variadic=True,
-                type=["string", "[]"],
+                type=[TypeXRefIntrinsic("string"), "[]"],
             ),
         ]
         assert func.exceptions == []
         assert func.returns == [
-            Return(type=["number"], description=[DescriptionText("The best number")])
+            Return(
+                type=[TypeXRefIntrinsic("number")],
+                description=[DescriptionText("The best number")],
+            )
         ]
 
     def test_constructor(self):
@@ -376,14 +380,14 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         types."""
         getter = self.analyzer.get_object(["gettable"])
         assert isinstance(getter, Attribute)
-        assert getter.type == ["number"]
+        assert getter.type == [TypeXRefIntrinsic("number")]
 
     def test_setter(self):
         """Test that we represent setters as Attributes and find the type of
         their 1 param."""
         setter = self.analyzer.get_object(["settable"])
         assert isinstance(setter, Attribute)
-        assert setter.type == ["string"]
+        assert setter.type == [TypeXRefIntrinsic("string")]
 
 
 class TestTypeName(TypeDocAnalyzerTestCase):
@@ -426,7 +430,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         obj = self.analyzer.get_object(["Interface"])
         read_only_num = obj.members[0]
         assert read_only_num.name == "readOnlyNum"
-        assert read_only_num.type == ["number"]
+        assert read_only_num.type == [TypeXRefIntrinsic("number")]
 
     def test_array(self):
         """Make sure array types are rendered correctly.
@@ -436,7 +440,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
 
         """
         obj = self.analyzer.get_object(["overload"])
-        assert obj.params[0].type == ["string", "[]"]
+        assert obj.params[0].type == [TypeXRefIntrinsic("string"), "[]"]
 
     def test_literal_types(self):
         """Make sure a thing of a named literal type has that type name
@@ -452,9 +456,9 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         """Make sure unions get rendered properly."""
         obj = self.analyzer.get_object(["union"])
         assert obj.type == [
-            "number",
+            TypeXRefIntrinsic("number"),
             " | ",
-            "string",
+            TypeXRefIntrinsic("string"),
             " | ",
             TypeXRefInternal(name="Color", path=["./", "types.", "Color"]),
         ]
@@ -523,13 +527,14 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         a = AutoFunctionRenderer.__new__(AutoFunctionRenderer)
         a._add_span = False
         a._set_type_text_formatter(None)
+        a._set_type_xref_formatter(None)
         a._explicit_formal_params = None
         a._content = []
         rst = a.rst([obj.name], obj)
+        rst = rst.replace("\\", "").replace("  ", " ")
         assert ":typeparam T: The type of the object" in rst
         assert (
-            ":typeparam K extends string \\| number \\| symbol: The type of the key"
-            in rst
+            ":typeparam K extends string | number | symbol: The type of the key" in rst
         )
 
     def test_class_constrained(self):
@@ -544,12 +549,14 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         )
         a = AutoClassRenderer.__new__(AutoClassRenderer)
         a._set_type_text_formatter(None)
+        a._set_type_xref_formatter(None)
         a._explicit_formal_params = None
         a._add_span = False
         a._content = []
         a._options = {}
         rst = a.rst([obj.name], obj)
-        assert ":typeparam S extends number\\[\\]: The type we contain" in rst
+        rst = rst.replace("\\ ", "").replace("\\", "").replace("  ", " ")
+        assert ":typeparam S extends number[]: The type we contain" in rst
 
     def test_constrained_by_constructor(self):
         """Make sure ``new ()`` expressions and, more generally, per-property
@@ -567,14 +574,21 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         assert t == [
             TypeXRefExternal("Partial", "typescript", "xxx", "Partial"),
             "<",
-            "string",
+            TypeXRefIntrinsic("string"),
             ">",
         ]
 
     def test_constrained_by_property(self):
 
         obj = self.analyzer.get_object(["objProps"])
-        assert obj.params[0].type == ["{ ", "label", ": ", "string", "; ", "}"]
+        assert obj.params[0].type == [
+            "{ ",
+            "label",
+            ": ",
+            TypeXRefIntrinsic("string"),
+            "; ",
+            "}",
+        ]
         assert (
             join_type(obj.params[1].type) == "{ [key: number]: string; label: string; }"
         )

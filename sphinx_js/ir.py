@@ -37,6 +37,11 @@ class TypeXRef:
 
 
 @define
+class TypeXRefIntrinsic(TypeXRef):
+    pass
+
+
+@define
 class TypeXRefInternal(TypeXRef):
     path: list[str]
 

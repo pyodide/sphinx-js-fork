@@ -1059,7 +1059,7 @@ class IntrinsicType(TypeBase):
     name: str
 
     def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
-        yield self.name
+        yield ir.TypeXRefIntrinsic(self.name)
 
 
 class ReferenceType(TypeBase):
