@@ -453,9 +453,9 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         obj = self.analyzer.get_object(["union"])
         assert obj.type == [
             "number",
-            "|",
+            " | ",
             "string",
-            "|",
+            " | ",
             TypeXRefInternal(name="Color", path=["./", "types.", "Color"]),
         ]
 
@@ -515,19 +515,21 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         tp.extends = join_type(tp.extends)
         assert tp == TypeParam(
             name="K",
-            extends="string|number|symbol",
+            extends="string | number | symbol",
             description=[DescriptionText("The type of the key")],
         )
 
         # TODO: this part maybe belongs in a unit test for the renderer or something
         a = AutoFunctionRenderer.__new__(AutoFunctionRenderer)
+        a._add_span = False
         a._set_type_text_formatter(None)
         a._explicit_formal_params = None
         a._content = []
         rst = a.rst([obj.name], obj)
         assert ":typeparam T: The type of the object" in rst
         assert (
-            ":typeparam K extends string\\|number\\|symbol: The type of the key" in rst
+            ":typeparam K extends string \\| number \\| symbol: The type of the key"
+            in rst
         )
 
     def test_class_constrained(self):
@@ -543,6 +545,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         a = AutoClassRenderer.__new__(AutoClassRenderer)
         a._set_type_text_formatter(None)
         a._explicit_formal_params = None
+        a._add_span = False
         a._content = []
         a._options = {}
         rst = a.rst([obj.name], obj)

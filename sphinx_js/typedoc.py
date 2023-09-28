@@ -1023,7 +1023,7 @@ class AndOrType(TypeBase):
 
     def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         if self.type == "union":
-            symbol = "|"
+            symbol = " | "
         elif self.type == "intersection":
             symbol = " & "
         gen = (t._render_name(converter) for t in self.types)

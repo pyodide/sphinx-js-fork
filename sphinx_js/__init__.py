@@ -10,6 +10,7 @@ from .directives import (
     auto_attribute_directive_bound_to_app,
     auto_class_directive_bound_to_app,
     auto_function_directive_bound_to_app,
+    sphinx_js_type_role,
 )
 from .jsdoc import Analyzer as JsAnalyzer
 from .typedoc import Analyzer as TsAnalyzer
@@ -145,6 +146,7 @@ def setup(app: Sphinx) -> None:
     app.add_config_value("ts_type_bold", False, "env")
     app.add_config_value("ts_should_destructure_arg", None, "env")
     app.add_config_value("ts_post_convert", None, "env")
+    app.add_role("sphinx_js_type", sphinx_js_type_role)
 
     # We could use a callable as the "default" param here, but then we would
     # have had to duplicate or build framework around the logic that promotes

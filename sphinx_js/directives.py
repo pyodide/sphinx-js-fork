@@ -7,18 +7,46 @@ JSDoc output, via closure. The renderer classes, able to be top-level classes,
 can access each other and collaborate.
 
 """
+import re
 from collections.abc import Iterable
 from os.path import join, relpath
 from typing import Any
 
+from docutils import nodes
 from docutils.nodes import Node
 from docutils.parsers.rst import Directive
+from docutils.parsers.rst import Parser as RstParser
 from docutils.parsers.rst.directives import flag
+from docutils.utils import new_document
 from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.domains.javascript import JSCallable
 
 from .renderers import AutoAttributeRenderer, AutoClassRenderer, AutoFunctionRenderer
+
+
+def unescape(escaped: str) -> str:
+    # For some reason the string we get has a bunch of null bytes in it??
+    # Remove them...
+    escaped = escaped.replace("\x00", "")
+    # For some reason the extra slash before spaces gets lost between the .rst
+    # source and when this directive is called. So don't replace "\<space>" =>
+    # "<space>"
+    return re.sub(r"\\([^ ])", r"\1", escaped)
+
+
+def sphinx_js_type_role(role, rawtext, text, lineno, inliner, options=None, content=None):  # type: ignore[no-untyped-def]
+    """
+    The body should be escaped rst. This renders its body as rst and wraps the
+    result in <span class="sphinx_js-type"> </span>
+    """
+    unescaped = unescape(text)
+    doc = new_document("", inliner.document.settings)
+    RstParser().parse(unescaped, doc)
+    n = nodes.inline(text)
+    n["classes"].append("sphinx_js-type")
+    n += doc.children[0].children
+    return [n], []
 
 
 class JsDirective(Directive):

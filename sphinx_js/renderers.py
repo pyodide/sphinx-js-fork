@@ -61,6 +61,9 @@ class JsRenderer:
     _explicit_formal_params: str
     _content: list[str]
     _options: dict[str, Any]
+    # We turn the <span class="sphinx_js-type"> in the analyzer tests because it
+    # makes a big mess.
+    _add_span: bool
 
     def _template_vars(self, name: str, obj: TopLevel) -> dict[str, Any]:
         raise NotImplementedError
@@ -95,6 +98,7 @@ class JsRenderer:
         content: list[str] | None = None,
         options: dict[str, Any] | None = None,
     ):
+        self._add_span = True
         # Fix crash when calling eval_rst with CommonMarkParser:
         if not hasattr(directive.state.document.settings, "tab_width"):
             directive.state.document.settings.tab_width = 8
@@ -331,7 +335,10 @@ class JsRenderer:
                 break
             res.append(self.render_xref(xref[0], escape))
 
-        return r"\ ".join(res)
+        joined = r"\ ".join(res)
+        if self._add_span:
+            return f":sphinx_js_type:`{rst.escape(joined)}`"
+        return joined
 
     def render_xref(self, s: TypeXRef, escape: bool = False) -> str:
         result = self._type_xref_formatter(s)

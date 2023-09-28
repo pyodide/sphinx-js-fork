@@ -182,7 +182,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                 predicate(c)
 
                    Arguments:
-                      * **c** (*any*) --
+                      * **c** (any) --
 
                    Returns:
                       c is "ConstructorlessClass()"
@@ -297,3 +297,9 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         href = soup.find(id="spinxLinkInDescription").parent.find_all("a")[1]
         assert href.get_text() == "abc"
         assert href.attrs["href"] == "http://example.com"
+
+    def test_sphinx_js_type_class(self):
+        soup = BeautifulSoup(self._file_contents("async_function"), "html.parser")
+        href = soup.find_all(class_="sphinx_js-type")
+        assert len(href) == 1
+        assert href[0].get_text() == "Promise<void>"
