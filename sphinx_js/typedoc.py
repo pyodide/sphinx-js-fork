@@ -607,7 +607,7 @@ class ClassOrInterface(NodeBase):
         constructor: ir.Function | None = None
         members = []
         for child in self.children:
-            if child.inheritedFrom is not None and child.comment == DEFAULT_COMMENT:
+            if child.inheritedFrom is not None:
                 continue
             if child.kindString == "Constructor":
                 # This really, really should happen exactly once per class.

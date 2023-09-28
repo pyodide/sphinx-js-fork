@@ -238,6 +238,10 @@ class TestTextBuilder(SphinxBuildTestCase):
 
                    **Extends:**
                       * "Base()"
+
+                   Extension.g()
+
+                      Some docs for g
                 """
             ),
         )
