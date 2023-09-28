@@ -787,7 +787,7 @@ class Param(Base):
         if self.comment_ != DEFAULT_COMMENT:
             return self.comment_
         if isinstance(self.type, ReflectionType):
-            return self.type.comment
+            return self.type.declaration.comment
         return DEFAULT_COMMENT
 
     defaultValue: str | None
@@ -1089,12 +1089,6 @@ class ReferenceType(TypeBase):
 class ReflectionType(TypeBase):
     type: Literal["reflection"]
     declaration: Node
-
-    @property
-    def comment(self) -> Comment:
-        if self.comment_ != DEFAULT_COMMENT:
-            return self.comment_
-        return self.declaration.comment
 
     def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
         if isinstance(self.declaration, TypeLiteral):
