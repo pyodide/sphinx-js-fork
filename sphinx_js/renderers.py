@@ -55,7 +55,7 @@ class JsRenderer:
 
     _renderer_type: Literal["function", "class", "attribute"]
     _template: str
-    _xref_formatter: Callable[[TypeXRef], str]
+    _type_xref_formatter: Callable[[TypeXRef], str]
     _partial_path: list[str]
     _explicit_formal_params: str
     _content: list[str]
@@ -64,17 +64,17 @@ class JsRenderer:
     def _template_vars(self, name: str, obj: TopLevel) -> dict[str, Any]:
         raise NotImplementedError
 
-    def _set_xref_formatter(
+    def _set_type_xref_formatter(
         self, formatter: Callable[[Config, TypeXRef], str] | None
     ) -> None:
         if formatter:
-            self._xref_formatter = partial(formatter, self._app.config)
+            self._type_xref_formatter = partial(formatter, self._app.config)
             return
 
-        def default_xref_formatter(xref: TypeXRef) -> str:
+        def default_type_xref_formatter(xref: TypeXRef) -> str:
             return xref.name
 
-        self._xref_formatter = default_xref_formatter
+        self._type_xref_formatter = default_type_xref_formatter
 
     def __init__(
         self,
@@ -90,7 +90,7 @@ class JsRenderer:
 
         self._directive = directive
         self._app = app
-        self._set_xref_formatter(app.config.ts_xref_formatter)
+        self._set_type_xref_formatter(app.config.ts_type_xref_formatter)
 
         # content, arguments, options, app: all need to be accessible to
         # template_vars, so we bring them in on construction and stow them away
@@ -311,7 +311,7 @@ class JsRenderer:
         return "".join(res)
 
     def render_xref(self, s: TypeXRef, escape: bool = False) -> str:
-        result = self._xref_formatter(s)
+        result = self._type_xref_formatter(s)
         if escape:
             result = rst.escape(result)
         return result
