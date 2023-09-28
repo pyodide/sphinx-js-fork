@@ -214,6 +214,34 @@ class TestTextBuilder(SphinxBuildTestCase):
             ),
         )
 
+    def test_inherited_docs(self):
+        # Check that we aren't including documentation entries from the base class
+        self._file_contents_eq(
+            "inherited_docs",
+            dedent(
+                """\
+                class Base()
+
+                   *exported from* "class"
+
+                   Base.a
+
+                      **type:** number
+
+                   Base.f()
+
+                      Some docs for f
+
+                class Extension()
+
+                   *exported from* "class"
+
+                   **Extends:**
+                      * "Base()"
+                """
+            ),
+        )
+
 
 class TestHtmlBuilder(SphinxBuildTestCase):
     """Tests which require an HTML build of our Sphinx tree, for checking

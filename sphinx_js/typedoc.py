@@ -479,6 +479,7 @@ class Accessor(NodeBase):
     kindString: Literal["Accessor"]
     getSignature: "Signature | None" = None
     setSignature: "Signature | None" = None
+    inheritedFrom: "ReferenceType | None" = None
 
     @property
     def comment(self) -> Comment:
@@ -527,6 +528,7 @@ class Callable(NodeBase):
         "Function",
     ]
     signatures: list["Signature"] = []
+    inheritedFrom: "ReferenceType | None" = None
 
     @property
     def comment(self) -> Comment:
@@ -605,6 +607,8 @@ class ClassOrInterface(NodeBase):
         constructor: ir.Function | None = None
         members = []
         for child in self.children:
+            if child.inheritedFrom is not None and child.comment == DEFAULT_COMMENT:
+                continue
             if child.kindString == "Constructor":
                 # This really, really should happen exactly once per class.
                 # Type parameter cannot appear on constructor declaration so copy
@@ -659,6 +663,7 @@ class Member(NodeBase):
         "Variable",
     ]
     type: "TypeD"
+    inheritedFrom: "ReferenceType | None" = None
 
     def to_ir(
         self, converter: Converter
@@ -829,7 +834,7 @@ class Signature(TopLevelProperties):
     parameters: list["Param"] = []
     sources: list[Source] = []
     type: "TypeD"  # This is the return type!
-    inheritedFrom: Any = None
+    inheritedFrom: "ReferenceType | None" = None
     parent_member_properties: MemberProperties = {}  # type: ignore[typeddict-item]
 
     def _path_segments(self, base_dir: str) -> list[str]:
@@ -944,10 +949,6 @@ class Signature(TopLevelProperties):
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
-        if self.inheritedFrom is not None:
-            if self.comment == Comment():
-                return None, []
-
         if self.name.startswith("["):
             # a symbol.
             # \u2024 looks like a period but is not a period.

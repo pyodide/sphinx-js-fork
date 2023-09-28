@@ -137,3 +137,15 @@ export class GetSetDocs {
    */
   set b(x) {}
 }
+
+export class Base {
+  /** Some docs for f */
+  f() {}
+
+  get a() { return 7; }
+}
+
+export class Extension extends Base {
+  /** Some docs for g */
+  g() {}
+}
