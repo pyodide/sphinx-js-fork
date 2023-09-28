@@ -9,6 +9,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 jsdoc_config_path = "../tsconfig.json"
 js_language = "typescript"
 from sphinx.util import rst
+
 from sphinx_js.ir import TypeXRefInternal
 
 

@@ -1,8 +1,8 @@
 from textwrap import dedent, indent
 
 import pytest
-
 from sphinx.util import rst
+
 from sphinx_js.ir import (
     DescriptionCode,
     DescriptionText,
@@ -51,12 +51,14 @@ def test_render_description():
         And some closing words."""
     )
 
+
 def ts_xref_formatter(config, xref):
     if isinstance(xref, TypeXRefInternal):
         name = rst.escape(xref.name)
         return f":js:class:`{name}`"
     else:
         return xref.name
+
 
 @pytest.fixture()
 def function_renderer():

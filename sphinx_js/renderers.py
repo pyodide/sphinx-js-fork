@@ -31,8 +31,6 @@ from .ir import (
     Type,
     TypeParam,
     TypeXRef,
-    TypeXRefExternal,
-    TypeXRefInternal,
 )
 from .jsdoc import Analyzer as JsAnalyzer
 from .parsers import PathVisitor
@@ -57,7 +55,7 @@ class JsRenderer:
 
     _renderer_type: Literal["function", "class", "attribute"]
     _template: str
-    _xref_formatter: Callable[[TypeXRefExternal], str]
+    _xref_formatter: Callable[[TypeXRef], str]
     _partial_path: list[str]
     _explicit_formal_params: str
     _content: list[str]
@@ -67,13 +65,13 @@ class JsRenderer:
         raise NotImplementedError
 
     def _set_xref_formatter(
-        self, formatter: Callable[[Config, TypeXRefExternal], str] | None
+        self, formatter: Callable[[Config, TypeXRef], str] | None
     ) -> None:
         if formatter:
             self._xref_formatter = partial(formatter, self._app.config)
             return
 
-        def default_xref_formatter(xref: TypeXRefExternal) -> str:
+        def default_xref_formatter(xref: TypeXRef) -> str:
             return xref.name
 
         self._xref_formatter = default_xref_formatter
