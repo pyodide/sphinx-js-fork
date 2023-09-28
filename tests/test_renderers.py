@@ -72,7 +72,7 @@ def function_renderer():
     renderer._app = _app
     renderer._explicit_formal_params = None
     renderer._content = []
-    renderer._set_xref_formatter(ts_xref_formatter)
+    renderer._set_type_xref_formatter(ts_xref_formatter)
     return renderer
 
 
@@ -240,7 +240,7 @@ def test_render_xref(function_renderer: AutoFunctionRenderer):
         res.append([config, val])
         return val.package + "::" + val.name
 
-    function_renderer._set_xref_formatter(xref_render)
+    function_renderer._set_type_xref_formatter(xref_render)
     assert function_renderer.render_type([xref_external]) == "blah::A"
     assert res[0][0] == function_renderer._app.config
     assert res[0][1] == xref_external
