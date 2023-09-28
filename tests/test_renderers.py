@@ -232,6 +232,12 @@ def test_render_xref(function_renderer: AutoFunctionRenderer):
         function_renderer.render_type([TypeXRefInternal(name="A", path=["a.", "A"])])
         == ":js:class:`A`"
     )
+    assert (
+        function_renderer.render_type(
+            [TypeXRefInternal(name="A", path=["a.", "A"]), "[]"]
+        )
+        == r":js:class:`A`\ []"
+    )
     xref_external = TypeXRefExternal("A", "blah", "a.ts", "a.A")
     assert function_renderer.render_type([xref_external]) == "A"
     res = []

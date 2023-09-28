@@ -303,12 +303,14 @@ class JsRenderer:
             s = "".join(strs())
             if escape:
                 s = rst.escape(s)
-            res.append(s)
+            if s:
+                res.append(s)
             if not xref:
                 break
             res.append(self.render_xref(xref[0], escape))
 
-        return "".join(res)
+        print(res)
+        return r"\ ".join(res)
 
     def render_xref(self, s: TypeXRef, escape: bool = False) -> str:
         result = self._xref_formatter(s)
