@@ -13,7 +13,7 @@ from sphinx.util import rst
 from sphinx_js.ir import TypeXRefInternal
 
 
-def ts_xref_formatter(config, xref):
+def ts_type_xref_formatter(config, xref):
     if isinstance(xref, TypeXRefInternal):
         name = rst.escape(xref.name)
         return f":js:class:`{name}`"
