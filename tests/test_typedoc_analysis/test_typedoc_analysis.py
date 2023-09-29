@@ -639,3 +639,8 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         obj = self.analyzer.get_object(["funcArg"])
         assert obj.params[0].name == "a"
         assert join_type(obj.params[0].type) == "(b: number, c: number) => number"
+
+    def test_namedtuplearg(self):
+        obj = self.analyzer.get_object(["namedTupleArg"])
+        assert obj.params[0].name == "namedTuple"
+        assert join_type(obj.params[0].type) == "[key: string, value: any]"

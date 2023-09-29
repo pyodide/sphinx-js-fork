@@ -1134,13 +1134,22 @@ class TupleType(TypeBase):
         yield "]"
 
 
+class NamedTupleMember(TypeBase):
+    type: Literal["namedTupleMember"]
+    name: str
+    element: "TypeD"
+
+    def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
+        yield f"{self.name}: "
+        yield from self.element.render_name(converter)
+
+
 class UnimplementedType(TypeBase):
     type: Literal[
         "indexedAccess",
         "inferred",
         "conditional",
         "mapped",
-        "namedTupleMember",
         "optional",
         "query",
         "rest",
@@ -1148,7 +1157,7 @@ class UnimplementedType(TypeBase):
     ]
 
     def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
-        yield "<TODO: not implemented>"
+        yield f"<TODO: not implemented {self.type}>"
 
 
 class UnknownType(TypeBase):
@@ -1177,13 +1186,14 @@ AnyNode = Node | Project | Signature
 Type = (
     AndOrType
     | ArrayType
-    | LiteralType
-    | OperatorType
     | IntrinsicType
+    | LiteralType
+    | NamedTupleMember
+    | OperatorType
+    | PredicateType
     | ReferenceType
     | ReflectionType
     | TupleType
-    | PredicateType
     | UnknownType
     | UnimplementedType
 )

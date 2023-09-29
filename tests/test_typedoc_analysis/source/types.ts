@@ -196,3 +196,5 @@ export function destructureTest4(destructureThisPlease: {
  * @param a - A number reducer.
  */
 export function funcArg(a: (b: number, c: number) => number) {}
+
+export function namedTupleArg(namedTuple: [key: string, value: any]) {}
