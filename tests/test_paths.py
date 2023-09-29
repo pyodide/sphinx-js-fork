@@ -90,13 +90,14 @@ def test_err():
         search_node_modules("my_program", my_prog_path, "/a/b/c")
 
 
-def test_global_install(tmp_path_factory):
+def test_global_install(tmp_path_factory, monkeypatch):
     tmpdir = tmp_path_factory.mktemp("global_root")
     tmpdir2 = tmp_path_factory.mktemp("blah")
-    os.environ["npm_config_prefix"] = str(tmpdir)
+    monkeypatch.setenv("npm_config_prefix", str(tmpdir))
+    monkeypatch.setenv("PATH", str(tmpdir / "bin"), prepend=":")
     subprocess.run(["npm", "i", "-g", "typedoc"])
     typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", str(tmpdir2))
-    os.environ["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[2])
+    monkeypatch.setenv("TYPEDOC_NODE_MODULES", str(Path(typedoc).parents[2]))
     res = subprocess.run(
         ["node", Path(__file__).parents[1] / "sphinx_js/call_typedoc.mjs", "--version"],
         check=True,
