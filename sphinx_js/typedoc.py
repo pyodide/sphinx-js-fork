@@ -104,7 +104,7 @@ def parse(json: dict[str, Any]) -> "Project":
 
 
 ShouldDestructureArgType = typing.Callable[["Signature", "Param"], bool]
-PostConvertType = typing.Callable[["Node | Signature", ir.TopLevel], None]
+PostConvertType = typing.Callable[["Converter", "Node | Signature", ir.TopLevel], None]
 
 
 class Converter:
@@ -126,7 +126,7 @@ class Converter:
             should_destructure_arg = lambda sig, param: False
         self._should_destructure_arg = should_destructure_arg
         if not post_convert:
-            post_convert = lambda node, ir: None
+            post_convert = lambda conv, node, ir: None
         self._post_convert = post_convert
 
     def populate_index(self, root: "IndexType") -> "Converter":
@@ -248,7 +248,7 @@ class Converter:
             converted, more_todo = node.to_ir(self)
             todo.extend(more_todo)
             if converted:
-                self._post_convert(node, converted)
+                self._post_convert(self, node, converted)
                 done.append(converted)
         return done
 
