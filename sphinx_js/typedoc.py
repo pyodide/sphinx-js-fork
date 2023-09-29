@@ -741,19 +741,22 @@ class TypeLiteral(NodeBase):
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
         return callable_to_ir(self, converter)
 
+class TypeAlias(NodeBase):
+    # TODO: test me with "export type A = ..."
+    kindString: Literal["Type alias"]
+    type: "TypeD"
 
 class OtherNode(NodeBase):
     kindString: Literal[
         "Enumeration",
         "Enumeration Member",
         "Namespace",
-        "Type alias",
         "Reference",
     ]
 
 
 Node = Annotated[
-    Accessor | Callable | Class | Module | Interface | Member | OtherNode | TypeLiteral,
+    Accessor | Callable | Class | Module | Interface | Member | OtherNode | TypeAlias | TypeLiteral,
     Field(discriminator="kindString"),
 ]
 
