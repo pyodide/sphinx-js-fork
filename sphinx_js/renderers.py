@@ -56,7 +56,6 @@ class JsRenderer:
     _renderer_type: Literal["function", "class", "attribute"]
     _template: str
     _type_xref_formatter: Callable[[TypeXRef], str]
-    _type_text_formatter: Callable[[str], str]
     _partial_path: list[str]
     _explicit_formal_params: str
     _content: list[str]
@@ -80,18 +79,6 @@ class JsRenderer:
 
         self._type_xref_formatter = default_type_xref_formatter
 
-    def _set_type_text_formatter(
-        self, formatter: Callable[[Config, str], str] | None
-    ) -> None:
-        if formatter:
-            self._type_text_formatter = partial(formatter, self._app.config)
-            return
-
-        def default_type_text_formatter(text: str) -> str:
-            return text
-
-        self._type_text_formatter = default_type_text_formatter
-
     def __init__(
         self,
         directive: Directive,
@@ -108,15 +95,6 @@ class JsRenderer:
         self._directive = directive
         self._app = app
         self._set_type_xref_formatter(app.config.ts_type_xref_formatter)
-
-        def bold_formatter(conf: Config, text: str) -> str:
-            parts = ["**" + part + "**" for part in text.split(" ") if part]
-            return " ".join(parts).strip()
-
-        if app.config.ts_type_bold:
-            self._set_type_text_formatter(bold_formatter)
-        else:
-            self._set_type_text_formatter(None)
 
         # content, arguments, options, app: all need to be accessible to
         # template_vars, so we bring them in on construction and stow them away
@@ -327,8 +305,6 @@ class JsRenderer:
         while True:
             xref: list[TypeXRef] = []
             s = "".join(strs())
-            if s:
-                s = self._type_text_formatter(s)
             if escape:
                 s = rst.escape(s)
             if s:

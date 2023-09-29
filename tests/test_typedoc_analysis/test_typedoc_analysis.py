@@ -526,7 +526,6 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         # TODO: this part maybe belongs in a unit test for the renderer or something
         a = AutoFunctionRenderer.__new__(AutoFunctionRenderer)
         a._add_span = False
-        a._set_type_text_formatter(None)
         a._set_type_xref_formatter(None)
         a._explicit_formal_params = None
         a._content = []
@@ -548,7 +547,6 @@ class TestTypeName(TypeDocAnalyzerTestCase):
             description=[DescriptionText("The type we contain")],
         )
         a = AutoClassRenderer.__new__(AutoClassRenderer)
-        a._set_type_text_formatter(None)
         a._set_type_xref_formatter(None)
         a._explicit_formal_params = None
         a._add_span = False

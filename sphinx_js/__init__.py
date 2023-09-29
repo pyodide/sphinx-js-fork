@@ -1,5 +1,7 @@
 from functools import cache
 from os.path import join, normpath
+from pathlib import Path
+from textwrap import dedent
 from typing import Any
 
 from sphinx.application import Sphinx
@@ -115,6 +117,29 @@ def add_type_param_field_to_directives() -> None:
     JSConstructor.doc_field_types.insert(0, typeparam_field)
 
 
+SPHINX_JS_CSS = "sphinx_js.css"
+
+
+def make_css_file(app: Sphinx) -> None:
+    dst = Path(app.outdir) / "_static" / SPHINX_JS_CSS
+    text = ""
+    if app.config.ts_type_bold:
+        text = dedent(
+            """\
+            .sphinx_js-type {
+                font-weight: bolder;
+            }
+            """
+        )
+    dst.write_text(text)
+
+
+def on_build_finished(app: Sphinx, exc: Exception | None) -> None:
+    if exc or app.builder.format != "html":
+        return
+    make_css_file(app)
+
+
 def setup(app: Sphinx) -> None:
     fix_js_make_xref()
     fix_staticfunction_objtype()
@@ -147,6 +172,8 @@ def setup(app: Sphinx) -> None:
     app.add_config_value("ts_should_destructure_arg", None, "env")
     app.add_config_value("ts_post_convert", None, "env")
     app.add_role("sphinx_js_type", sphinx_js_type_role)
+    app.add_css_file(SPHINX_JS_CSS)
+    app.connect("build-finished", on_build_finished)
 
     # We could use a callable as the "default" param here, but then we would
     # have had to duplicate or build framework around the logic that promotes
