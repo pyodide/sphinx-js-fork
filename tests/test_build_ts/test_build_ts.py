@@ -185,7 +185,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                       * **c** (any) --
 
                    Returns:
-                      c is "ConstructorlessClass()"
+                      boolean (typeguard for "ConstructorlessClass()")
                 """
             ),
         )

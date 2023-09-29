@@ -1165,9 +1165,10 @@ class PredicateType(TypeBase):
     targetType: "TypeD"
 
     def _render_name_root(self, converter: Converter) -> Iterator[str | ir.TypeXRef]:
-        yield self.name
-        yield " is "
+        yield ir.TypeXRefIntrinsic("boolean")
+        yield " (typeguard for "
         yield from self.targetType.render_name(converter)
+        yield ")"
 
 
 AnyNode = Node | Project | Signature
