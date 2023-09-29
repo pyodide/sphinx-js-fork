@@ -101,7 +101,7 @@ class TestTextBuilder(SphinxBuildTestCase):
             "\n"
             "   OptionalThings.boop?\n"
             "\n"
-            "      **type:** boolean\n"
+            "      type: boolean\n"
             "\n"
             "   OptionalThings.foop?()\n",
         )
@@ -201,13 +201,13 @@ class TestTextBuilder(SphinxBuildTestCase):
 
                    GetSetDocs.a
 
-                      **type:** number
+                      type: number
 
                       Getter with comment
 
                    GetSetDocs.b
 
-                      **type:** any
+                      type: any
 
                       Setter with comment
                 """
@@ -226,7 +226,7 @@ class TestTextBuilder(SphinxBuildTestCase):
 
                    Base.a
 
-                      **type:** number
+                      type: number
 
                    Base.f()
 

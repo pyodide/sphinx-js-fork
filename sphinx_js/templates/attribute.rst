@@ -5,7 +5,9 @@
    {{ common.deprecated(deprecated)|indent(3) }}
 
    {% if type -%}
-     **type:** {{ type|indent(3) }}
+      .. rst-class:: js attribute type
+
+          type: {{ type|indent(3) }}
    {%- endif %}
 
    {% if description -%}
