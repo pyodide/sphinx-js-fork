@@ -30,7 +30,10 @@ MIN_TYPEDOC_VERSION = (0, 25, 0)
 @cache
 def typedoc_version_info(typedoc: str) -> tuple[tuple[int, ...], tuple[int, ...]]:
     result = subprocess.run(
-        [typedoc, "--version"], capture_output=True, encoding="utf8"
+        [typedoc, "--version"],
+        capture_output=True,
+        encoding="utf8",
+        check=True,
     )
     lines = result.stdout.strip().splitlines()
     m = re.search(r"TypeDoc ([0-9]+\.[0-9]+\.[0-9]+)", lines[0])

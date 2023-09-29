@@ -1,5 +1,15 @@
 import { writeFile } from "fs/promises";
 
+const ExitCodes = {
+  Ok: 0,
+  OptionError: 1,
+  CompileError: 3,
+  ValidationError: 4,
+  OutputError: 5,
+  ExceptionThrown: 6,
+  Watching: 7,
+};
+
 let td;
 
 // Locate the kind IDs, look up the corresponding kindStrings, and add them to
@@ -36,6 +46,10 @@ async function main() {
   // Most of this stuff is copied from typedoc/src/lib/cli.ts
   const start = Date.now();
   let app = await bootstrapAppTypedoc0_25();
+  if (app.options.getValue("version")) {
+    console.log(app.toString());
+    return ExitCodes.Ok;
+  }
 
   const project = await app.convert();
   const preValidationWarnCount = app.logger.warningCount;

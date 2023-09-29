@@ -36,7 +36,7 @@ def search_node_modules(cmdname: str, cmdpath: str, dir: str | Path) -> str:
     # perhaps it's globally installed
     result = shutil.which(cmdname)
     if result:
-        return result
+        return str(Path(result).resolve())
 
     raise SphinxError(
         f'{cmdname} was not found. Install it using "npm install {cmdname}".'

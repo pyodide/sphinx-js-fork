@@ -1,3 +1,5 @@
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -86,3 +88,19 @@ def test_err():
         match='my_program was not found. Install it using "npm install my_program"',
     ):
         search_node_modules("my_program", my_prog_path, "/a/b/c")
+
+
+def test_global_install(tmp_path_factory):
+    tmpdir = tmp_path_factory.mktemp("global_root")
+    tmpdir2 = tmp_path_factory.mktemp("blah")
+    os.environ["npm_config_prefix"] = str(tmpdir)
+    subprocess.run(["npm", "i", "-g", "typedoc"])
+    typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", str(tmpdir2))
+    os.environ["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[2])
+    res = subprocess.run(
+        ["node", Path(__file__).parents[1] / "sphinx_js/call_typedoc.mjs", "--version"],
+        check=True,
+        capture_output=True,
+        encoding="utf8",
+    )
+    assert "TypeDoc 0.25" in res.stdout
