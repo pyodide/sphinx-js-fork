@@ -79,7 +79,7 @@ def typedoc_output(
     command.add("--sourceLinkTemplate", "{path}")
     command.add("--basePath", base_dir)
 
-    with NamedTemporaryFile(mode="w+b") as temp:
+    with NamedTemporaryFile(mode="w+b", delete=False) as temp:
         command.add("--json", temp.name, *abs_source_paths)
         try:
             subprocess.run(command.make(), check=True)
@@ -741,10 +741,12 @@ class TypeLiteral(NodeBase):
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
         return callable_to_ir(self, converter)
 
+
 class TypeAlias(NodeBase):
     # TODO: test me with "export type A = ..."
     kindString: Literal["Type alias"]
     type: "TypeD"
+
 
 class OtherNode(NodeBase):
     kindString: Literal[
@@ -756,7 +758,15 @@ class OtherNode(NodeBase):
 
 
 Node = Annotated[
-    Accessor | Callable | Class | Module | Interface | Member | OtherNode | TypeAlias | TypeLiteral,
+    Accessor
+    | Callable
+    | Class
+    | Module
+    | Interface
+    | Member
+    | OtherNode
+    | TypeAlias
+    | TypeLiteral,
     Field(discriminator="kindString"),
 ]
 
