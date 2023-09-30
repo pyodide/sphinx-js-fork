@@ -19,3 +19,6 @@ sphinx_js.egg-info/
 .vscode
 .DS_Store
 venv
+.venv
+coverage.xml
+test-results.xml
