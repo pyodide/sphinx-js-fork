@@ -171,31 +171,7 @@ class Converter:
             node.parent_member_properties = parent.member_properties()
 
         # Burrow into everything that could contain more ID'd items
-        children: list[Sequence[IndexType]] = []
-
-        children.append(node.children)
-        if isinstance(node, Accessor):
-            if node.getSignature:
-                children.append([node.getSignature])
-            if node.setSignature:
-                children.append([node.setSignature])
-
-        if isinstance(node, (Callable, TypeLiteral)):
-            children.append(node.signatures)
-
-        if isinstance(node, (Member, Param)) and isinstance(node.type, ReflectionType):
-            children.append([node.type.declaration])
-
-        if isinstance(node, Signature):
-            children.append(node.parameters)
-            children.append(node.typeParameter)
-            children.append(node.typeParameters)
-
-        if isinstance(node, ClassOrInterface):
-            children.append(node.typeParameter)
-            children.append(node.typeParameters)
-
-        for child in (c for l in children for c in l):
+        for child in node.children_with_ids():
             self._populate_index_inner(
                 child,
                 parent=node,
@@ -408,6 +384,9 @@ class Base(BaseModel):
     def _path_segments(self, base_dir: str) -> list[str]:
         raise NotImplementedError
 
+    def children_with_ids(self) -> Iterator["IndexType"]:
+        yield from self.children
+
 
 class Project(Base):
     # These are probably never present except "name"
@@ -490,6 +469,13 @@ class Accessor(NodeBase):
     setSignature: "Signature | None" = None
     inheritedFrom: "ReferenceType | None" = None
 
+    def children_with_ids(self) -> Iterator["IndexType"]:
+        yield from self.children
+        if self.getSignature:
+            yield self.getSignature
+        if self.setSignature:
+            yield self.setSignature
+
     @property
     def comment(self) -> Comment:
         if self.getSignature:
@@ -553,6 +539,10 @@ class Callable(NodeBase):
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
         return callable_to_ir(self, converter)
 
+    def children_with_ids(self) -> Iterator["IndexType"]:
+        yield from self.children
+        yield from self.signatures
+
 
 class ClassOrInterface(NodeBase):
     kindString: Literal["Class", "Interface"]
@@ -561,6 +551,11 @@ class ClassOrInterface(NodeBase):
     children: Sequence["ClassChild"] = []
     typeParameter: list["TypeParameter"] = []
     typeParameters: list["TypeParameter"] = []
+
+    def children_with_ids(self) -> Iterator["IndexType"]:
+        yield from self.children
+        yield from self.typeParameter
+        yield from self.typeParameters
 
     def _related_types(
         self,
@@ -674,6 +669,11 @@ class Member(NodeBase):
     type: "TypeD"
     inheritedFrom: "ReferenceType | None" = None
 
+    def children_with_ids(self) -> Iterator["IndexType"]:
+        yield from self.children
+        if isinstance(self.type, ReflectionType):
+            yield self.type.declaration
+
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.Attribute | ir.Function | None, Sequence["Node"]]:
@@ -708,6 +708,10 @@ class TypeLiteral(NodeBase):
     signatures: list["Signature"] = []
     indexSignature: "Signature | None" = None
     children: Sequence["Member"] = []
+
+    def children_with_ids(self) -> Iterator["IndexType"]:
+        yield from self.children
+        yield from self.signatures
 
     @property
     def comment(self) -> Comment:
@@ -858,6 +862,11 @@ class Signature(TopLevelProperties):
     type: "TypeD"  # This is the return type!
     inheritedFrom: "ReferenceType | None" = None
     parent_member_properties: MemberProperties = {}  # type: ignore[typeddict-item]
+
+    def children_with_ids(self) -> Iterator["IndexType"]:
+        yield from self.parameters
+        yield from self.typeParameter
+        yield from self.typeParameters
 
     def _path_segments(self, base_dir: str) -> list[str]:
         return []
