@@ -291,7 +291,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
     def test_variable(self):
         """Make sure top-level consts and vars are found."""
         const = self.analyzer.get_object(["topLevelConst"])
-        assert const.type == ["number"]
+        assert const.type == [TypeXRefIntrinsic("number")]
 
     def test_function(self):
         """Make sure Functions, Params, and Returns are built properly for
