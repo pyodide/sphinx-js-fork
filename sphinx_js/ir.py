@@ -26,7 +26,7 @@ survive template changes.
 from collections.abc import Sequence
 from typing import Any
 
-from attrs import Factory, define
+from attrs import Factory, define, field
 
 from .analyzer_utils import dotted_path
 
@@ -210,6 +210,8 @@ class TopLevel:
     deppath: str | None
     #: The human-readable description of the entity or '' if absent
     description: Description
+    modifier_tags: list[str] = field(kw_only=True, factory=list)
+    block_tags: dict[str, Description] = field(kw_only=True, factory=dict)
     #: Line number where the object (excluding any prefixing comment) begins
     line: int | None
     #: Explanation of the deprecation (which implies True) or True or False
