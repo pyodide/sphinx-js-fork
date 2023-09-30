@@ -959,7 +959,9 @@ class Signature(TopLevelProperties):
         yield ") => "
         return_type = self.return_type(converter)
         if return_type:
-            yield from return_type[0].type
+            res = return_type[0].type
+            assert isinstance(res, list)
+            yield from res
         else:
             yield ir.TypeXRefIntrinsic("void")
 
