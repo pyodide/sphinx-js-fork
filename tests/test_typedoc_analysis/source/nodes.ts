@@ -1,13 +1,10 @@
 export class Superclass {
-  method() {
-  }
+  method() {}
 }
 
-export interface SuperInterface {
-}
+export interface SuperInterface {}
 
-export interface Interface extends SuperInterface {
-}
+export interface Interface extends SuperInterface {}
 
 export interface InterfaceWithMembers {
   callableProperty(): void;
@@ -16,8 +13,7 @@ export interface InterfaceWithMembers {
 /**
  * An empty subclass
  */
-export abstract class EmptySubclass extends Superclass implements Interface {
-}
+export abstract class EmptySubclass extends Superclass implements Interface {}
 
 export const topLevelConst = 3;
 
@@ -39,17 +35,15 @@ export class ClassWithProperties {
    */
   someNormal: number;
 
-  constructor(a: number) {
-  }
+  constructor(a: number) {}
 
   get gettable(): number {
     return 5;
   }
 
-  set settable(value: string) {
-  }
+  set settable(value: string) {}
 }
 
 export class Indexable {
-  [id:string]: any;  // smoketest
+  [id: string]: any; // smoketest
 }

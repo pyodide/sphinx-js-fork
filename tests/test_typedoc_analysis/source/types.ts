@@ -1,8 +1,8 @@
 // Basic types: https://www.typescriptlang.org/docs/handbook/basic-types.html
 
-export enum Color{
+export enum Color {
   Red = 1,
-  Green = 2
+  Green = 2,
 }
 
 export let bool: boolean;
@@ -21,24 +21,23 @@ export let nev: never;
 export let obj: object;
 export let sym: symbol;
 
-
 // Interfaces (https://www.typescriptlang.org/docs/handbook/interfaces.html)
 
 export interface Interface {
   readonly readOnlyNum: number;
-  [someProp: number]: string;  // Just a smoketest for now. (IOW, make sure the analysis engine doesn't crash on it.) We'll need more work to handle members with no names.
+  [someProp: number]: string; // Just a smoketest for now. (IOW, make sure the analysis engine doesn't crash on it.) We'll need more work to handle members with no names.
 }
 
-export function interfacer(a: Interface) {
-}
+export function interfacer(a: Interface) {}
 
 export interface FunctionInterface {
-  (thing: string, ding: number): boolean;  // just a smoketest for now
+  (thing: string, ding: number): boolean; // just a smoketest for now
 }
 
 // Functions. Basic function types are covered by ConvertNodeTests.test_function.
 
-export function noThis(this: void) {  // smoketest
+export function noThis(this: void) {
+  // smoketest
 }
 
 // Make sure multi-signature functions don't crash us:
@@ -97,7 +96,7 @@ export function getProperty<T, K extends keyof T>(obj: T, key: K) {
   return obj[key];
 }
 
-export class A{}
+export class A {}
 
 export function create1(c: { new (x: number): A }): A {
   return new c(7);
@@ -107,15 +106,11 @@ export function create2<T>(c: { new (): T }): T {
   return new c();
 }
 
-
 /**
  * @typeParam S - The type we contain
  */
 export class ParamClass<S extends number[]> {
-  constructor() {
-
-  }
-
+  constructor() {}
 }
 
 // Utility types (https://www.typescriptlang.org/docs/handbook/utility-types.html)
@@ -126,11 +121,10 @@ export let partial: Partial<string>;
 
 export function objProps(
   a: { label: string },
-  b: { label: string; [key: number]: string }
+  b: { label: string; [key: number]: string },
 ) {}
 
-export let option: {a: number; b?: string};
-
+export let option: { a: number; b?: string };
 
 /**
  * Code 1 had `single ticks around it`.
@@ -142,9 +136,7 @@ export let option: {a: number; b?: string};
  * ```
  * And some closing words.
  */
-export function codeInDescription() {
-
-}
+export function codeInDescription() {}
 
 /**
  * An example with destructured args
@@ -180,7 +172,6 @@ export function destructureTest2({
  * @param options.b - The 'b' string.
  */
 export function destructureTest3({ a, b }: { a: string; b: { c: string } }) {}
-
 
 /**
  * A test for should_destructure_arg

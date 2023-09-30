@@ -5,10 +5,9 @@ export function foo(): void {
   /**
    * An inner function
    */
-  function inner(): void {
-  }
+  function inner(): void {}
 }
-foo.adHocInner = 'innerValue';
+foo.adHocInner = "innerValue";
 
 /**
  * Foo class
@@ -32,21 +31,19 @@ export class Foo {
   /**
    * Constructor
    */
-  constructor (num: number) {
+  constructor(num: number) {
     this.numInstanceVar = num;
   }
 
   /**
    * Method
    */
-  someMethod(): void {
-  }
+  someMethod(): void {}
 
   /**
    * Static method
    */
-  static staticMethod(): void {
-  }
+  static staticMethod(): void {}
 
   /**
    * Getter
@@ -58,8 +55,7 @@ export class Foo {
   /**
    * Setter
    */
-  set setter(n: number) {
-  }
+  set setter(n: number) {}
 }
 
 export interface Face {
