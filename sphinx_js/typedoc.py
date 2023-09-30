@@ -430,6 +430,8 @@ class TopLevelPropertiesDict(TypedDict):
     see_alsos: list[str]
     properties: list[ir.Attribute]
     exported_from: ir.Pathname | None
+    modifier_tags: list[str]
+    block_tags: dict[str, Sequence[ir.Description]]
 
 
 class TopLevelProperties(Base):
@@ -457,7 +459,9 @@ class TopLevelProperties(Base):
             deppath="".join(self.filepath),
             description=self.comment.get_description(),
             modifier_tags=self.comment.modifierTags,
-            block_tags={tag: self.comment.get_tag_list(tag) for tag in self.comment.tags},
+            block_tags={
+                tag: self.comment.get_tag_list(tag) for tag in self.comment.tags
+            },
             line=self.sources[0].line if self.sources else None,
             # These properties aren't supported by TypeDoc:
             deprecated=deprecated,
