@@ -13,7 +13,7 @@ def tests(session: Session) -> None:
         session.run(
             "npm", "i", "--no-save", "jsdoc@4.0.0", "typedoc@0.25", external=True
         )
-    session.run("pytest", "--junitxml=test-results.xml")
+    session.run("pytest", "--junitxml=test-results.xml", "--cov=sphinx_js")
 
 
 @nox.session(python=["3.11"])
