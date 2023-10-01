@@ -22,7 +22,12 @@ from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.domains.javascript import JSCallable
 
-from .renderers import AutoAttributeRenderer, AutoClassRenderer, AutoFunctionRenderer
+from .renderers import (
+    AutoAttributeRenderer,
+    AutoClassRenderer,
+    AutoFunctionRenderer,
+    JsRenderer,
+)
 
 
 def unescape(escaped: str) -> str:
@@ -33,6 +38,16 @@ def unescape(escaped: str) -> str:
     # source and when this directive is called. So don't replace "\<space>" =>
     # "<space>"
     return re.sub(r"\\([^ ])", r"\1", escaped)
+
+
+def _members_to_exclude(arg: str | None) -> set[str]:
+    """Return a set of members to exclude given a comma-delim list of them.
+
+    Exclude none if none are passed. This differs from autodocs' behavior,
+    which excludes all. That seemed useless to me.
+
+    """
+    return set(a.strip() for a in (arg or "").split(","))
 
 
 def sphinx_js_type_role(role, rawtext, text, lineno, inliner, options=None, content=None):  # type: ignore[no-untyped-def]
@@ -58,6 +73,24 @@ class JsDirective(Directive):
     final_argument_whitespace = True
 
     option_spec = {"short-name": flag}
+
+    def _run(self, renderer_class: type[JsRenderer], app: Sphinx) -> list[Node]:
+        renderer = renderer_class.from_directive(self, app)
+        note_dependencies(app, renderer.dependencies())
+        return renderer.rst_nodes()
+
+
+class JsDirectiveWithChildren(JsDirective):
+    option_spec = JsDirective.option_spec.copy()
+    option_spec.update(
+        {
+            "members": lambda members: (
+                [m.strip() for m in members.split(",")] if members else []
+            ),
+            "exclude-members": _members_to_exclude,
+            "private-members": flag,
+        }
+    )
 
 
 def note_dependencies(app: Sphinx, dependencies: Iterable[str]) -> None:
@@ -86,15 +119,13 @@ def auto_function_directive_bound_to_app(app: Sphinx) -> type[Directive]:
         """
 
         def run(self) -> list[Node]:
-            renderer = AutoFunctionRenderer.from_directive(self, app)
-            note_dependencies(app, renderer.dependencies())
-            return renderer.rst_nodes()
+            return self._run(AutoFunctionRenderer, app)
 
     return AutoFunctionDirective
 
 
 def auto_class_directive_bound_to_app(app: Sphinx) -> type[Directive]:
-    class AutoClassDirective(JsDirective):
+    class AutoClassDirective(JsDirectiveWithChildren):
         """js:autoclass directive, which spits out a js:class directive
 
         Takes a single argument which is a JS class name combined with an
@@ -103,21 +134,8 @@ def auto_class_directive_bound_to_app(app: Sphinx) -> type[Directive]:
 
         """
 
-        option_spec = JsDirective.option_spec.copy()
-        option_spec.update(
-            {
-                "members": lambda members: (
-                    [m.strip() for m in members.split(",")] if members else []
-                ),
-                "exclude-members": _members_to_exclude,
-                "private-members": flag,
-            }
-        )
-
         def run(self) -> list[Node]:
-            renderer = AutoClassRenderer.from_directive(self, app)
-            note_dependencies(app, renderer.dependencies())
-            return renderer.rst_nodes()
+            return self._run(AutoClassRenderer, app)
 
     return AutoClassDirective
 
@@ -131,21 +149,9 @@ def auto_attribute_directive_bound_to_app(app: Sphinx) -> type[Directive]:
         """
 
         def run(self) -> list[Node]:
-            renderer = AutoAttributeRenderer.from_directive(self, app)
-            note_dependencies(app, renderer.dependencies())
-            return renderer.rst_nodes()
+            return self._run(AutoAttributeRenderer, app)
 
     return AutoAttributeDirective
-
-
-def _members_to_exclude(arg: str | None) -> set[str]:
-    """Return a set of members to exclude given a comma-delim list them.
-
-    Exclude none if none are passed. This differs from autodocs' behavior,
-    which excludes all. That seemed useless to me.
-
-    """
-    return set(a.strip() for a in (arg or "").split(","))
 
 
 class JSFunction(JSCallable):
