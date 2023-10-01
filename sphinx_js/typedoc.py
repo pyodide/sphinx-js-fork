@@ -73,13 +73,6 @@ def typedoc_output(
         tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
         command.add("--tsconfig", tsconfig_path)
 
-    # We want to use the url field to compute the file paths.
-
-    # --disableGit prevents typedoc from doing complicated magic with git that
-    # makes the url field harder to understand.
-    command.add("--disableGit")
-    # sourceLinkTemplate makes the url field contain just the file path
-    command.add("--sourceLinkTemplate", "{path}")
     command.add("--basePath", base_dir)
 
     with NamedTemporaryFile(mode="w+b", delete=False) as temp:
@@ -141,10 +134,10 @@ class Converter:
         self._populate_index_inner(root, parent=None)
         return self
 
-    def _url_to_filepath(self, url: str) -> list[str]:
-        if not url:
+    def _parse_filepath(self, path: str) -> list[str]:
+        if not path:
             return []
-        entries = ["."] + url.split("/")
+        entries = ["."] + path.split("/")
         entries[-1] = entries[-1].rpartition(".")[0]
         for i in range(len(entries) - 1):
             entries[i] += "/"
@@ -162,7 +155,7 @@ class Converter:
         parent_kind = parent.kindString if parent else ""
         parent_segments = parent.path if parent else []
         if node.sources:
-            filepath = self._url_to_filepath(node.sources[0].url)
+            filepath = self._parse_filepath(node.sources[0].fileName)
         if filepath:
             node.filepath = filepath
         self.compute_path(node, parent_kind, parent_segments, filepath)

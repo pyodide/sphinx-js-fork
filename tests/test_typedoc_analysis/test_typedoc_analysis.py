@@ -93,8 +93,6 @@ class TestPopulateIndex(TestCase):
         # things get paths
         assert function.path == [
             "./",
-            "test_typedoc_analysis/",
-            "source/",
             "longnames.",
             "foo",
         ]
