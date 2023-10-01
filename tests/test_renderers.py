@@ -139,7 +139,6 @@ def test_func_render_shortnames(function_render):
 
 
 def test_func_render_flags(function_render):
-
     # is_abstract is ignored? Maybe only makes sense if it is a class method??
     # TODO: look into this.
     assert function_render(is_abstract=True) == DEFAULT_RESULT

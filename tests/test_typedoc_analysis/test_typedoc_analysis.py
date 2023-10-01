@@ -574,7 +574,6 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         ]
 
     def test_constrained_by_property(self):
-
         obj = self.analyzer.get_object(["objProps"])
         assert obj.params[0].type == [
             "{ ",

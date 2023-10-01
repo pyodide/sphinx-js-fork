@@ -1,8 +1,8 @@
 import textwrap
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from functools import partial
 from re import sub
-from typing import Any, Literal, Iterable
+from typing import Any, Literal
 
 from docutils.nodes import Node
 from docutils.parsers.rst import Directive
@@ -209,8 +209,9 @@ class JsRenderer:
             )
         except SuffixAmbiguous as exc:
             raise SphinxError(
-                'More than one object matches the path suffix "%s". Candidate paths have these segments in front: %s'
-                % ("".join(exc.segments), exc.next_possible_keys)
+                'More than one object matches the path suffix "{}". Candidate paths have these segments in front: {}'.format(
+                    "".join(exc.segments), exc.next_possible_keys
+                )
             )
 
     def dependencies(self) -> set[str]:

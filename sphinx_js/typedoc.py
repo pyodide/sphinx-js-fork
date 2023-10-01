@@ -93,7 +93,7 @@ def typedoc_output(
 
 def parse(json: dict[str, Any]) -> "Project":
     try:
-        return Project.parse_obj(json)  # type:ignore[no-any-return]
+        return Project.parse_obj(json)
     except ValidationError as exc:
         fix_exc_errors(json, exc)
         raise
@@ -359,7 +359,7 @@ class MemberProperties(TypedDict):
 class Base(BaseModel):
     children: Sequence["Node"] = []
     path: list[str] = []
-    id: int | None
+    id: int | None = None
     kindString: str = ""
     sources: list[Source] = []
     filepath: list[str] = []
@@ -814,7 +814,7 @@ class Param(Base):
             return self.type.declaration.comment
         return DEFAULT_COMMENT
 
-    defaultValue: str | None
+    defaultValue: str | None = None
     flags: Flags
     name: str
     type: "TypeD"
