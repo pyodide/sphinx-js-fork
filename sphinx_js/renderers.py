@@ -1,5 +1,5 @@
 import textwrap
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import partial
 from re import sub
 from typing import Any, Literal
@@ -24,6 +24,7 @@ from .ir import (
     Exc,
     Function,
     Interface,
+    Module,
     Param,
     Pathname,
     Return,
@@ -49,7 +50,7 @@ def sort_attributes_first_then_by_path(obj: TopLevel) -> Any:
             idx = 0
         case Function(_):
             idx = 1
-        case Class(_):
+        case Class(_) | Interface(_):
             idx = 2
 
     return idx, obj.path.segments
@@ -253,19 +254,20 @@ class JsRenderer:
         return doc.children
 
     def rst_for(self, obj: TopLevel) -> str:
-        renderer: type
+        renderer_class: type
         match obj:
             case Attribute(_):
-                renderer = AutoAttributeRenderer
+                renderer_class = AutoAttributeRenderer
             case Function(_):
-                renderer = AutoFunctionRenderer
+                renderer_class = AutoFunctionRenderer
             case Class(_):
-                renderer = AutoClassRenderer
+                renderer_class = AutoClassRenderer
             case _:
                 raise RuntimeError("This shouldn't happen...")
-        return renderer(self._directive, self._app, arguments=["dummy"]).rst(
-            [obj.name], obj, use_short_name=False
+        renderer = renderer_class(
+            self._directive, self._app, arguments=["dummy"], options={"members": ["*"]}
         )
+        return renderer.rst([obj.name], obj, use_short_name=False)
 
     def rst(
         self, partial_path: list[str], obj: TopLevel, use_short_name: bool = False
@@ -608,6 +610,32 @@ class AutoAttributeRenderer(JsRenderer):
             type=self.render_type(obj.type),
             content="\n".join(self._content),
         )
+
+
+class AutoModuleRenderer(JsRenderer):
+    def get_object(self) -> Module:  # type:ignore[override]
+        analyzer: Analyzer = self._app._sphinxjs_analyzer  # type:ignore[attr-defined]
+        assert isinstance(analyzer, TsAnalyzer)
+        return analyzer._modules_by_path.get(self._partial_path)
+
+    def dependencies(self) -> set[str]:
+        return set()
+
+    def rst_for_group(self, objects: Iterable[TopLevel]) -> list[str]:
+        return [self.rst_for(obj) for obj in objects]
+
+    def rst(  # type:ignore[override]
+        self,
+        partial_path: list[str],
+        obj: Module,
+        use_short_name: bool = False,
+    ) -> str:
+        rst: list[Sequence[str]] = []
+        rst.append([f".. js:module:: {''.join(partial_path)}"])
+        rst.append(self.rst_for_group(obj.attributes))
+        rst.append(self.rst_for_group(obj.functions))
+        rst.append(self.rst_for_group(obj.classes))
+        return "\n\n".join(["\n\n".join(r) for r in rst])
 
 
 def unwrapped(text: str) -> str:

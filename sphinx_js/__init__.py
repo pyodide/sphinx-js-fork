@@ -12,6 +12,7 @@ from .directives import (
     auto_attribute_directive_bound_to_app,
     auto_class_directive_bound_to_app,
     auto_function_directive_bound_to_app,
+    auto_module_directive_bound_to_app,
     sphinx_js_type_role,
 )
 from .jsdoc import Analyzer as JsAnalyzer
@@ -158,6 +159,9 @@ def setup(app: Sphinx) -> None:
     )
     app.add_directive_to_domain(
         "js", "autoattribute", auto_attribute_directive_bound_to_app(app)
+    )
+    app.add_directive_to_domain(
+        "js", "automodule", auto_module_directive_bound_to_app(app)
     )
 
     # TODO: We could add a js:module with app.add_directive_to_domain().

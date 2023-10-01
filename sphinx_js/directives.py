@@ -26,6 +26,7 @@ from .renderers import (
     AutoAttributeRenderer,
     AutoClassRenderer,
     AutoFunctionRenderer,
+    AutoModuleRenderer,
     JsRenderer,
 )
 
@@ -174,3 +175,15 @@ class JSFunction(JSCallable):
                     ]
                 )
         return result
+
+
+def auto_module_directive_bound_to_app(app: Sphinx) -> type[Directive]:
+    class AutoModuleDirective(JsDirectiveWithChildren):
+        """TODO: words here"""
+
+        required_arguments = 1
+
+        def run(self) -> list[Node]:
+            return self._run(AutoModuleRenderer, app)
+
+    return AutoModuleDirective

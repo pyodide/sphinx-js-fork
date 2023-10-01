@@ -175,6 +175,16 @@ class Return:
     description: Description
 
 
+@define
+class Module:
+    filename: str
+    path: Pathname
+    line: int
+    attributes: list["TopLevel"] = Factory(list)
+    functions: list["Function"] = Factory(list)
+    classes: list["Class"] = Factory(list)
+
+
 @define(slots=False)
 class TopLevel:
     """A language object with an independent existence

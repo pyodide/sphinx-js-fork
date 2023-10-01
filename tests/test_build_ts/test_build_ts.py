@@ -246,6 +246,67 @@ class TestTextBuilder(SphinxBuildTestCase):
             ),
         )
 
+    def test_automodule(self):
+        self._file_contents_eq(
+            "automodule",
+            dedent(
+                """\
+                module.a
+
+                   type: number
+
+                   The thing.
+
+                module.q
+
+                   type: { a: string; b: number; }
+
+                   Another thing.
+
+                module.f()
+
+                   Crimps the bundle
+
+                module.z(a, b)
+
+                   Arguments:
+                      * **a** (number) --
+
+                      * **b** ({ a: string; b: number; }) --
+
+                   Returns:
+                      number
+
+                class module.A()
+
+                   *exported from* "module"
+
+                   A.[Symbol․iterator]()
+
+                   A.f()
+
+                   A.g(a)
+
+                      Arguments:
+                         * **a** (number) --
+
+                      Returns:
+                         number
+
+                class module.Z(a, b)
+
+                   *exported from* "module"
+
+                   Arguments:
+                      * **a** (number) --
+
+                      * **b** (number) --
+
+                   Z.z()
+                """
+            ),
+        )
+
 
 class TestHtmlBuilder(SphinxBuildTestCase):
     """Tests which require an HTML build of our Sphinx tree, for checking
