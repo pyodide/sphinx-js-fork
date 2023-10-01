@@ -2,7 +2,7 @@ import textwrap
 from collections.abc import Callable, Iterator
 from functools import partial
 from re import sub
-from typing import Any, Literal
+from typing import Any, Literal, Iterable
 
 from docutils.nodes import Node
 from docutils.parsers.rst import Directive
@@ -40,6 +40,73 @@ from .typedoc import Analyzer as TsAnalyzer
 Analyzer = TsAnalyzer | JsAnalyzer
 
 logger = logging.getLogger(__name__)
+
+
+def sort_attributes_first_then_by_path(obj: TopLevel) -> Any:
+    """Return a sort key for IR objects."""
+    match obj:
+        case Attribute(_):
+            idx = 0
+        case Function(_):
+            idx = 1
+        case Class(_):
+            idx = 2
+
+    return idx, obj.path.segments
+
+
+def _members_to_include_inner(
+    members: Iterable[TopLevel],
+    include: list[str],
+) -> list[TopLevel]:
+    """Return the members that should be included (before excludes and
+    access specifiers are taken into account).
+
+    This will either be the ones explicitly listed after the
+    ``:members:`` option, in that order; all members of the class; or
+    listed members with remaining ones inserted at the placeholder "*".
+
+    """
+    if not include:
+        # Specifying none means listing all.
+        return sorted(members, key=sort_attributes_first_then_by_path)
+    included_set = set(include)
+
+    # If the special name * is included in the list, include all other
+    # members, in sorted order.
+    if "*" in included_set:
+        star_index = include.index("*")
+        sorted_not_included_members = sorted(
+            (m for m in members if m.name not in included_set),
+            key=sort_attributes_first_then_by_path,
+        )
+        not_included = [m.name for m in sorted_not_included_members]
+        include = include[:star_index] + not_included + include[star_index + 1 :]
+        included_set.update(not_included)
+
+    # Even if there are 2 members with the same short name (e.g. a
+    # static member and an instance one), keep them both. This
+    # prefiltering step should make the below sort less horrible, even
+    # though I'm calling index().
+    included_members = [m for m in members if m.name in included_set]
+    # sort()'s stability should keep same-named members in the order
+    # JSDoc spits them out in.
+    included_members.sort(key=lambda m: include.index(m.name))
+    return included_members
+
+
+def members_to_include(
+    members: Iterable[TopLevel],
+    include: list[str],
+    exclude: list[str],
+    should_include_private: bool,
+) -> Iterator[TopLevel]:
+    for member in _members_to_include_inner(members, include):
+        if member.name in exclude:
+            continue
+        if not should_include_private and getattr(member, "is_private", False):
+            continue
+        yield member
 
 
 class JsRenderer:
@@ -183,6 +250,21 @@ class JsRenderer:
         )
         RstParser().parse(rst, doc)
         return doc.children
+
+    def rst_for(self, obj: TopLevel) -> str:
+        renderer: type
+        match obj:
+            case Attribute(_):
+                renderer = AutoAttributeRenderer
+            case Function(_):
+                renderer = AutoFunctionRenderer
+            case Class(_):
+                renderer = AutoClassRenderer
+            case _:
+                raise RuntimeError("This shouldn't happen...")
+        return renderer(self._directive, self._app, arguments=["dummy"]).rst(
+            [obj.name], obj, use_short_name=False
+        )
 
     def rst(
         self, partial_path: list[str], obj: TopLevel, use_short_name: bool = False
@@ -502,68 +584,11 @@ class AutoClassRenderer(JsRenderer):
         :arg should_include_private: Whether to include private members
 
         """
-
-        def rst_for(obj: Attribute | Function) -> str:
-            renderer = (
-                AutoFunctionRenderer
-                if isinstance(obj, Function)
-                else AutoAttributeRenderer
-            )
-            return renderer(self._directive, self._app, arguments=["dummy"]).rst(
-                [obj.name], obj, use_short_name=False
-            )
-
-        def members_to_include(
-            include: list[str],
-        ) -> list[Attribute | Function]:
-            """Return the members that should be included (before excludes and
-            access specifiers are taken into account).
-
-            This will either be the ones explicitly listed after the
-            ``:members:`` option, in that order; all members of the class; or
-            listed members with remaining ones inserted at the placeholder "*".
-
-            """
-
-            def sort_attributes_first_then_by_path(obj: Function | Attribute) -> Any:
-                """Return a sort key for IR objects."""
-                return isinstance(obj, Function), obj.path.segments
-
-            members = obj.members
-            if not include:
-                # Specifying none means listing all.
-                return sorted(members, key=sort_attributes_first_then_by_path)
-            included_set = set(include)
-
-            # If the special name * is included in the list, include all other
-            # members, in sorted order.
-            if "*" in included_set:
-                star_index = include.index("*")
-                sorted_not_included_members = sorted(
-                    (m for m in members if m.name not in included_set),
-                    key=sort_attributes_first_then_by_path,
-                )
-                not_included = [m.name for m in sorted_not_included_members]
-                include = (
-                    include[:star_index] + not_included + include[star_index + 1 :]
-                )
-                included_set.update(not_included)
-
-            # Even if there are 2 members with the same short name (e.g. a
-            # static member and an instance one), keep them both. This
-            # prefiltering step should make the below sort less horrible, even
-            # though I'm calling index().
-            included_members = [m for m in members if m.name in included_set]
-            # sort()'s stability should keep same-named members in the order
-            # JSDoc spits them out in.
-            included_members.sort(key=lambda m: include.index(m.name))
-            return included_members
-
         return "\n\n".join(
-            rst_for(member)
-            for member in members_to_include(include)
-            if ((not member.is_private) or should_include_private)
-            and member.name not in exclude
+            self.rst_for(member)
+            for member in members_to_include(
+                obj.members, include, exclude, should_include_private
+            )
         )
 
 
