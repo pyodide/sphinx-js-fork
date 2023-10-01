@@ -135,10 +135,10 @@ class Converter:
         return self
 
     def _parse_filepath(self, path: str) -> list[str]:
-        if not path:
-            return []
-        entries = ["."] + path.split("/")
-        entries[-1] = entries[-1].rpartition(".")[0]
+        p = Path(path)
+        if p.name:
+            p = p.with_suffix("")
+        entries = ["."] + list(p.parts)
         for i in range(len(entries) - 1):
             entries[i] += "/"
         return entries
