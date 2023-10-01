@@ -4,16 +4,19 @@
 export const a = 7;
 
 /**
- * Crimps the bundle
+ * Clutches the bundle
  */
-export function f() {}
+export async function f() {}
 
 export function z(a: number, b: typeof q): number {
   return a;
 }
 
+/**
+ * This is a summary. This is more info.
+ */
 export class A {
-  f() {}
+  async f() {}
 
   [Symbol.iterator]() {}
 
@@ -23,6 +26,7 @@ export class A {
 }
 
 export class Z {
+  x: number;
   constructor(a: number, b: number) {}
 
   z() {}

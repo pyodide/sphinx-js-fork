@@ -14,7 +14,7 @@ from sphinx_js.ir import (
     TypeXRefExternal,
     TypeXRefInternal,
 )
-from sphinx_js.renderers import AutoFunctionRenderer, JsRenderer
+from sphinx_js.renderers import AutoFunctionRenderer, render_description
 
 
 def setindent(txt):
@@ -22,8 +22,7 @@ def setindent(txt):
 
 
 def test_render_description():
-    renderer = JsRenderer.__new__(JsRenderer)
-    assert renderer.render_description(
+    assert render_description(
         [
             DescriptionText(text="Code 1 had "),
             DescriptionCode(code="`single ticks around it`"),

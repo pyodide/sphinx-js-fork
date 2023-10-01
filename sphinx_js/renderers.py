@@ -2,24 +2,29 @@ import textwrap
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import partial
 from re import sub
-from typing import Any, Literal
+from typing import Any, Literal, Protocol, TypeVar
 
+from docutils import nodes
 from docutils.nodes import Node
 from docutils.parsers.rst import Directive
 from docutils.parsers.rst import Parser as RstParser
 from docutils.statemachine import StringList
 from docutils.utils import new_document
 from jinja2 import Environment, PackageLoader
+from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.config import Config
 from sphinx.errors import SphinxError
+from sphinx.ext.autosummary import autosummary_table, extract_summary
 from sphinx.util import logging, rst
+from sphinx.util.docutils import switch_source_input
+
+from sphinx_js import ir
 
 from .analyzer_utils import dotted_path
 from .ir import (
     Attribute,
     Class,
-    Description,
     DescriptionText,
     Exc,
     Function,
@@ -110,42 +115,67 @@ def members_to_include(
         yield member
 
 
-class JsRenderer:
-    """Abstract superclass for renderers of various sphinx-js directives
+def unwrapped(text: str) -> str:
+    """Return the text with line wrapping removed."""
+    return sub(r"[ \t]*[\r\n]+[ \t]*", " ", text)
 
-    Provides an inversion-of-control framework for rendering and bridges us
-    from the hidden, closed-over JsDirective subclasses to top-level classes
-    that can see and use each other. Handles parsing of a single, all-consuming
-    argument that consists of a JS/TS entity reference and an optional formal
-    parameter list.
 
-    """
+def render_description(description: ir.Description) -> str:
+    """Construct a single comment string from a fancy object."""
+    if isinstance(description, str):
+        return description
+    content = []
+    prev = ""
+    for s in description:
+        if isinstance(s, DescriptionText):
+            prev = s.text
+            content.append(prev)
+            continue
+        # code
+        if s.code.startswith("```") and s.code.count("\n") >= 1:
+            # A code pen
+            first_line, rest = s.code.split("\n", 1)
+            rest = rest.removesuffix("```")
+            code_type = first_line.removeprefix("```")
+            start = f".. code-block:: {code_type}\n\n"
+            codeblock = textwrap.indent(rest, " " * 4)
+            end = "\n\n"
+            content.append("\n" + start + codeblock + end)
+            continue
 
-    _renderer_type: Literal["function", "class", "attribute"]
-    _template: str
+        if s.code.startswith("``"):
+            # Sphinx-style escaped, leave it alone.
+            content.append(s.code)
+            continue
+        if prev.endswith(":"):
+            # A sphinx role, leave it alone
+            content.append(s.code)
+            continue
+
+        if prev.endswith(" ") and not s.code.endswith(">`"):
+            # Used single uptick with code, put double upticks
+            content.append(f"`{s.code}`")
+            continue
+        content.append(s.code)
+    return "".join(content)
+
+
+R = TypeVar("R", bound="Renderer")
+
+
+class HasDepPath(Protocol):
+    deppath: str | None
+
+
+class Renderer:
     _type_xref_formatter: Callable[[TypeXRef], str]
+    # We turn the <span class="sphinx_js-type"> in the analyzer tests because it
+    # makes a big mess.
+    _add_span: bool
     _partial_path: list[str]
     _explicit_formal_params: str
     _content: list[str]
     _options: dict[str, Any]
-    # We turn the <span class="sphinx_js-type"> in the analyzer tests because it
-    # makes a big mess.
-    _add_span: bool
-
-    def _template_vars(self, name: str, obj: TopLevel) -> dict[str, Any]:
-        raise NotImplementedError
-
-    def _set_type_xref_formatter(
-        self, formatter: Callable[[Config, TypeXRef], str] | None
-    ) -> None:
-        if formatter:
-            self._type_xref_formatter = partial(formatter, self._app.config)
-            return
-
-        def default_type_xref_formatter(xref: TypeXRef) -> str:
-            return xref.name
-
-        self._type_xref_formatter = default_type_xref_formatter
 
     def __init__(
         self,
@@ -176,7 +206,7 @@ class JsRenderer:
         self._options = options or {}
 
     @classmethod
-    def from_directive(cls, directive: Directive, app: Sphinx) -> "JsRenderer":
+    def from_directive(cls: type[R], directive: Directive, app: Sphinx) -> R:
         """Return one of these whose state is all derived from a directive.
 
         This is suitable for top-level calls but not for when a renderer is
@@ -194,6 +224,56 @@ class JsRenderer:
             content=directive.content,
             options=directive.options,
         )
+
+    def _set_type_xref_formatter(
+        self, formatter: Callable[[Config, TypeXRef], str] | None
+    ) -> None:
+        if formatter:
+            self._type_xref_formatter = partial(formatter, self._app.config)
+            return
+
+        def default_type_xref_formatter(xref: TypeXRef) -> str:
+            return xref.name
+
+        self._type_xref_formatter = default_type_xref_formatter
+
+    def get_object(self) -> HasDepPath:
+        raise NotImplementedError
+
+    def dependencies(self) -> set[str]:
+        """Return a set of path(s) to the file(s) that the IR object
+        rendered by this renderer is from.  Each path is absolute or
+        relative to `root_for_relative_js_paths`.
+
+        """
+        try:
+            obj = self.get_object()
+            if obj.deppath:
+                return set([obj.deppath])
+        except SphinxError as exc:
+            logger.exception("Exception while retrieving paths for IR object: %s" % exc)
+        return set([])
+
+    def rst_nodes(self) -> list[Node]:
+        raise NotImplementedError
+
+
+class JsRenderer(Renderer):
+    """Abstract superclass for renderers of various sphinx-js directives
+
+    Provides an inversion-of-control framework for rendering and bridges us
+    from the hidden, closed-over JsDirective subclasses to top-level classes
+    that can see and use each other. Handles parsing of a single, all-consuming
+    argument that consists of a JS/TS entity reference and an optional formal
+    parameter list.
+
+    """
+
+    _renderer_type: Literal["function", "class", "attribute"]
+    _template: str
+
+    def _template_vars(self, name: str, obj: TopLevel) -> dict[str, Any]:
+        raise NotImplementedError
 
     def get_object(self) -> TopLevel:
         """Return the IR object rendered by this renderer."""
@@ -214,20 +294,6 @@ class JsRenderer:
                     "".join(exc.segments), exc.next_possible_keys
                 )
             )
-
-    def dependencies(self) -> set[str]:
-        """Return a set of path(s) to the file(s) that the IR object
-        rendered by this renderer is from.  Each path is absolute or
-        relative to `root_for_relative_js_paths`.
-
-        """
-        try:
-            obj = self.get_object()
-            if obj.deppath:
-                return set([obj.deppath])
-        except SphinxError as exc:
-            logger.exception("Exception while retrieving paths for IR object: %s" % exc)
-        return set([])
 
     def rst_nodes(self) -> list[Node]:
         """Render into RST nodes a thing shaped like a function, having a name
@@ -328,45 +394,6 @@ class JsRenderer:
 
         return "({})".format(", ".join(formals))
 
-    def render_description(self, description: Description) -> str:
-        """Construct a single comment string from a fancy object."""
-        if isinstance(description, str):
-            return description
-        content = []
-        prev = ""
-        for s in description:
-            if isinstance(s, DescriptionText):
-                prev = s.text
-                content.append(prev)
-                continue
-            # code
-            if s.code.startswith("```") and s.code.count("\n") >= 1:
-                # A code pen
-                first_line, rest = s.code.split("\n", 1)
-                rest = rest.removesuffix("```")
-                code_type = first_line.removeprefix("```")
-                start = f".. code-block:: {code_type}\n\n"
-                codeblock = textwrap.indent(rest, " " * 4)
-                end = "\n\n"
-                content.append("\n" + start + codeblock + end)
-                continue
-
-            if s.code.startswith("``"):
-                # Sphinx-style escaped, leave it alone.
-                content.append(s.code)
-                continue
-            if prev.endswith(":"):
-                # A sphinx role, leave it alone
-                content.append(s.code)
-                continue
-
-            if prev.endswith(" ") and not s.code.endswith(">`"):
-                # Used single uptick with code, put double upticks
-                content.append(f"`{s.code}`")
-                continue
-            content.append(s.code)
-        return "".join(content)
-
     def render_type(self, type: Type, escape: bool = False, bold: bool = True) -> str:
         if not type:
             return ""
@@ -415,7 +442,7 @@ class JsRenderer:
         if return_.type:
             tail.append(self.render_type(return_.type, escape=False))
         if return_.description:
-            tail.append(self.render_description(return_.description))
+            tail.append(render_description(return_.description))
         return ["returns"], " -- ".join(tail)
 
     def _type_param_formatter(self, tparam: TypeParam) -> tuple[list[str], str] | None:
@@ -423,7 +450,7 @@ class JsRenderer:
         if tparam.extends:
             v += " extends " + self.render_type(tparam.extends)
         heads = ["typeparam", v]
-        return heads, self.render_description(tparam.description)
+        return heads, render_description(tparam.description)
 
     def _param_formatter(self, param: Param) -> tuple[list[str], str] | None:
         """Derive heads and tail from ``@param`` blocks."""
@@ -433,7 +460,7 @@ class JsRenderer:
         heads = ["param"]
         heads.append(param.name)
 
-        tail = self.render_description(param.description)
+        tail = render_description(param.description)
         return heads, tail
 
     def _param_type_formatter(self, param: Param) -> tuple[list[str], str] | None:
@@ -449,7 +476,7 @@ class JsRenderer:
         heads = ["throws"]
         if exception.type:
             heads.append(self.render_type(exception.type, bold=False))
-        tail = self.render_description(exception.description)
+        tail = render_description(exception.description)
         return heads, tail
 
     def _fields(self, obj: TopLevel) -> Iterator[tuple[list[str], str]]:
@@ -492,13 +519,13 @@ class AutoFunctionRenderer(JsRenderer):
     def _template_vars(self, name: str, obj: Function) -> dict[str, Any]:  # type: ignore[override]
         deprecated = obj.deprecated
         if not isinstance(deprecated, bool):
-            deprecated = self.render_description(deprecated)
+            deprecated = render_description(deprecated)
         return dict(
             name=name,
             params=self._formal_params(obj),
             fields=self._fields(obj),
-            description=self.render_description(obj.description),
-            examples=[self.render_description(x) for x in obj.examples],
+            description=render_description(obj.description),
+            examples=[render_description(x) for x in obj.examples],
             deprecated=deprecated,
             is_optional=obj.is_optional,
             is_static=obj.is_static,
@@ -548,18 +575,18 @@ class AutoClassRenderer(JsRenderer):
             name=name,
             params=self._formal_params(constructor),
             fields=self._fields(constructor),
-            examples=[self.render_description(ex) for ex in constructor.examples],
+            examples=[render_description(ex) for ex in constructor.examples],
             deprecated=constructor.deprecated,
             see_also=constructor.see_alsos,
             exported_from=obj.exported_from,
-            class_comment=self.render_description(obj.description),
+            class_comment=render_description(obj.description),
             is_abstract=isinstance(obj, Class) and obj.is_abstract,
             interfaces=obj.interfaces if isinstance(obj, Class) else [],
             is_interface=isinstance(
                 obj, Interface
             ),  # TODO: Make interfaces not look so much like classes. This will require taking complete control of templating from Sphinx.
             supers=obj.supers,
-            constructor_comment=self.render_description(constructor.description),
+            constructor_comment=render_description(constructor.description),
             content="\n".join(self._content),
             members=self._members_of(
                 obj,
@@ -602,11 +629,11 @@ class AutoAttributeRenderer(JsRenderer):
     def _template_vars(self, name: str, obj: Attribute) -> dict[str, Any]:  # type: ignore[override]
         return dict(
             name=name,
-            description=self.render_description(obj.description),
+            description=render_description(obj.description),
             deprecated=obj.deprecated,
             is_optional=obj.is_optional,
             see_also=obj.see_alsos,
-            examples=[self.render_description(ex) for ex in obj.examples],
+            examples=[render_description(ex) for ex in obj.examples],
             type=self.render_type(obj.type),
             content="\n".join(self._content),
         )
@@ -617,9 +644,6 @@ class AutoModuleRenderer(JsRenderer):
         analyzer: Analyzer = self._app._sphinxjs_analyzer  # type:ignore[attr-defined]
         assert isinstance(analyzer, TsAnalyzer)
         return analyzer._modules_by_path.get(self._partial_path)
-
-    def dependencies(self) -> set[str]:
-        return set()
 
     def rst_for_group(self, objects: Iterable[TopLevel]) -> list[str]:
         return [self.rst_for(obj) for obj in objects]
@@ -638,6 +662,147 @@ class AutoModuleRenderer(JsRenderer):
         return "\n\n".join(["\n\n".join(r) for r in rst])
 
 
-def unwrapped(text: str) -> str:
-    """Return the text with line wrapping removed."""
-    return sub(r"[ \t]*[\r\n]+[ \t]*", " ", text)
+class AutoSummaryRenderer(Renderer):
+    def get_object(self) -> Module:
+        analyzer: Analyzer = self._app._sphinxjs_analyzer  # type:ignore[attr-defined]
+        assert isinstance(analyzer, TsAnalyzer)
+        return analyzer._modules_by_path.get(self._partial_path)
+
+    def rst_nodes(self) -> list[Node]:
+        module = self.get_object()
+        pairs: list[tuple[str, Iterable[TopLevel]]] = [
+            ("attributes", module.attributes),
+            ("functions", module.functions),
+            ("classes", module.classes),
+        ]
+        pkgname = "".join(self._partial_path)
+
+        result: list[Node] = []
+        for group_name, group_objects in pairs:
+            n = nodes.container()
+            if not group_objects:
+                continue
+            n += self.format_heading(group_name.title() + ":")
+            table_items = self.get_summary_table(pkgname, group_objects)
+            n += self.format_table(table_items)
+            n["classes"] += ["jssummarytable", group_name]
+            result.append(n)
+        return result
+
+    def format_heading(self, text: str) -> Node:
+        """Make a section heading. This corresponds to the rst: "**Heading:**"
+        autodocsumm uses headings like that, so this will match that style.
+        """
+        heading = nodes.paragraph("")
+        strong = nodes.strong("")
+        strong.append(nodes.Text(text))
+        heading.append(strong)
+        return heading
+
+    def extract_summary(self, descr: str) -> str:
+        """Wrapper around autosummary extract_summary that is easier to use.
+        It seems like colons need escaping for some reason.
+        """
+        colon_esc = "esccolon\\\xafhoa:"
+        # extract_summary seems to have trouble if there are Sphinx
+        # directives in descr
+        descr, _, _ = descr.partition("\n..")
+        return extract_summary(
+            [descr.replace(":", colon_esc)], self._directive.state.document
+        ).replace(colon_esc, ":")
+
+    def get_sig(self, obj: TopLevel) -> str:
+        """If the object is a function, get its signature (as figured by JsDoc)"""
+        if isinstance(obj, ir.Function):
+            return AutoFunctionRenderer(
+                self._directive, self._app, arguments=["dummy"]
+            )._formal_params(obj)
+        else:
+            return ""
+
+    def get_summary_row(
+        self, pkgname: str, obj: TopLevel
+    ) -> tuple[str, str, str, str, str, str]:
+        """Get the summary table row for obj.
+
+        The output is designed to be input to format_table. The link name
+        needs to be set up so that :any:`link_name` makes a link to the
+        actual API docs for this object.
+        """
+        sig = self.get_sig(obj)
+        display_name = obj.name
+        prefix = "**async** " if getattr(obj, "is_async", False) else ""
+        qualifier = "any"
+        if obj.name == "ffi":
+            qualifier = "js:mod"
+
+        summary = self.extract_summary(render_description(obj.description))
+        link_name = pkgname + "." + display_name
+        return (prefix, qualifier, display_name, sig, summary, link_name)
+
+    def get_summary_table(
+        self, pkgname: str, group: Iterable[TopLevel]
+    ) -> list[tuple[str, str, str, str, str, str]]:
+        """Get the data for a summary tget_summary_tableable. Return value
+        is set up to be an argument of format_table.
+        """
+        return [self.get_summary_row(pkgname, obj) for obj in group]
+
+    # This following method is copied almost verbatim from autosummary
+    # (where it is called get_table).
+    #
+    # We have to change the value of one string: qualifier = 'obj   ==>
+    # qualifier = 'any'
+    # https://github.com/sphinx-doc/sphinx/blob/6.0.x/sphinx/ext/autosummary/__init__.py#L375
+    def format_table(
+        self, items: list[tuple[str, str, str, str, str, str]]
+    ) -> list[Node]:
+        """Generate a proper list of table nodes for autosummary:: directive.
+
+        *items* is a list produced by :meth:`get_items`.
+        """
+        table_spec = addnodes.tabular_col_spec()
+        table_spec["spec"] = r"\X{1}{2}\X{1}{2}"
+
+        table = autosummary_table("")
+        real_table = nodes.table("", classes=["longtable"])
+        table.append(real_table)
+        group = nodes.tgroup("", cols=2)
+        real_table.append(group)
+        group.append(nodes.colspec("", colwidth=10))
+        group.append(nodes.colspec("", colwidth=90))
+        body = nodes.tbody("")
+        group.append(body)
+
+        def append_row(column_texts: list[tuple[str, str]]) -> None:
+            row = nodes.row("")
+            source, line = self._directive.state_machine.get_source_and_line()
+            for [text, cls] in column_texts:
+                node = nodes.paragraph("")
+                vl = StringList()
+                vl.append(text, "%s:%d:<autosummary>" % (source, line))
+                with switch_source_input(self._directive.state, vl):
+                    self._directive.state.nested_parse(vl, 0, node)
+                    try:
+                        if isinstance(node[0], nodes.paragraph):
+                            node = node[0]
+                    except IndexError:
+                        pass
+                    entry = nodes.entry("", node)
+                    entry["classes"].append(cls)
+                    row.append(entry)
+            body.append(row)
+
+        for prefix, qualifier, name, sig, summary, real_name in items:
+            # The body of this loop is changed from copied code.
+            sig = rst.escape(sig)
+            if sig:
+                sig = f"**{sig}**"
+            if "nosignatures" not in self._options:
+                col1 = rf"{prefix}:{qualifier}:`{name} <{real_name}>`\ {sig}"
+            else:
+                col1 = f"{prefix}:{qualifier}:`{name} <{real_name}>`"
+            col2 = summary
+            append_row([(col1, "name"), (col2, "summary")])
+
+        return [table_spec, table]

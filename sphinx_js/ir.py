@@ -178,6 +178,7 @@ class Return:
 @define
 class Module:
     filename: str
+    deppath: str | None
     path: Pathname
     line: int
     attributes: list["TopLevel"] = Factory(list)

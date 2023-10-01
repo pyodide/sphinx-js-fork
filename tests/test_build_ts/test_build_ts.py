@@ -263,9 +263,12 @@ class TestTextBuilder(SphinxBuildTestCase):
 
                    Another thing.
 
-                module.f()
+                async module.f()
 
-                   Crimps the bundle
+                   Clutches the bundle
+
+                   Returns:
+                      Promise<void>
 
                 module.z(a, b)
 
@@ -279,11 +282,16 @@ class TestTextBuilder(SphinxBuildTestCase):
 
                 class module.A()
 
+                   This is a summary. This is more info.
+
                    *exported from* "module"
 
                    A.[Symbol․iterator]()
 
-                   A.f()
+                   async A.f()
+
+                      Returns:
+                         Promise<void>
 
                    A.g(a)
 
@@ -301,6 +309,10 @@ class TestTextBuilder(SphinxBuildTestCase):
                       * **a** (number) --
 
                       * **b** (number) --
+
+                   Z.x
+
+                      type: number
 
                    Z.z()
                 """
@@ -364,3 +376,39 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         href = soup.find_all(class_="sphinx_js-type")
         assert len(href) == 1
         assert href[0].get_text() == "Promise<void>"
+
+    def test_autosummary(self):
+        soup = BeautifulSoup(self._file_contents("autosummary"), "html.parser")
+        attrs = soup.find(class_="attributes")
+        rows = list(attrs.find_all("tr"))
+        assert len(rows) == 2
+
+        href = rows[0].find("a")
+        assert href.get_text() == "a"
+        assert href["href"] == "automodule.html#module.a"
+        assert rows[0].find(class_="summary").get_text() == "The thing."
+
+        href = rows[1].find("a")
+        assert href.get_text() == "q"
+        assert href["href"] == "automodule.html#module.q"
+        assert rows[1].find(class_="summary").get_text() == "Another thing."
+
+        funcs = soup.find(class_="functions")
+        rows = list(funcs.find_all("tr"))
+        assert len(rows) == 2
+        row0 = list(rows[0].children)
+        NBSP = "\xa0"
+        assert row0[0].get_text() == f"async{NBSP}f()"
+        href = row0[0].find("a")
+        assert href.get_text() == "f"
+        assert href["href"] == "automodule.html#module.f"
+        assert rows[0].find(class_="summary").get_text() == "Clutches the bundle"
+
+        row1 = list(rows[1].children)
+        assert row1[0].get_text() == "z(a, b)"
+        href = row1[0].find("a")
+        assert href.get_text() == "z"
+        assert href["href"] == "automodule.html#module.z"
+
+        classes = soup.find(class_="classes")
+        assert classes.find(class_="summary").get_text() == "This is a summary."

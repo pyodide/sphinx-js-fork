@@ -27,7 +27,8 @@ from .renderers import (
     AutoClassRenderer,
     AutoFunctionRenderer,
     AutoModuleRenderer,
-    JsRenderer,
+    AutoSummaryRenderer,
+    Renderer,
 )
 
 
@@ -75,7 +76,7 @@ class JsDirective(Directive):
 
     option_spec = {"short-name": flag}
 
-    def _run(self, renderer_class: type[JsRenderer], app: Sphinx) -> list[Node]:
+    def _run(self, renderer_class: type[Renderer], app: Sphinx) -> list[Node]:
         renderer = renderer_class.from_directive(self, app)
         note_dependencies(app, renderer.dependencies())
         return renderer.rst_nodes()
@@ -187,3 +188,13 @@ def auto_module_directive_bound_to_app(app: Sphinx) -> type[Directive]:
             return self._run(AutoModuleRenderer, app)
 
     return AutoModuleDirective
+
+
+def auto_summary_directive_bound_to_app(app: Sphinx) -> type[Directive]:
+    class JsDocSummary(JsDirective):
+        required_arguments = 1
+
+        def run(self) -> list[Node]:
+            return self._run(AutoSummaryRenderer, app)
+
+    return JsDocSummary

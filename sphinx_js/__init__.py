@@ -13,6 +13,7 @@ from .directives import (
     auto_class_directive_bound_to_app,
     auto_function_directive_bound_to_app,
     auto_module_directive_bound_to_app,
+    auto_summary_directive_bound_to_app,
     sphinx_js_type_role,
 )
 from .jsdoc import Analyzer as JsAnalyzer
@@ -145,6 +146,7 @@ def setup(app: Sphinx) -> None:
     fix_js_make_xref()
     fix_staticfunction_objtype()
     add_type_param_field_to_directives()
+    app.setup_extension("sphinx.ext.autosummary")
 
     # I believe this is the best place to run jsdoc. I was tempted to use
     # app.add_source_parser(), but I think the kind of source it's referring to
@@ -162,6 +164,9 @@ def setup(app: Sphinx) -> None:
     )
     app.add_directive_to_domain(
         "js", "automodule", auto_module_directive_bound_to_app(app)
+    )
+    app.add_directive_to_domain(
+        "js", "autosummary", auto_summary_directive_bound_to_app(app)
     )
 
     # TODO: We could add a js:module with app.add_directive_to_domain().

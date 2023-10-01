@@ -302,12 +302,13 @@ class Analyzer:
         modules = {}
         for obj in ir_objects:
             assert obj.deppath
-            path = obj.deppath.split("/")
-            for i in range(len(path) - 1):
-                path[i] += "/"
-            if obj.deppath not in modules:
-                modules[obj.deppath] = ir.Module(
-                    filename=obj.deppath, path=ir.Pathname(path), line=1
+            path = obj.deppath
+            pathparts = obj.deppath.split("/")
+            for i in range(len(pathparts) - 1):
+                pathparts[i] += "/"
+            if path not in modules:
+                modules[path] = ir.Module(
+                    filename=path, deppath=path, path=ir.Pathname(pathparts), line=1
                 )
             mod = modules[obj.deppath]
             if "attribute" in obj.modifier_tags:
