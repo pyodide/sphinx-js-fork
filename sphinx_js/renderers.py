@@ -733,9 +733,6 @@ class AutoSummaryRenderer(Renderer):
         display_name = obj.name
         prefix = "**async** " if getattr(obj, "is_async", False) else ""
         qualifier = "any"
-        if obj.name == "ffi":
-            qualifier = "js:mod"
-
         summary = self.extract_summary(render_description(obj.description))
         link_name = pkgname + "." + display_name
         return (prefix, qualifier, display_name, sig, summary, link_name)
