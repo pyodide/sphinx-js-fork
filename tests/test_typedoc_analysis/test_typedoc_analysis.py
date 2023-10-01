@@ -72,27 +72,26 @@ class TestPopulateIndex(TestCase):
                                         }
                                     ]
                                 }
-                            ],
-                            "sources": [
-                                {
-                                    "fileName": "longnames.ts",
-                                    "line": 1,
-                                    "url": "test_typedoc_analysis/source/longnames.ts"
-                                }
                             ]
                         }
-                    ]
+                    ],
+                    "symbolIdMap" : {"0" : {"sourceFileName": "tests/test_typedoc_analysis/source/longnames.ts", "qualifiedName": ""} }
                 }
                 """
             )
         )
-        index = Converter("./tests/").populate_index(json).index
+        from pathlib import Path
+
+        index = (
+            Converter(str(Path(__file__).parent.resolve())).populate_index(json).index
+        )
         # Things get indexed by ID:
         function = index[2]
         assert function.name == "foo"
         # things get paths
         assert function.path == [
             "./",
+            "source/",
             "longnames.",
             "foo",
         ]

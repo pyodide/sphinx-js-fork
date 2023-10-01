@@ -125,17 +125,17 @@ class Converter:
             post_convert = lambda conv, node, ir: None
         self._post_convert = post_convert
 
-    def populate_index(self, root: "IndexType") -> "Converter":
+    def populate_index(self, root: "Project") -> "Converter":
         """Create an ID-to-node mapping for all the TypeDoc output nodes.
 
         We don't unnest them, but we do add ``__parent`` keys so we can easily walk
         both up and down.
         """
-        self._populate_index_inner(root, parent=None)
+        self._populate_index_inner(root, parent=None, idmap=root.symbolIdMap)
         return self
 
     def _parse_filepath(self, path: str) -> list[str]:
-        p = Path(path)
+        p = Path(path).resolve().relative_to(self.base_dir)
         if p.name:
             p = p.with_suffix("")
         entries = ["."] + list(p.parts)
@@ -147,6 +147,7 @@ class Converter:
         self,
         node: "IndexType",
         parent: "IndexType | None",
+        idmap: dict[str, "Target"],
         filepath: list[str] | None = None,
     ) -> None:
         if node.id is not None:  # 0 is okay; it's the root node.
@@ -154,8 +155,8 @@ class Converter:
 
         parent_kind = parent.kindString if parent else ""
         parent_segments = parent.path if parent else []
-        if node.sources:
-            filepath = self._parse_filepath(node.sources[0].fileName)
+        if str(node.id) in idmap:
+            filepath = self._parse_filepath(idmap[str(node.id)].sourceFileName)
         if filepath:
             node.filepath = filepath
         self.compute_path(node, parent_kind, parent_segments, filepath)
@@ -166,9 +167,7 @@ class Converter:
         # Burrow into everything that could contain more ID'd items
         for child in node.children_with_ids():
             self._populate_index_inner(
-                child,
-                parent=node,
-                filepath=filepath,
+                child, parent=node, idmap=idmap, filepath=filepath
             )
 
     def compute_path(
@@ -385,6 +384,7 @@ class Project(Base):
     # These are probably never present except "name"
     kindString: Literal["Project"] = "Project"
     name: str | None
+    symbolIdMap: dict[str, "Target"]
 
     def _path_segments(self, base_dir: str) -> list[str]:
         return []
