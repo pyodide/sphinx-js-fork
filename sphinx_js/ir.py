@@ -237,6 +237,7 @@ class TopLevel:
     #: None if not exported for use by outside code. Otherwise, the Sphinx
     #: dotted path to the module it is exported from, e.g. 'foo.bar'
     exported_from: Pathname | None
+    kind: str = field(kw_only=True)
 
 
 @define(slots=False)
@@ -250,6 +251,7 @@ class Attribute(TopLevel, _Member):
 
     #: The type this property's value can have
     type: Type
+    kind: str = "attributes"
 
 
 @define
@@ -261,6 +263,7 @@ class Function(TopLevel, _Member):
     exceptions: list[Exc]
     returns: list[Return]
     type_params: list[TypeParam] = Factory(list)
+    kind: str = "functions"
 
 
 @define
@@ -282,6 +285,7 @@ class Interface(TopLevel, _MembersAndSupers):
     """An interface, a la TypeScript"""
 
     type_params: list[TypeParam] = Factory(list)
+    kind: str = "classes"
 
 
 @define
@@ -299,3 +303,4 @@ class Class(TopLevel, _MembersAndSupers):
     # have the space to include them someday.
     type_params: list[TypeParam] = Factory(list)
     params: list[Param] = Factory(list)
+    kind: str = "classes"

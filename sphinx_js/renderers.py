@@ -177,6 +177,16 @@ class Renderer:
     _content: list[str]
     _options: dict[str, Any]
 
+    def _parse_path(self, arg: str) -> None:
+        # content, arguments, options, app: all need to be accessible to
+        # template_vars, so we bring them in on construction and stow them away
+        # on the instance so calls to template_vars don't need to concern
+        # themselves with what it needs.
+        (
+            self._partial_path,
+            self._explicit_formal_params,
+        ) = PathVisitor().parse(arg)
+
     def __init__(
         self,
         directive: Directive,
@@ -193,15 +203,7 @@ class Renderer:
         self._directive = directive
         self._app = app
         self._set_type_xref_formatter(app.config.ts_type_xref_formatter)
-
-        # content, arguments, options, app: all need to be accessible to
-        # template_vars, so we bring them in on construction and stow them away
-        # on the instance so calls to template_vars don't need to concern
-        # themselves with what it needs.
-        (
-            self._partial_path,
-            self._explicit_formal_params,
-        ) = PathVisitor().parse(arguments[0])
+        self._parse_path(arguments[0])
         self._content = content or StringList()
         self._options = options or {}
 
@@ -640,6 +642,14 @@ class AutoAttributeRenderer(JsRenderer):
 
 
 class AutoModuleRenderer(JsRenderer):
+    def _parse_path(self, arg: str) -> None:
+        # content, arguments, options, app: all need to be accessible to
+        # template_vars, so we bring them in on construction and stow them away
+        # on the instance so calls to template_vars don't need to concern
+        # themselves with what it needs.
+        self._explicit_formal_params = ""
+        self._partial_path = arg.split("/")
+
     def get_object(self) -> Module:  # type:ignore[override]
         analyzer: Analyzer = self._app._sphinxjs_analyzer  # type:ignore[attr-defined]
         assert isinstance(analyzer, TsAnalyzer)
@@ -663,6 +673,14 @@ class AutoModuleRenderer(JsRenderer):
 
 
 class AutoSummaryRenderer(Renderer):
+    def _parse_path(self, arg: str) -> None:
+        # content, arguments, options, app: all need to be accessible to
+        # template_vars, so we bring them in on construction and stow them away
+        # on the instance so calls to template_vars don't need to concern
+        # themselves with what it needs.
+        self._explicit_formal_params = ""
+        self._partial_path = arg.split("/")
+
     def get_object(self) -> Module:
         analyzer: Analyzer = self._app._sphinxjs_analyzer  # type:ignore[attr-defined]
         assert isinstance(analyzer, TsAnalyzer)
