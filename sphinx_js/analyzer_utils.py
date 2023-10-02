@@ -28,8 +28,6 @@ def search_node_modules(cmdname: str, cmdpath: str, dir: str | Path) -> str:
     # search for local install
     for base in parent_dirs:
         typedoc = base / "node_modules" / cmdpath
-        print(base, typedoc)
-
         if typedoc.is_file():
             return str(typedoc.resolve())
 

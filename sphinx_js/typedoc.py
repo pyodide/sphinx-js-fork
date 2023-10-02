@@ -7,7 +7,7 @@ import subprocess
 import typing
 from collections.abc import Iterable, Iterator, Sequence
 from errno import ENOENT
-from functools import cache
+from functools import cache, wraps
 from inspect import isclass
 from json import load
 from operator import attrgetter
@@ -26,6 +26,31 @@ from .suffix_tree import SuffixTree
 __all__ = ["Analyzer"]
 
 MIN_TYPEDOC_VERSION = (0, 25, 0)
+
+
+T = typing.TypeVar("T")
+P = typing.ParamSpec("P")
+
+
+def post_convert(f: typing.Callable[P, T]) -> typing.Callable[P, T]:
+    """Wrap to_ir with a call to post_convert if it returned a result.
+
+    I treid to be more specific about the type of the decorator but it caused
+    mypy to change the type of the decorated function. This signature ensures
+    that the inferred type of the decorated method is identical to the type of
+    the original method and then uses a couple of carefully placed casts.
+    """
+
+    @wraps(f)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        result = f(*args, **kwargs)
+        converted, *_ = typing.cast(tuple[ir.TopLevel | None, ...], result)
+        if converted:
+            self, converter = typing.cast(tuple[Node | Signature, Converter], args)
+            converter._post_convert(converter, self, converted)
+        return result
+
+    return wrapper
 
 
 @cache
@@ -494,6 +519,7 @@ class TopLevelProperties(Base):
             exported_from=ir.Pathname(self.filepath),
         )
 
+    @post_convert
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.TopLevel | None, Sequence["Node"]]:
@@ -528,6 +554,7 @@ class Accessor(NodeBase):
             return self.setSignature.comment
         return self.comment_
 
+    @post_convert
     def to_ir(self, converter: Converter) -> tuple[ir.Attribute, Sequence["Node"]]:
         if self.getSignature:
             # There's no signature to speak of for a getter: only a return type.
@@ -578,6 +605,7 @@ class Callable(NodeBase):
     def _path_segments(self, base_dir: str) -> list[str]:
         return [self.name]
 
+    @post_convert
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
@@ -675,6 +703,7 @@ class ClassOrInterface(NodeBase):
 class Class(ClassOrInterface):
     kindString: Literal["Class"]
 
+    @post_convert
     def to_ir(self, converter: Converter) -> tuple[ir.Class | None, Sequence["Node"]]:
         constructor, members = self._constructor_and_members(converter)
         result = ir.Class(
@@ -694,6 +723,7 @@ class Class(ClassOrInterface):
 class Interface(ClassOrInterface):
     kindString: Literal["Interface"]
 
+    @post_convert
     def to_ir(self, converter: Converter) -> tuple[ir.Interface, Sequence["Node"]]:
         _, members = self._constructor_and_members(converter)
         result = ir.Interface(
@@ -718,6 +748,7 @@ class Member(NodeBase):
         if isinstance(self.type, ReflectionType):
             yield self.type.declaration
 
+    @post_convert
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.Attribute | ir.Function | None, Sequence["Node"]]:
@@ -793,6 +824,7 @@ class TypeLiteral(NodeBase):
             yield "; "
         yield "}"
 
+    @post_convert
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
@@ -1024,9 +1056,13 @@ class Signature(TopLevelProperties):
         else:
             yield ir.TypeXRefIntrinsic("void")
 
+    # Don't wrap this in @post_convert since it'll always be covered by the
+    # owner of the signature.
     def to_ir(
         self, converter: Converter
     ) -> tuple[ir.Function | None, Sequence["Node"]]:
+        # TODO: The following shouldn't happen in to_ir since it mutates the
+        # Node
         SYMBOL_PREFIX = "[Symbol\u2024"
         if self.name.startswith("[") and not self.name.startswith(SYMBOL_PREFIX):
             # a symbol.
