@@ -1321,7 +1321,7 @@ IndexType = Node | Project | Signature | Param | TypeParameter
 
 for cls in list(globals().values()):
     if isclass(cls) and issubclass(cls, BaseModel):
-        cls.update_forward_refs(force=True)
+        cls.update_forward_refs()
 
 
 # Fix error messages
