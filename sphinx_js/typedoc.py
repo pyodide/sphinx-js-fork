@@ -1400,4 +1400,4 @@ def fix_exc_errors(json: Any, exc: ValidationError) -> None:
         errors.extend(errs)
 
     if errors:
-        exc._error_cache = errors  # type:ignore[attr-defined]
+        exc._error_cache = errors

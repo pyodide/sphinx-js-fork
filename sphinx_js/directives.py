@@ -157,7 +157,7 @@ def auto_attribute_directive_bound_to_app(app: Sphinx) -> type[Directive]:
 
 
 class JSFunction(JSCallable):
-    option_spec = {
+    option_spec = {  # type: ignore[misc]
         **JSCallable.option_spec,
         "static": flag,
         "async": flag,
