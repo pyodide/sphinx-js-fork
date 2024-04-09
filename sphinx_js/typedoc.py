@@ -15,7 +15,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Annotated, Any, Literal, TypedDict
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic.v1 import BaseModel, Field, ValidationError
 from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 
@@ -1321,7 +1321,7 @@ IndexType = Node | Project | Signature | Param | TypeParameter
 
 for cls in list(globals().values()):
     if isclass(cls) and issubclass(cls, BaseModel):
-        cls.update_forward_refs()
+        cls.update_forward_refs(force=True)
 
 
 # Fix error messages

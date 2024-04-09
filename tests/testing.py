@@ -2,7 +2,7 @@ import sys
 from os.path import dirname, join
 from shutil import rmtree
 
-from pydantic import BaseModel
+from pydantic.v1 import BaseModel
 from sphinx.cmd.build import main as sphinx_main
 
 from sphinx_js.jsdoc import Analyzer as JsAnalyzer

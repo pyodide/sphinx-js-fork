@@ -53,7 +53,7 @@ repos:
           - attrs
           - jinja2
           - nox
-          - pydantic
+          - pydantic>=2,<3
           - pytest
           - sphinx
           - types-docutils

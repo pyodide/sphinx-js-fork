@@ -18,7 +18,7 @@ setup(
         "Jinja2>2.0",
         "parsimonious>=0.10.0,<0.11.0",
         "Sphinx>=4.1.0",
-        "pydantic<2",
+        "pydantic>=2,<3",
         # Pin markupsafe because of
         # https://github.com/pallets/jinja/issues/1585
         "markupsafe==2.0.1",
