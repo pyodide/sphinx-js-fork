@@ -97,7 +97,7 @@ def test_global_install(tmp_path_factory, monkeypatch):
     subprocess.run(["npm", "i", "-g", "typedoc"])
     typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", str(tmpdir2))
     monkeypatch.setenv("TYPEDOC_NODE_MODULES", str(Path(typedoc).parents[3]))
-    dir = Path(__file__).parents[1] / "sphinx_js"
+    dir = Path(__file__).parents[1] / "sphinx_js/js"
 
     res = subprocess.run(
         [
