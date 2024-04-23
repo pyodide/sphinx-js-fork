@@ -90,7 +90,7 @@ def typedoc_output(
             f"Typedoc version {version_to_str(typedoc_version)} is too old, minimum required is {version_to_str(MIN_TYPEDOC_VERSION)}"
         )
 
-    os.environ["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[2])
+    os.environ["NODE_PATH"] = str(Path(typedoc).parents[2])
     command = Command("node")
     command.add(str(Path(__file__).parent / "call_typedoc.mjs"))
     command.add("--entryPointStrategy", "expand")

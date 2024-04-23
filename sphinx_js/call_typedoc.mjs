@@ -1,3 +1,4 @@
+import { Application, ArgumentsReader, TypeDocReader, PackageJsonReader, TSConfigReader, ReflectionKind } from "typedoc";
 import { writeFile } from "fs/promises";
 
 const ExitCodes = {
@@ -10,14 +11,12 @@ const ExitCodes = {
   Watching: 7,
 };
 
-let td;
-
 // Locate the kind IDs, look up the corresponding kindStrings, and add them to
 // the JSON
 function walk(o) {
   if ("kind" in o) {
     try {
-      o["kindString"] = td.ReflectionKind.singularString(o["kind"]);
+      o["kindString"] = ReflectionKind.singularString(o["kind"]);
     } catch (e) {}
   }
   for (let v of Object.values(o)) {
@@ -28,21 +27,16 @@ function walk(o) {
 }
 
 async function bootstrapAppTypedoc0_25() {
-  return await td.Application.bootstrapWithPlugins({}, [
-    new td.ArgumentsReader(0),
-    new td.TypeDocReader(),
-    new td.PackageJsonReader(),
-    new td.TSConfigReader(),
-    new td.ArgumentsReader(300),
+  return await Application.bootstrapWithPlugins({}, [
+    new ArgumentsReader(0),
+    new TypeDocReader(),
+    new PackageJsonReader(),
+    new TSConfigReader(),
+    new ArgumentsReader(300),
   ]);
 }
 
 async function main() {
-  // Locate the node_modules folder that we calculated in typedoc.py and
-  // import from there
-  td = await import(
-    process.env["TYPEDOC_NODE_MODULES"] + "/typedoc/dist/index.js"
-  );
   // Most of this stuff is copied from typedoc/src/lib/cli.ts
   const start = Date.now();
   let app = await bootstrapAppTypedoc0_25();
