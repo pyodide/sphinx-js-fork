@@ -90,7 +90,8 @@ def typedoc_output(
             f"Typedoc version {version_to_str(typedoc_version)} is too old, minimum required is {version_to_str(MIN_TYPEDOC_VERSION)}"
         )
 
-    os.environ["NODE_PATH"] = str(Path(typedoc).parents[3])
+    env = os.environ.copy()
+    env["NODE_PATH"] = str(Path(typedoc).parents[3])
     print("NODE_PATH=", str(Path(typedoc).parents[3]))
     print([x.name for x in Path(typedoc).parents[3].glob("*")])
     print([x.name for x in Path(typedoc).parents[2].glob("*")])
@@ -107,7 +108,7 @@ def typedoc_output(
     with NamedTemporaryFile(mode="w+b", delete=False) as temp:
         command.add("--json", temp.name, *abs_source_paths)
         try:
-            subprocess.run(command.make(), check=True)
+            subprocess.run(command.make(), check=True, env=env)
         except OSError as exc:
             if exc.errno == ENOENT:
                 raise SphinxError(
