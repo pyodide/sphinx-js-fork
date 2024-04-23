@@ -1,4 +1,11 @@
-import { Application, ArgumentsReader, TypeDocReader, PackageJsonReader, TSConfigReader, ReflectionKind } from "typedoc";
+import {
+  Application,
+  ArgumentsReader,
+  TypeDocReader,
+  PackageJsonReader,
+  TSConfigReader,
+  ReflectionKind,
+} from "typedoc";
 import { writeFile } from "fs/promises";
 
 const ExitCodes = {
