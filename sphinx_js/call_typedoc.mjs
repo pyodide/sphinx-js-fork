@@ -7,6 +7,8 @@ import {
   ReflectionKind,
 } from "typedoc";
 import { writeFile } from "fs/promises";
+import {x} from "./b.mjs"
+
 
 const ExitCodes = {
   Ok: 0,

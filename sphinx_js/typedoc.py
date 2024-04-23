@@ -91,18 +91,15 @@ def typedoc_output(
         )
 
     env = os.environ.copy()
-    env["NODE_PATH"] = str(Path(typedoc).parents[3].resolve())
-    print("NODE_PATH=", str(Path(typedoc).parents[3]))
-    print([x.name for x in Path(typedoc).parents[3].glob("*")])
-    print([x.name for x in Path(typedoc).parents[2].glob("*")])
-    print([x.name for x in Path(typedoc).parents[1].glob("*")])
-    print([x.name for x in Path(typedoc).parents[0].glob("*")])
+    env["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[3].resolve())
     command = Command("node")
-    command.add(str(Path(__file__).parent / "call_typedoc.mjs"))
+    dir = Path(__file__).parent.resolve()
+    command.add("--import", str(dir / "register.mjs"))
+    command.add(str(dir / "call_typedoc.mjs"))
     command.add("--entryPointStrategy", "expand")
 
     if config_path:
-        tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
+        tsconfig_path = str((Path(sphinx_conf_dir) / config_path).resolve())
         command.add("--tsconfig", tsconfig_path)
 
     command.add("--basePath", base_dir)
