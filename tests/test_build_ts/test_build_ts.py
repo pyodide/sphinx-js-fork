@@ -182,7 +182,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                 predicate(c)
 
                    Arguments:
-                      * **c** (any) --
+                      * **c** (any)
 
                    Returns:
                       boolean (typeguard for "ConstructorlessClass()")
@@ -273,9 +273,9 @@ class TestTextBuilder(SphinxBuildTestCase):
                 module.z(a, b)
 
                    Arguments:
-                      * **a** (number) --
+                      * **a** (number)
 
-                      * **b** ({ a: string; b: number; }) --
+                      * **b** ({ a: string; b: number; })
 
                    Returns:
                       number
@@ -296,7 +296,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                    A.g(a)
 
                       Arguments:
-                         * **a** (number) --
+                         * **a** (number)
 
                       Returns:
                          number
@@ -306,9 +306,9 @@ class TestTextBuilder(SphinxBuildTestCase):
                    *exported from* "module"
 
                    Arguments:
-                      * **a** (number) --
+                      * **a** (number)
 
-                      * **b** (number) --
+                      * **b** (number)
 
                    Z.x
 
