@@ -93,7 +93,7 @@ def typedoc_output(
     env = os.environ.copy()
     env["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[3].resolve())
     command = Command("node")
-    dir = Path(__file__).parent.resolve()
+    dir = Path(__file__).parent.resolve() / "js"
     command.add("--import", str(dir / "register.mjs"))
     command.add(str(dir / "call_typedoc.mjs"))
     command.add("--entryPointStrategy", "expand")
