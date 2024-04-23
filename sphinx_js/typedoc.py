@@ -96,7 +96,7 @@ def typedoc_output(
     print([x.name for x in Path(typedoc).parents[3].glob("*")])
     print([x.name for x in Path(typedoc).parents[2].glob("*")])
     print([x.name for x in Path(typedoc).parents[1].glob("*")])
-    print([x.name for x in Path(typedoc).glob("*")])
+    print([x.name for x in Path(typedoc).parents[0].glob("*")])
     command = Command("node")
     command.add(str(Path(__file__).parent / "call_typedoc.mjs"))
     command.add("--entryPointStrategy", "expand")
