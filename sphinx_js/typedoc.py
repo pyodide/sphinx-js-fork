@@ -369,10 +369,12 @@ class Source(BaseModel):
 
 
 class DescriptionItem(BaseModel):
-    kind: Literal["text", "code"]
+    kind: Literal["name", "text", "code"]
     text: str
 
     def to_ir(self) -> ir.DescriptionItem:
+        if self.kind == "name":
+            return ir.DescriptionName(self.text)
         if self.kind == "text":
             return ir.DescriptionText(self.text)
         return ir.DescriptionCode(self.text)
@@ -380,6 +382,7 @@ class DescriptionItem(BaseModel):
 
 class Tag(BaseModel):
     tag: str
+    name: str | None
     content: list[DescriptionItem]
 
 
@@ -396,6 +399,8 @@ class Comment(BaseModel):
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         for tag in self.blockTags:
+            if tag.name:
+                tag.content.insert(0, DescriptionItem(kind="name", text=tag.name))
             self.tags.setdefault(tag.tag.removeprefix("@"), []).append(tag.content)
 
     def get_description(self) -> Sequence[ir.DescriptionItem]:

@@ -54,6 +54,11 @@ class TypeXRefExternal(TypeXRef):
 
 
 @define
+class DescriptionName:
+    text: str
+
+
+@define
 class DescriptionText:
     text: str
 
@@ -63,7 +68,7 @@ class DescriptionCode:
     code: str
 
 
-DescriptionItem = DescriptionText | DescriptionCode
+DescriptionItem = DescriptionName | DescriptionText | DescriptionCode
 
 Description = str | Sequence[DescriptionItem]
 

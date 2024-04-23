@@ -25,6 +25,7 @@ from .analyzer_utils import dotted_path
 from .ir import (
     Attribute,
     Class,
+    DescriptionName,
     DescriptionText,
     Exc,
     Function,
@@ -127,6 +128,10 @@ def render_description(description: ir.Description) -> str:
     content = []
     prev = ""
     for s in description:
+        if isinstance(s, DescriptionName):
+            prev = s.text
+            content.append(prev + "\n")
+            continue
         if isinstance(s, DescriptionText):
             prev = s.text
             content.append(prev)
@@ -174,7 +179,7 @@ class Renderer:
     _add_span: bool
     _partial_path: list[str]
     _explicit_formal_params: str
-    _content: list[str]
+    _content: list[str] | StringList
     _options: dict[str, Any]
 
     def _parse_path(self, arg: str) -> None:
@@ -192,7 +197,7 @@ class Renderer:
         directive: Directive,
         app: Sphinx,
         arguments: list[str],
-        content: list[str] | None = None,
+        content: list[str] | StringList | None = None,
         options: dict[str, Any] | None = None,
     ):
         self._add_span = True
