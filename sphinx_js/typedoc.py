@@ -91,7 +91,7 @@ def typedoc_output(
         )
 
     env = os.environ.copy()
-    env["NODE_PATH"] = str(Path(typedoc).parents[3])
+    env["NODE_PATH"] = str(Path(typedoc).parents[3].resolve())
     print("NODE_PATH=", str(Path(typedoc).parents[3]))
     print([x.name for x in Path(typedoc).parents[3].glob("*")])
     print([x.name for x in Path(typedoc).parents[2].glob("*")])
