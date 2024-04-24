@@ -25,6 +25,7 @@ from .analyzer_utils import dotted_path
 from .ir import (
     Attribute,
     Class,
+    DescriptionName,
     DescriptionText,
     Exc,
     Function,
@@ -127,6 +128,10 @@ def render_description(description: ir.Description) -> str:
     content = []
     prev = ""
     for s in description:
+        if isinstance(s, DescriptionName):
+            prev = s.text
+            content.append(prev + "\n")
+            continue
         if isinstance(s, DescriptionText):
             prev = s.text
             content.append(prev)

@@ -90,13 +90,16 @@ def typedoc_output(
             f"Typedoc version {version_to_str(typedoc_version)} is too old, minimum required is {version_to_str(MIN_TYPEDOC_VERSION)}"
         )
 
-    os.environ["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[2])
+    env = os.environ.copy()
+    env["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[3].resolve())
     command = Command("node")
-    command.add(str(Path(__file__).parent / "call_typedoc.mjs"))
+    dir = Path(__file__).parent.resolve() / "js"
+    command.add("--import", str(dir / "register.mjs"))
+    command.add(str(dir / "call_typedoc.mjs"))
     command.add("--entryPointStrategy", "expand")
 
     if config_path:
-        tsconfig_path = str((Path(sphinx_conf_dir) / config_path).absolute())
+        tsconfig_path = str((Path(sphinx_conf_dir) / config_path).resolve())
         command.add("--tsconfig", tsconfig_path)
 
     command.add("--basePath", base_dir)
@@ -104,7 +107,7 @@ def typedoc_output(
     with NamedTemporaryFile(mode="w+b", delete=False) as temp:
         command.add("--json", temp.name, *abs_source_paths)
         try:
-            subprocess.run(command.make(), check=True)
+            subprocess.run(command.make(), check=True, env=env)
         except OSError as exc:
             if exc.errno == ENOENT:
                 raise SphinxError(
@@ -369,10 +372,12 @@ class Source(BaseModel):
 
 
 class DescriptionItem(BaseModel):
-    kind: Literal["text", "code"]
+    kind: Literal["name", "text", "code"]
     text: str
 
     def to_ir(self) -> ir.DescriptionItem:
+        if self.kind == "name":
+            return ir.DescriptionName(self.text)
         if self.kind == "text":
             return ir.DescriptionText(self.text)
         return ir.DescriptionCode(self.text)
@@ -380,6 +385,7 @@ class DescriptionItem(BaseModel):
 
 class Tag(BaseModel):
     tag: str
+    name: str | None
     content: list[DescriptionItem]
 
 
@@ -396,6 +402,8 @@ class Comment(BaseModel):
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         for tag in self.blockTags:
+            if tag.name:
+                tag.content.insert(0, DescriptionItem(kind="name", text=tag.name))
             self.tags.setdefault(tag.tag.removeprefix("@"), []).append(tag.content)
 
     def get_description(self) -> Sequence[ir.DescriptionItem]:
