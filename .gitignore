@@ -22,3 +22,4 @@ venv
 .venv
 coverage.xml
 test-results.xml
+.coverage

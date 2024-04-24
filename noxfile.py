@@ -11,7 +11,7 @@ def tests(session: Session) -> None:
     (venvroot / "node_modules").mkdir()
     with session.chdir(venvroot):
         session.run(
-            "npm", "i", "--no-save", "jsdoc@4.0.0", "typedoc@0.25.0", external=True
+            "npm", "i", "--no-save", "jsdoc@4.0.0", "typedoc@0.25", external=True
         )
     session.run(
         "pytest",
@@ -23,7 +23,7 @@ def tests(session: Session) -> None:
 
 
 @nox.session(python=["3.11"])
-@nox.parametrize("typedoc", ["0.25.0"])
+@nox.parametrize("typedoc", ["0.25"])
 def test_typedoc(session: Session, typedoc: str) -> None:
     session.install("-r", "requirements_dev.txt")
     venvroot = Path(session.bin).parent
