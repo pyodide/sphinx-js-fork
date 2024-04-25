@@ -23,8 +23,9 @@ let's at least have a well-documented one and one slightly more likely to
 survive template changes.
 
 """
+
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Literal
 
 from attrs import Factory, define, field
 
@@ -32,40 +33,46 @@ from .analyzer_utils import dotted_path
 
 
 @define
-class TypeXRef:
+class TypeXRefIntrinsic:
     name: str
+    type: Literal["intrinsic"] = "intrinsic"
 
 
 @define
-class TypeXRefIntrinsic(TypeXRef):
-    pass
-
-
-@define
-class TypeXRefInternal(TypeXRef):
+class TypeXRefInternal:
+    name: str
     path: list[str]
+    type: Literal["internal"] = "internal"
 
 
 @define
-class TypeXRefExternal(TypeXRef):
+class TypeXRefExternal:
+    name: str
     package: str
     sourcefilename: str
     qualifiedName: str
+    type: Literal["external"] = "external"
+
+
+TypeXRef = TypeXRefExternal | TypeXRefInternal | TypeXRefIntrinsic
 
 
 @define
 class DescriptionName:
     text: str
+    type: Literal["name"] = "name"
 
 
 @define
 class DescriptionText:
     text: str
+    type: Literal["text"] = "text"
 
 
 @define
 class DescriptionCode:
     code: str
+    type: Literal["code"] = "code"
 
 
 DescriptionItem = DescriptionName | DescriptionText | DescriptionCode
@@ -90,7 +97,7 @@ class Pathname:
         return "".join(self.segments)
 
     def __repr__(self) -> str:
-        return "<Pathname(%r)>" % self.segments
+        return "Pathname(%r)" % self.segments
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, self.__class__) and self.segments == other.segments
@@ -99,13 +106,14 @@ class Pathname:
         return dotted_path(self.segments)
 
 
+@define
 class _NoDefault:
     """A conspicuous no-default value that will show up in templates to help
     troubleshoot code paths that grab ``Param.default`` without checking
     ``Param.has_default`` first."""
 
     def __repr__(self) -> str:
-        return "<no default value>"
+        return "'no default value'"
 
 
 NO_DEFAULT = _NoDefault()
@@ -309,3 +317,60 @@ class Class(TopLevel, _MembersAndSupers):
     type_params: list[TypeParam] = Factory(list)
     params: list[Param] = Factory(list)
     kind: str = "classes"
+
+
+TopLevelUnion = Class | Interface | Function | Attribute
+
+import cattrs
+
+converter = cattrs.Converter()
+converter.register_unstructure_hook(Pathname, lambda x: x.segments)
+converter.register_structure_hook(Pathname, lambda x, _: Pathname(x))
+
+
+def structure_description(x, _):
+    if isinstance(x, str):
+        return x
+    if isinstance(x, bool):
+        return x
+    return converter.structure(x, list[DescriptionItem])
+
+
+converter.register_structure_hook(Description, structure_description)
+converter.register_structure_hook(Description | bool, structure_description)
+
+map = {
+    t.__annotations__["type"].__args__[0]: t
+    for t in [DescriptionName, DescriptionText, DescriptionCode]
+}
+
+converter.register_structure_hook(
+    DescriptionItem, lambda o, _: converter.structure(o, map[o["type"]])
+)
+
+
+def structure_type(x, _):
+    if isinstance(x, str) or x is None:
+        return x
+    return converter.structure(x, list[str | TypeXRef])
+
+
+converter.register_structure_hook(Type, structure_type)
+
+
+def structure_str_or_xref(x, _):
+    if isinstance(x, str):
+        return x
+    return converter.structure(x, TypeXRef)
+
+
+converter.register_structure_hook(str | TypeXRef, structure_str_or_xref)
+
+
+def structure_str_or_nodefault(x, _):
+    if isinstance(x, str):
+        return x
+    return NO_DEFAULT
+
+
+converter.register_structure_hook(str | _NoDefault, structure_str_or_nodefault)

@@ -1,8 +1,4 @@
-// An import hook to pick up packages in the node_modules that typedoc is
-// installed into
-
-export async function resolve(specifier, context, nextResolve) {
-  // Take an `import` or `require` specifier and resolve it to a URL.
+async function tryResolve(specifier, context, nextResolve) {
   try {
     return await nextResolve(specifier, context);
   } catch (e) {
@@ -11,8 +7,21 @@ export async function resolve(specifier, context, nextResolve) {
       throw e;
     }
   }
-  // Try resolving again with respect to the directory that typedoc is installed
-  // into
-  context.parentURL = `file:${process.env["TYPEDOC_NODE_MODULES"]}/`;
-  return await nextResolve(specifier, context);
+}
+
+// An import hook to pick up packages in the node_modules that typedoc is
+// installed into
+export async function resolve(specifier, context, nextResolve) {
+  // Take an `import` or `require` specifier and resolve it to a URL.
+  const origURL = context.parentURL;
+  const fallbackURL = `file:${process.env["TYPEDOC_NODE_MODULES"]}/`;
+  for (const spec of [specifier, specifier + ".ts"]) {
+    for (const parentURL of [origURL, fallbackURL]) {
+      context.parentURL = parentURL;
+      const res = await tryResolve(spec, context, nextResolve);
+      if (res) {
+        return res;
+      }
+    }
+  }
 }

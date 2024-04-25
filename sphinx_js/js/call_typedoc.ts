@@ -7,6 +7,7 @@ import {
   ReflectionKind,
 } from "typedoc";
 import { writeFile } from "fs/promises";
+import { Converter } from "./ir";
 
 const ExitCodes = {
   Ok: 0,
@@ -33,7 +34,7 @@ function walk(o) {
   }
 }
 
-async function bootstrapAppTypedoc0_25() {
+async function bootstrapAppTypedoc0_25(): Promise<Application> {
   return await Application.bootstrapWithPlugins({}, [
     new ArgumentsReader(0),
     new TypeDocReader(),
@@ -53,6 +54,9 @@ async function main() {
   }
 
   const project = await app.convert();
+  if (!project) {
+    return ExitCodes.CompileError;
+  }
   const preValidationWarnCount = app.logger.warningCount;
   app.validate(project);
   const hadValidationWarnings =
@@ -69,6 +73,11 @@ async function main() {
   }
 
   const json = app.options.getValue("json");
+  //   console.log(Reflect.ownKeys(project));
+  //   console.log(project.children?.map(x => ReflectionKind.singularString(x.kind)));
+  const res = JSON.stringify(new Converter().convertAll(project));
+  await writeFile("a.json", res);
+
   const serialized = app.serializer.projectToObject(project, process.cwd());
   // This next line is the only thing we added
   walk(serialized);
@@ -78,4 +87,5 @@ async function main() {
   app.logger.info(`JSON written to ${json}`);
   app.logger.verbose(`JSON rendering took ${Date.now() - start}ms`);
 }
-await main();
+
+process.exit(await main());

@@ -92,10 +92,11 @@ def typedoc_output(
 
     env = os.environ.copy()
     env["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[3].resolve())
-    command = Command("node")
+    command = Command("npx")
+    command.add("tsx")
     dir = Path(__file__).parent.resolve() / "js"
     command.add("--import", str(dir / "register.mjs"))
-    command.add(str(dir / "call_typedoc.mjs"))
+    command.add(str(dir / "call_typedoc.ts"))
     command.add("--entryPointStrategy", "expand")
 
     if config_path:
@@ -106,6 +107,7 @@ def typedoc_output(
 
     with NamedTemporaryFile(mode="w+b", delete=False) as temp:
         command.add("--json", temp.name, *abs_source_paths)
+        print(" ".join(command.make()))
         try:
             subprocess.run(command.make(), check=True, env=env)
         except OSError as exc:
@@ -301,6 +303,15 @@ class Analyzer:
                     c.top_level = True
 
         ir_objects, top_level = converter.convert_all_nodes(project)
+        # import cattrs
+        # import json
+        r = ir.converter.unstructure(ir_objects, unstructure_as=list[ir.TopLevelUnion])
+        import json
+        json.dump(r, open("py.json", "w"))
+        # structured = ir.converter.structure(r, list[ir.TopLevelUnion])
+        # print(ir_objects[0], file=open("a1.data", "w"))
+        # print(structured, file=open("a2.data", "w")) 
+        # assert structured == ir_objects
 
         self._base_dir = base_dir
         self._objects_by_path: SuffixTree[ir.TopLevel] = SuffixTree()
