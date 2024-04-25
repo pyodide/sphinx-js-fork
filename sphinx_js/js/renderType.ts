@@ -47,7 +47,9 @@ class TypeRenderer implements TypeVisitor<Type> {
     l.push("<");
     for (const arg of type.typeArguments) {
       l.push(...arg.visit(this));
+      l.push(", ");
     }
+    l.pop();
     l.push(">");
     return l;
   }

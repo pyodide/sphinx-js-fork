@@ -912,8 +912,8 @@ class Param(Base):
     def comment(self) -> Comment:
         if self.comment_ != DEFAULT_COMMENT:
             return self.comment_
-        if isinstance(self.type, ReflectionType):
-            return self.type.declaration.comment
+        # if isinstance(self.type, ReflectionType):
+        #     return self.type.declaration.comment
         return DEFAULT_COMMENT
 
     defaultValue: str | None = None

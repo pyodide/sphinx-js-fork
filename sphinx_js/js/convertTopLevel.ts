@@ -7,6 +7,7 @@ import {
   ReflectionKind,
   ReflectionVisitor,
   SignatureReflection,
+  SomeType,
 } from "typedoc";
 import { renderType } from "./renderType";
 import {
@@ -308,21 +309,35 @@ export class Converter {
     const result: Class = {
       constructor_,
       members,
-      supers: [],
+      supers: this.relatedTypes(cls, "extendedTypes"),
       is_abstract: cls.flags.isAbstract,
-      interfaces: [],
+      interfaces: this.relatedTypes(cls, "implementedTypes"),
       type_params: [],
       ...this.topLevelProperties(cls),
       kind: "classes",
     };
     return [result, cls.children];
   }
+  relatedTypes(
+    cls: DeclarationReflection,
+    kind: "extendedTypes" | "implementedTypes",
+  ): Pathname[] {
+    const origTypes = cls[kind] || [];
+    const result: Pathname[] = [];
+    for (const t of origTypes) {
+      if (t.type !== "reference") {
+        continue;
+      }
+      result.push(this.pathMap.get(t.reflection as DeclarationReflection)!);
+    }
+    return result;
+  }
+
   convertInterface(cls: DeclarationReflection): ConvertResult {
     const [_, members] = this.constructorAndMembers(cls);
     const result: Interface = {
       members,
-      supers: [],
-      ...memberProps(cls),
+      supers: this.relatedTypes(cls, "extendedTypes"),
       type_params: [],
       ...this.topLevelProperties(cls),
       kind: "classes",
@@ -342,21 +357,25 @@ export class Converter {
       type: renderType(this.pathMap, prop.type!),
       ...memberProps(prop),
       ...this.topLevelProperties(prop),
+      description: this.getCommentDescription(prop.comment),
       kind: "attributes",
     };
     return [result, prop.children];
   }
   convertAccessor(prop: DeclarationReflection): ConvertResult {
-    let type;
+    let type: SomeType;
+    let sig: SignatureReflection;
     if (prop.getSignature) {
       // There's no signature to speak of for a getter: only a return type.
-      type = prop.getSignature.type;
+      sig = prop.getSignature;
+      type = sig.type!;
     } else {
       if (!prop.setSignature) {
         throw new Error("???");
       }
       // ES6 says setters have exactly 1 param.
-      type = prop.setSignature.parameters![0].type;
+      sig = prop.setSignature;
+      type = sig.parameters![0].type!;
     }
     const result: Attribute = {
       type: renderType(this.pathMap, type),
@@ -364,6 +383,7 @@ export class Converter {
       ...this.topLevelProperties(prop),
       kind: "attributes",
     };
+    result.description = this.getCommentDescription(sig.comment);
     return [result, prop.children];
   }
 
@@ -384,8 +404,8 @@ export class Converter {
   }
   constructorAndMembers(
     a: DeclarationReflection,
-  ): [IRFunction | undefined, (IRFunction | Attribute)[]] {
-    let constructor: IRFunction | undefined = undefined;
+  ): [IRFunction | null, (IRFunction | Attribute)[]] {
+    let constructor: IRFunction | null = null;
     const members: (IRFunction | Attribute)[] = [];
     for (const child of a.children || []) {
       if (child.inheritedFrom) {
@@ -525,6 +545,8 @@ export class Converter {
         first_sig.type.type === "reference" &&
         first_sig.type.name === "Promise";
     }
+    let props = {};
+
     return {
       ...topLevel,
       ...memberProps(func),

@@ -56,6 +56,10 @@ export function blah(a: OptionalThings): ConstructorlessClass {
   return 0 as ConstructorlessClass;
 }
 
+
+/**
+ * Wwwww
+ */
 export function thunk(b: typeof blah) {}
 
 /**
