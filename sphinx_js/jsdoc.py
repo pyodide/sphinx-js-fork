@@ -193,7 +193,7 @@ class Analyzer:
             # Right now, a class generates several doclets, all but one of
             # which are marked as undocumented. In the one that's left, most of
             # the fields are about the default constructor:
-            constructor=self._doclet_as_function(doclet, full_path),
+            constructor_=self._doclet_as_function(doclet, full_path),
             members=members,
             **top_level_properties(doclet, full_path, self._base_dir),
         )

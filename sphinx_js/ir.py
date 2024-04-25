@@ -237,7 +237,7 @@ class TopLevel:
     modifier_tags: list[str] = field(kw_only=True, factory=list)
     block_tags: dict[str, Sequence[Description]] = field(kw_only=True, factory=dict)
     #: Line number where the object (excluding any prefixing comment) begins
-    line: int | None
+    line: int
     #: Explanation of the deprecation (which implies True) or True or False
     deprecated: Description | bool
     #: List of preformatted textual examples
@@ -305,7 +305,7 @@ class Interface(TopLevel, _MembersAndSupers):
 class Class(TopLevel, _MembersAndSupers):
     #: The default constructor for this class. Absent if the constructor is
     #: inherited.
-    constructor: Function | None
+    constructor_: Function | None
     #: Whether this is an abstract class
     is_abstract: bool
     #: Interfaces this class implements
@@ -315,7 +315,6 @@ class Class(TopLevel, _MembersAndSupers):
     # `undocumented: True` doclet and so are presently filtered out. But we do
     # have the space to include them someday.
     type_params: list[TypeParam] = Factory(list)
-    params: list[Param] = Factory(list)
     kind: str = "classes"
 
 
@@ -326,7 +325,6 @@ import cattrs
 converter = cattrs.Converter()
 converter.register_unstructure_hook(Pathname, lambda x: x.segments)
 converter.register_structure_hook(Pathname, lambda x, _: Pathname(x))
-
 
 def structure_description(x, _):
     if isinstance(x, str):

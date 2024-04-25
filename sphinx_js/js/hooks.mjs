@@ -24,4 +24,6 @@ export async function resolve(specifier, context, nextResolve) {
       }
     }
   }
+  // If we get here, this will throw an error.
+  return nextResolve(specifier, context);
 }

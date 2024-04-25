@@ -30,57 +30,28 @@ import {
 import { Type, TypeXRefExternal, TypeXRefInternal, intrinsicType } from "./ir";
 import { isAbsolute } from "path";
 
-function renderSignature(sig: SignatureReflection): Type {
-  const result: Type = ["("];
-  for (const param of sig.parameters || []) {
-    result.push(param.name + ": ");
-    result.push(...(param.type?.visit(new A()) || []));
-    result.push(",");
+class TypeRenderer implements TypeVisitor<Type> {
+  reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>;
+  constructor(
+    reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>,
+  ) {
+    this.reflToPath = reflToPath;
   }
-  if (sig.parameters?.length) {
-    result.pop();
-  }
-  result.push(") => ");
-  if (sig.type) {
-    result.push(...sig.type.visit(new A()));
-  } else {
-    result.push(intrinsicType("void"));
-  }
-  return result;
-}
-
-function renderTypeLiteral(lit: DeclarationReflection): Type {
-  if (lit.signatures) {
-    return renderSignature(lit.signatures[0]);
-  }
-  const result: Type = ["{ "];
-  const index_sig = lit.indexSignature;
-  if (index_sig) {
-    if (index_sig.parameters?.length !== 1) {
-      throw new Error("oops");
+  addTypeParams(
+    type: { typeArguments?: SomeType[] | undefined },
+    l: Type,
+  ): Type {
+    if (!type.typeArguments || type.typeArguments.length === 0) {
+      return l;
     }
-    const key = index_sig.parameters[0];
-    result.push("[", key.name, ": ");
-    result.push(...(key.type?.visit(new A()) || []));
-    result.push("]", ": ");
-    result.push(...(index_sig.type?.visit(new A()) || []));
-    result.push("; ");
-  }
-  for (const child of lit.children || []) {
-    result.push(child.name);
-    if (child.flags.isOptional) {
-      result.push("?:");
-    } else {
-      result.push(": ");
+    l.push("<");
+    for (const arg of type.typeArguments) {
+      l.push(...arg.visit(this));
     }
-    result.push(...(child.type?.visit(new A()) || []));
-    result.push("; ");
+    l.push(">");
+    return l;
   }
-  result.push("}");
-  return result;
-}
 
-class A implements TypeVisitor<Type> {
   conditional(type: ConditionalType): Type {
     throw new Error("Not implemented");
   }
@@ -97,6 +68,12 @@ class A implements TypeVisitor<Type> {
     return [intrinsicType(type.name)];
   }
   literal(type: LiteralType): Type {
+    if (type.value === "null") {
+      return [intrinsicType("null")];
+    }
+    if (typeof type.value === "number") {
+      return [intrinsicType("number")];
+    }
     throw new Error("Not implemented");
   }
   mapped(type: MappedType): Type {
@@ -109,7 +86,7 @@ class A implements TypeVisitor<Type> {
     return [
       intrinsicType("boolean"),
       " (typeguard for ",
-      ...renderType(type.targetType!),
+      ...type.targetType!.visit(this),
       ")",
     ];
   }
@@ -117,8 +94,8 @@ class A implements TypeVisitor<Type> {
     throw new Error("Not implemented");
   }
   reference(type: ReferenceType): Type {
-    if (type.refersToTypeParameter) {
-      return [type.name];
+    if (type.isIntentionallyBroken()) {
+      return this.addTypeParams(type, [type.name]);
     }
     // TODO: should we pass down app.serializer? app?
     const fakeSerializer = { projectRoot: process.cwd() } as Serializer;
@@ -131,21 +108,21 @@ class A implements TypeVisitor<Type> {
         sourcefilename: fileInfo?.sourceFileName,
         type: "external",
       };
-      return [res];
+      return this.addTypeParams(type, [res]);
     }
     const res: TypeXRefInternal = {
       name: type.name,
-      path: [],
+      path: this.reflToPath.get(type.reflection as DeclarationReflection),
       type: "internal",
     };
-    return [res];
+    return this.addTypeParams(type, [res]);
   }
   reflection(type: ReflectionType): Type {
     if (type.declaration.kind === ReflectionKind.TypeLiteral) {
-      return renderTypeLiteral(type.declaration);
+      return this.renderTypeLiteral(type.declaration);
     }
     if (type.declaration.kind === ReflectionKind.Constructor) {
-      const result = renderSignature(type.declaration.signatures![0]);
+      const result = this.renderSignature(type.declaration.signatures![0]);
       result.unshift("{new ");
       result.push("}");
       return result;
@@ -155,7 +132,7 @@ class A implements TypeVisitor<Type> {
         type.declaration.kind,
       )
     ) {
-      return renderSignature(type.declaration.signatures![0]);
+      return this.renderSignature(type.declaration.signatures![0]);
     }
     throw new Error("Not implemented");
   }
@@ -187,8 +164,61 @@ class A implements TypeVisitor<Type> {
     }
     return [...res, "[]"];
   }
+
+  renderSignature(sig: SignatureReflection): Type {
+    const result: Type = ["("];
+    for (const param of sig.parameters || []) {
+      result.push(param.name + ": ");
+      result.push(...(param.type?.visit(this) || []));
+      result.push(",");
+    }
+    if (sig.parameters?.length) {
+      result.pop();
+    }
+    result.push(") => ");
+    if (sig.type) {
+      result.push(...sig.type.visit(this));
+    } else {
+      result.push(intrinsicType("void"));
+    }
+    return result;
+  }
+
+  renderTypeLiteral(lit: DeclarationReflection): Type {
+    if (lit.signatures) {
+      return this.renderSignature(lit.signatures[0]);
+    }
+    const result: Type = ["{ "];
+    const index_sig = lit.indexSignature;
+    if (index_sig) {
+      if (index_sig.parameters?.length !== 1) {
+        throw new Error("oops");
+      }
+      const key = index_sig.parameters[0];
+      result.push("[", key.name, ": ");
+      result.push(...(key.type?.visit(this) || []));
+      result.push("]", ": ");
+      result.push(...(index_sig.type?.visit(this) || []));
+      result.push("; ");
+    }
+    for (const child of lit.children || []) {
+      result.push(child.name);
+      if (child.flags.isOptional) {
+        result.push("?:");
+      } else {
+        result.push(": ");
+      }
+      result.push(...(child.type?.visit(this) || []));
+      result.push("; ");
+    }
+    result.push("}");
+    return result;
+  }
 }
 
-export function renderType(a: SomeType): Type {
-  return a.visit(new A());
+export function renderType(
+  reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>,
+  a: SomeType,
+): Type {
+  return a.visit(new TypeRenderer(reflToPath));
 }

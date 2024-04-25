@@ -529,7 +529,7 @@ class TopLevelProperties(Base):
             block_tags={
                 tag: self.comment.get_tag_list(tag) for tag in self.comment.tags
             },
-            line=self.sources[0].line if self.sources else None,
+            line=self.sources[0].line if self.sources else -1,
             # These properties aren't supported by TypeDoc:
             deprecated=deprecated,
             examples=self.comment.get_tag_list("example"),
@@ -726,7 +726,7 @@ class Class(ClassOrInterface):
     def to_ir(self, converter: Converter) -> tuple[ir.Class | None, Sequence["Node"]]:
         constructor, members = self._constructor_and_members(converter)
         result = ir.Class(
-            constructor=constructor,
+            constructor_=constructor,
             members=members,
             supers=self._related_types(converter, kind="extendedTypes"),
             is_abstract=self.flags.isAbstract,

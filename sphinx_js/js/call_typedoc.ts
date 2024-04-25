@@ -7,7 +7,7 @@ import {
   ReflectionKind,
 } from "typedoc";
 import { writeFile } from "fs/promises";
-import { Converter } from "./ir";
+import { Converter } from "./convertTopLevel";
 
 const ExitCodes = {
   Ok: 0,
@@ -73,9 +73,12 @@ async function main() {
   }
 
   const json = app.options.getValue("json");
+  const basePath = app.options.getValue("basePath");
   //   console.log(Reflect.ownKeys(project));
   //   console.log(project.children?.map(x => ReflectionKind.singularString(x.kind)));
-  const res = JSON.stringify(new Converter().convertAll(project));
+  const converter = new Converter();
+  converter.populateIndex(project, basePath);
+  const res = JSON.stringify(converter.convertAll(project));
   await writeFile("a.json", res);
 
   const serialized = app.serializer.projectToObject(project, process.cwd());
