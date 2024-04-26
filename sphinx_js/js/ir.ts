@@ -53,23 +53,14 @@ export type Description = DescriptionItem[];
 export type Pathname = string[];
 
 export type NoDefault = { _no_default: true };
-export const NO_DEFAULT = { _no_default: true };
+export const NO_DEFAULT: NoDefault = { _no_default: true };
 
-export type _Member = {
+export type Member = {
   is_abstract: boolean;
   is_optional: boolean;
   is_static: boolean;
   is_private: boolean;
 };
-
-export function memberProps(a: DeclarationReflection): _Member {
-  return {
-    is_abstract: a.flags.isAbstract,
-    is_optional: a.flags.isOptional,
-    is_static: a.flags.isStatic,
-    is_private: a.flags.isPrivate,
-  };
-}
 
 export type TypeParam = {
   name: string;
@@ -77,24 +68,14 @@ export type TypeParam = {
   description: Description;
 };
 
-export type ParamBase = {
+export type Param = {
   name: string;
   description: Description;
   is_variadic: boolean;
+  has_default: boolean;
+  default: string | NoDefault;
   type?: Type;
 };
-
-export type ParamWithDefault = ParamBase & {
-  has_default: boolean;
-  default: string | undefined;
-};
-
-export type ParamNoDefault = ParamBase & {
-  has_default: false;
-  default: NoDefault;
-};
-
-export type Param = ParamWithDefault | ParamNoDefault;
 
 export type Return = {
   type: Type;
@@ -129,13 +110,13 @@ export type TopLevel = {
 };
 
 export type Attribute = TopLevel &
-  _Member & {
+  Member & {
     type: Type;
     kind: "attributes";
   };
 
 export type IRFunction = TopLevel &
-  _Member & {
+  Member & {
     is_async: boolean;
     params: Param[];
     returns: Return[];
@@ -157,7 +138,7 @@ export type Interface = TopLevel &
 
 export type Class = TopLevel &
   _MembersAndSupers & {
-    constructor_: IRFunction | undefined;
+    constructor_: IRFunction | null;
     is_abstract: boolean;
     interfaces: Pathname[];
     type_params: TypeParam[];

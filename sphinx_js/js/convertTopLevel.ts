@@ -9,116 +9,29 @@ import {
   SignatureReflection,
   SomeType,
 } from "typedoc";
-import { renderType } from "./renderType";
+import { renderType } from "./renderType.ts";
 import {
-  TopLevelIR,
-  IRFunction,
+  NO_DEFAULT,
   Attribute,
-  TopLevel,
+  Class,
   Description,
   DescriptionItem,
-  Param,
-  NO_DEFAULT,
-  Type,
-  intrinsicType,
-  Return,
-  memberProps,
-  Class,
   Interface,
+  IRFunction,
+  Member,
+  Param,
   Pathname,
-} from "./ir";
+  Return,
+  TopLevelIR,
+  TopLevel,
+  Type,
+} from "./ir.ts";
 import { delimiter, relative } from "path";
 
 type ConvertResult = [
   TopLevelIR | undefined,
   DeclarationReflection[] | undefined,
 ];
-// def _populate_index_inner(
-//     self,
-//     node: "IndexType",
-//     parent: "IndexType | None",
-//     idmap: dict[str, "Target"],
-//     filepath: list[str] | None = None,
-// ) -> None:
-//     if node.id is not None:  # 0 is okay; it's the root node.
-//         self.index[node.id] = node
-
-//     parent_kind = parent.kindString if parent else ""
-//     parent_segments = parent.path if parent else []
-//     if str(node.id) in idmap:
-//         filepath = _parse_filepath(
-//             idmap[str(node.id)].sourceFileName, self.base_dir
-//         )
-//     if filepath:
-//         node.filepath = filepath
-//     self.compute_path(node, parent_kind, parent_segments, filepath)
-
-//     if parent and isinstance(node, Signature):
-//         node.parent_member_properties = parent.member_properties()
-
-//     # Burrow into everything that could contain more ID'd items
-//     for child in node.children_with_ids():
-//         self._populate_index_inner(
-//             child, parent=node, idmap=idmap, filepath=filepath
-//         )
-
-// def compute_path(
-//     self,
-//     node: "IndexType",
-//     parent_kind: str,
-//     parent_segments: list[str],
-//     filepath: list[str] | None,
-// ) -> None:
-//     """Compute the full, unambiguous list of path segments that points to an
-//     entity described by a TypeDoc JSON node.
-
-//     Example: ``['./', 'dir/', 'dir/', 'file.', 'object.', 'object#', 'object']``
-
-//     TypeDoc uses a totally different, locality-sensitive resolution mechanism
-//     for links: https://typedoc.org/guides/link-resolution/. It seems like a
-//     less well thought-out system than JSDoc's namepaths, as it doesn't
-//     distinguish between, say, static and instance properties of the same name.
-//     (AFAICT, TypeDoc does not emit documentation for inner properties, as for a
-//     function nested within another function.) We're sticking with our own
-//     namepath-like paths, even if we eventually support {@link} syntax.
-//     """
-//     delimiter = "."
-//     if not node.flags.isStatic and parent_kind == "Class":
-//         delimiter = "#"
-
-//     filepath2 = filepath or []
-//     parent_segments = parent_segments or filepath2
-
-//     segs = node._path_segments(self.base_dir)
-
-//     if segs and parent_segments:
-//         segments = list(parent_segments)
-//         segments[-1] += delimiter
-//         segments.extend(segs)
-//     else:
-//         segments = segs or parent_segments
-
-//     node.path = segments
-
-// def _parse_filepath(path: str, base_dir: str) -> list[str]:
-//     p = Path(path).resolve()
-//     if p.is_relative_to(base_dir):
-//         p = p.relative_to(base_dir)
-//     else:
-//         # It's not under base_dir... maybe it's in a global node_modules or
-//         # something? This makes it look the same as if it were under a local
-//         # node_modules.
-//         for a in p.parents:
-//             if a.name == "node_modules":
-//                 p = p.relative_to(a.parent)
-//                 break
-
-//     if p.name:
-//         p = p.with_suffix("")
-//     entries = ["."] + list(p.parts)
-//     for i in range(len(entries) - 1):
-//         entries[i] += "/"
-//     return entries
 
 function parseFilePath(path: string, base_dir: string): string[] {
   const rel = relative(base_dir, path);
@@ -268,10 +181,11 @@ export class Converter {
 
   toIr(object: DeclarationReflection | SignatureReflection): ConvertResult {
     const kind = ReflectionKind.singularString(object.kind);
-    const convertFunc = `convert${kind}`;
+    const convertFunc = `convert${kind}` as keyof this;
     if (!this[convertFunc]) {
       throw new Error(`No known converter for kind ${kind}`);
     }
+    // @ts-ignore
     return this[convertFunc](object);
   }
 
@@ -289,9 +203,12 @@ export class Converter {
     return [this.functionToIR(func), func.children];
   }
   convertVariable(v: DeclarationReflection): ConvertResult {
-    const type = v.type ? renderType(this.pathMap, v.type) : undefined;
+    if (!v.type) {
+      throw new Error(`Type of ${v.name} is undefined`);
+    }
+    const type = renderType(this.pathMap, v.type);
     const result: Attribute = {
-      ...memberProps(v),
+      ...this.memberProps(v),
       ...this.topLevelProperties(v),
       kind: "attributes",
       type,
@@ -355,7 +272,7 @@ export class Converter {
     }
     const result: Attribute = {
       type: renderType(this.pathMap, prop.type!),
-      ...memberProps(prop),
+      ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
       description: this.getCommentDescription(prop.comment),
       kind: "attributes",
@@ -379,7 +296,7 @@ export class Converter {
     }
     const result: Attribute = {
       type: renderType(this.pathMap, type),
-      ...memberProps(prop),
+      ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
       kind: "attributes",
     };
@@ -464,14 +381,24 @@ export class Converter {
     return result;
   }
 
+  memberProps(a: DeclarationReflection): Member {
+    return {
+      is_abstract: a.flags.isAbstract,
+      is_optional: a.flags.isOptional,
+      is_static: a.flags.isStatic,
+      is_private: a.flags.isPrivate,
+    };
+  }
+
   topLevelProperties(a: DeclarationReflection | SignatureReflection): TopLevel {
     if (!a.sources) {
       // console.log("no sources");
       // console.log(a);
     }
-    if (!this.pathMap.has(a)) {
-      console.log("Missing path", a);
-      process.exit(1);
+    const path = this.pathMap.get(a);
+    if (!path) {
+      console.log();
+      throw new Error(`Missing path for ${a.name}`);
     }
     const block_tags = this.getCommentBlockTags(a.comment);
     let deprecated: Description | boolean =
@@ -481,7 +408,7 @@ export class Converter {
     }
     return {
       name: a.name,
-      path: this.pathMap.get(a),
+      path,
       deppath: this.filePathMap.get(a)?.join(""),
       filename: "",
       description: this.getCommentDescription(a.comment),
@@ -501,19 +428,7 @@ export class Converter {
     };
   }
   paramToIR(param: ParameterReflection): Param {
-    // default = self.defaultValue or ir.NO_DEFAULT
-    // return ir.Param(
-    //     name=self.name,
-    //     description=self.comment.get_description(),
-    //     has_default=self.defaultValue is not None,
-    //     is_variadic=self.flags.isRest,
-    //     # For now, we just pass a single string in as the type rather than
-    //     # a list of types to be unioned by the renderer. There's really no
-    //     # disadvantage.
-    //     type=self.type.render_name(converter),
-    //     default=default,
-    // )
-    let type = [];
+    let type: Type = [];
     if (param.type) {
       type = renderType(this.pathMap, param.type);
     }
@@ -554,7 +469,7 @@ export class Converter {
 
     return {
       ...topLevel,
-      ...memberProps(func),
+      ...this.memberProps(func),
       is_async,
       params: params?.map(this.paramToIR.bind(this)) || [],
       type_params: [],

@@ -7,7 +7,7 @@ import {
   ReflectionKind,
 } from "typedoc";
 import { writeFile } from "fs/promises";
-import { Converter } from "./convertTopLevel";
+import { Converter } from "./convertTopLevel.ts";
 
 const ExitCodes = {
   Ok: 0,
@@ -21,7 +21,7 @@ const ExitCodes = {
 
 // Locate the kind IDs, look up the corresponding kindStrings, and add them to
 // the JSON
-function walk(o) {
+function walk(o: any): any {
   if ("kind" in o) {
     try {
       o["kindString"] = ReflectionKind.singularString(o["kind"]);
