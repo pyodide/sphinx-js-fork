@@ -434,8 +434,10 @@ export class Converter {
     }
     let description = this.getCommentDescription(param.comment);
     if (description.length === 0 && param.type?.type === "reflection") {
-        // TODO: isn't this a weird thing to do here?
-        description = this.getCommentDescription(param.type.declaration?.signatures?.[0].comment);
+      // TODO: isn't this a weird thing to do here?
+      description = this.getCommentDescription(
+        param.type.declaration?.signatures?.[0].comment,
+      );
     }
     return {
       name: param.name,

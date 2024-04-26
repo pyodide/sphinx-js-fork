@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "dependencies": {
     "typedoc": "^0.25.13"
   },

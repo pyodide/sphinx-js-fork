@@ -27,7 +27,12 @@ import {
   UnionType,
   UnknownType,
 } from "typedoc";
-import { Type, TypeXRefExternal, TypeXRefInternal, intrinsicType } from "./ir.ts";
+import {
+  Type,
+  TypeXRefExternal,
+  TypeXRefInternal,
+  intrinsicType,
+} from "./ir.ts";
 
 class TypeRenderer implements TypeVisitor<Type> {
   reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>;
@@ -113,7 +118,9 @@ class TypeRenderer implements TypeVisitor<Type> {
     }
     const path = this.reflToPath.get(type.reflection as DeclarationReflection);
     if (!path) {
-      throw new Error(`Broken internal xref to ${type.reflection?.toStringHierarchy()}`);
+      throw new Error(
+        `Broken internal xref to ${type.reflection?.toStringHierarchy()}`,
+      );
     }
     const res: TypeXRefInternal = {
       name: type.name,

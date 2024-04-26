@@ -15,13 +15,11 @@ export async function resolve(specifier, context, nextResolve) {
   // Take an `import` or `require` specifier and resolve it to a URL.
   const origURL = context.parentURL;
   const fallbackURL = `file:${process.env["TYPEDOC_NODE_MODULES"]}/`;
-  for (const spec of [specifier, specifier + ".ts"]) {
-    for (const parentURL of [origURL, fallbackURL]) {
-      context.parentURL = parentURL;
-      const res = await tryResolve(spec, context, nextResolve);
-      if (res) {
-        return res;
-      }
+  for (const parentURL of [origURL, fallbackURL]) {
+    context.parentURL = parentURL;
+    const res = await tryResolve(specifier, context, nextResolve);
+    if (res) {
+      return res;
     }
   }
   // If we get here, this will throw an error.
