@@ -111,6 +111,7 @@ class _NoDefault:
     """A conspicuous no-default value that will show up in templates to help
     troubleshoot code paths that grab ``Param.default`` without checking
     ``Param.has_default`` first."""
+    _no_default: bool = True
 
     def __repr__(self) -> str:
         return "'no default value'"
@@ -237,7 +238,7 @@ class TopLevel:
     modifier_tags: list[str] = field(kw_only=True, factory=list)
     block_tags: dict[str, Sequence[Description]] = field(kw_only=True, factory=dict)
     #: Line number where the object (excluding any prefixing comment) begins
-    line: int
+    line: int | None
     #: Explanation of the deprecation (which implies True) or True or False
     deprecated: Description | bool
     #: List of preformatted textual examples

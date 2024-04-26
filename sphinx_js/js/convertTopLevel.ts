@@ -495,7 +495,7 @@ export class Converter {
       // description: self.comment.get_description(),
       // modifier_tags: self.comment.modifierTags,
       // block_tags: {tag: self.comment.get_tag_list(tag) for tag in self.comment.tags},
-      line: a.sources?.[0]?.line || -1,
+      line: a.sources?.[0]?.line || null,
       // deprecated: deprecated,
       // examples: self.comment.get_tag_list("example"),
     };
@@ -517,12 +517,17 @@ export class Converter {
     if (param.type) {
       type = renderType(this.pathMap, param.type);
     }
+    let description = this.getCommentDescription(param.comment);
+    if (description.length === 0 && param.type?.type === "reflection") {
+        // TODO: isn't this a weird thing to do here?
+        description = this.getCommentDescription(param.type.declaration?.signatures?.[0].comment);
+    }
     return {
       name: param.name,
-      description: this.getCommentDescription(param.comment),
       has_default: !!param.defaultValue,
       default: param.defaultValue || NO_DEFAULT,
       is_variadic: param.flags.isRest,
+      description,
       type,
     };
   }

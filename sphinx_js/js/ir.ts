@@ -52,8 +52,8 @@ export type Description = DescriptionItem[];
 
 export type Pathname = string[];
 
-export type NoDefault = { _noDefault: true };
-export const NO_DEFAULT = {};
+export type NoDefault = { _no_default: true };
+export const NO_DEFAULT = { _no_default: true };
 
 export type _Member = {
   is_abstract: boolean;
@@ -119,7 +119,7 @@ export type TopLevel = {
   description: Description;
   modifier_tags: string[];
   block_tags: { [key: string]: Description[] };
-  line: number | undefined;
+  line: number | null;
   deprecated: Description | boolean;
   examples: Description[];
   see_alsos: string[];

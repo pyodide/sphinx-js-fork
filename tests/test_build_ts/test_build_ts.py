@@ -31,7 +31,7 @@ class TestTextBuilder(SphinxBuildTestCase):
             o.pop("exceptions", None)
 
         idx = None
-        idx = 14
+        idx = 0
         if idx is not None:
             t1 = j1[idx]
             t2 = j2[idx]
