@@ -347,6 +347,10 @@ export class Converter {
     return [result, v.children];
   }
 
+  /**
+   * Return the unambiguous pathnames of implemented interfaces or extended
+   * classes.
+   */
   relatedTypes(
     cls: DeclarationReflection,
     kind: "extendedTypes" | "implementedTypes",
@@ -465,9 +469,16 @@ export class Converter {
   }
 
   /**
-   * Generated the IR for the constructor and members of a class or interface.
+   * Return the IR for the constructor and other members of a class or
+   * interface.
+   *
+   * In TS, a constructor may have multiple (overloaded) type signatures but
+   * only one implementation. (Same with functions.) So there's at most 1
+   * constructor to return. Return None for the constructor if it is inherited
+   * or implied rather than explicitly present in the class.
+   *
    * @param refl Class or Interface
-   * @returns
+   * @returns A tuple of (constructor Function, list of other members)
    */
   constructorAndMembers(
     refl: DeclarationReflection,
@@ -565,7 +576,14 @@ export class Converter {
    * @returns
    */
   functionToIR(func: DeclarationReflection): IRFunction {
-    const first_sig = func.signatures![0];
+    // There's really nothing in the function itself; all the interesting bits
+    // are in the 'signatures' property. We support only the first signature at
+    // the moment, because to do otherwise would create multiple identical
+    // pathnames to the same function, which would cause the suffix tree to
+    // raise an exception while being built. An eventual solution might be to
+    // store the signatures in a one-to- many attr of Functions.
+
+    const first_sig = func.signatures![0]; // Should always have at least one
     const params = first_sig.parameters;
     let returns: Return[] = [];
     let is_async = false;
