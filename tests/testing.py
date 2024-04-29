@@ -9,7 +9,7 @@ from sphinx.cmd.build import main as sphinx_main
 from sphinx_js.jsdoc import Analyzer as JsAnalyzer
 from sphinx_js.jsdoc import jsdoc_output
 from sphinx_js.typedoc import Analyzer as TsAnalyzer
-from sphinx_js.typedoc import Converter, NewAnalyzer, typedoc_output
+from sphinx_js.typedoc import new_typedoc_output
 
 
 class ThisDirTestCase:
@@ -79,21 +79,12 @@ class TypeDocTestCase(ThisDirTestCase):
     def setup_class(cls):
         """Run the TS analyzer over the TypeDoc output."""
         cls._source_dir = join(cls.this_dir(), "source")
-        cls.json = typedoc_output(
+        cls.json = new_typedoc_output(
             [join(cls._source_dir, file) for file in cls.files],
             cls._source_dir,
             "tsconfig.json",
             cls._source_dir,
         )
-        import json
-
-        json2_json = json.load(open("a.json"))
-        from sphinx_js.ir import json_to_ir
-
-        cls.json2 = json_to_ir(json2_json)
-        c = Converter(cls._source_dir)
-        c.populate_index(cls.json)
-        c.convert_all_nodes(cls.json)
 
 
 class TypeDocAnalyzerTestCase(TypeDocTestCase):
@@ -107,10 +98,7 @@ class TypeDocAnalyzerTestCase(TypeDocTestCase):
         def should_destructure(sig, p):
             return p.name == "destructureThisPlease"
 
-        cls.analyzer = TsAnalyzer(
-            cls.json, cls._source_dir, should_destructure_arg=should_destructure
-        )
-        cls.new_analyzer = NewAnalyzer(cls.json2)
+        cls.analyzer = TsAnalyzer(cls.json, cls._source_dir)
 
 
 NO_MATCH = object()

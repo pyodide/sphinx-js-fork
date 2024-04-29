@@ -107,6 +107,7 @@ export type TopLevel = {
   see_alsos: string[];
   properties: Attribute[];
   exported_from?: Pathname;
+  top_level: boolean;
   //   kind: string;
 };
 

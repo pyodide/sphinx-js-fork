@@ -91,6 +91,8 @@ class PathComputer implements ReflectionVisitor {
     Pathname
   >;
   readonly basePath: string;
+  readonly topLevels: Set<DeclarationReflection | SignatureReflection>;
+
   // State for the visitor
   parentKind: ReflectionKind | undefined;
   parentSegments: string[];
@@ -99,10 +101,12 @@ class PathComputer implements ReflectionVisitor {
     pathMap: Map<DeclarationReflection | SignatureReflection, Pathname>,
     filePathMap: Map<DeclarationReflection | SignatureReflection, Pathname>,
     basePath: string,
+    topLevels: Set<DeclarationReflection | SignatureReflection>,
   ) {
     this.pathMap = pathMap;
     this.filePathMap = filePathMap;
     this.basePath = basePath;
+    this.topLevels = topLevels;
     this.parentKind = undefined;
     this.parentSegments = [];
     this.filePath = [];
@@ -181,8 +185,14 @@ class PathComputer implements ReflectionVisitor {
 
   // The visitor methods
 
-  project(rel: ProjectReflection) {
-    rel.children?.forEach((x) => x.visit(this));
+  project(project: ProjectReflection) {
+    for (const child of project.children!) {
+      this.topLevels.add(child);
+      if (child.kind === ReflectionKind.Module) {
+        child.children!.forEach((c) => this.topLevels.add(c));
+      }
+    }
+    project.children?.forEach((x) => x.visit(this));
   }
 
   declaration(refl: DeclarationReflection) {
@@ -286,6 +296,7 @@ export class Converter {
     DeclarationReflection | SignatureReflection,
     Pathname
   >;
+  readonly topLevels: Set<DeclarationReflection | SignatureReflection>;
   readonly _shouldDestructureArg: (p: ParamReflSubset) => boolean;
 
   constructor(project: ProjectReflection, basePath: string) {
@@ -293,13 +304,19 @@ export class Converter {
     this.basePath = basePath;
     this.pathMap = new Map();
     this.filePathMap = new Map();
+    this.topLevels = new Set();
     this._shouldDestructureArg = (param) =>
       param.name === "destructureThisPlease";
   }
 
   computePaths() {
     this.project.visit(
-      new PathComputer(this.pathMap, this.filePathMap, this.basePath),
+      new PathComputer(
+        this.pathMap,
+        this.filePathMap,
+        this.basePath,
+        this.topLevels,
+      ),
     );
   }
 
@@ -336,7 +353,18 @@ export class Converter {
       throw new Error(`No known converter for kind ${kind}`);
     }
     // @ts-ignore
-    return this[convertFunc](object);
+    const result: ConvertResult = this[convertFunc](object);
+    if (this.topLevels.has(object)) {
+      console.log(
+        "topLevel",
+        object.name,
+        ReflectionKind.singularString(object.kind),
+      );
+    }
+    if (this.topLevels.has(object) && result[0]) {
+      result[0].top_level = true;
+    }
+    return result;
   }
 
   // Reflection visitor methods
@@ -583,6 +611,7 @@ export class Converter {
       see_alsos: [],
       exported_from: filePath,
       line: refl.sources?.[0]?.line || null,
+      top_level: false,
       // modifier_tags: self.comment.modifierTags,
     };
   }

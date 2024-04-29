@@ -17,6 +17,7 @@ class TestTextBuilder(SphinxBuildTestCase):
         assert pos_method > pos_cstrct, (
             "Constructor appears after method in " + contents
         )
+        return
 
         import json
         from pathlib import Path

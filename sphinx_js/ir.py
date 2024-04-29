@@ -90,7 +90,7 @@ class Pathname:
 
     """
 
-    def __init__(self, segments: list[str]):
+    def __init__(self, segments: Sequence[str]):
         self.segments = segments
 
     def __str__(self) -> str:
@@ -253,6 +253,7 @@ class TopLevel:
     #: dotted path to the module it is exported from, e.g. 'foo.bar'
     exported_from: Pathname | None
     kind: str = field(kw_only=True)
+    top_level: bool = field(kw_only=True, default=False)
 
 
 @define(slots=False)
