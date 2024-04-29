@@ -230,7 +230,7 @@ class TypeRenderer implements TypeVisitor<Type> {
 
 export function renderType(
   reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>,
-  a: SomeType,
+  type: SomeType,
 ): Type {
-  return a.visit(new TypeRenderer(reflToPath));
+  return type.visit(new TypeRenderer(reflToPath));
 }

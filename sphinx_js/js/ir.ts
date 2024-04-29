@@ -1,4 +1,5 @@
-import { DeclarationReference, DeclarationReflection } from "typedoc";
+// Define the types for our IR. Must match the cattrs+json serialization
+// format from ir.py
 
 export type TypeXRefIntrinsic = {
   name: string;

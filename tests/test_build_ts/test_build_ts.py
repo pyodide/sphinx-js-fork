@@ -18,8 +18,9 @@ class TestTextBuilder(SphinxBuildTestCase):
             "Constructor appears after method in " + contents
         )
 
-        from pathlib import Path
         import json
+        from pathlib import Path
+
         p = Path(__file__).parents[2]
         j1 = json.load(open(p / "a.json"))
         j2 = json.load(open(p / "py.json"))
@@ -31,7 +32,7 @@ class TestTextBuilder(SphinxBuildTestCase):
             o.pop("exceptions", None)
 
         idx = None
-        idx = 0
+        idx = 1
         if idx is not None:
             t1 = j1[idx]
             t2 = j2[idx]
@@ -40,15 +41,14 @@ class TestTextBuilder(SphinxBuildTestCase):
             t2 = j2
 
         differs = []
-        for idx, (a, b) in enumerate(zip(j1, j2)):
+        for idx, (a, b) in enumerate(zip(j1, j2, strict=True)):
             if a != b:
                 differs.append(idx)
         print(differs)
         assert t1 == t2
         return
-        for (a,b) in enumerate(zip(j1, j2)):
+        for a, b in enumerate(zip(j1, j2, strict=True)):
             assert a == b
-
 
     def test_autoclass_order(self):
         """Make sure fields come before methods."""
