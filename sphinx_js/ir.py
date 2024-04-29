@@ -22,11 +22,13 @@ unwrapping of comments, making another representation inevitable. Therefore,
 let's at least have a well-documented one and one slightly more likely to
 survive template changes.
 
+This has to match js/ir.ts
 """
 
-from collections.abc import Sequence
-from typing import Any, Literal
+from collections.abc import Callable, Sequence
+from typing import Any, Literal, ParamSpec, TypeVar
 
+import cattrs
 from attrs import Factory, define, field
 
 from .analyzer_utils import dotted_path
@@ -323,17 +325,30 @@ class Class(TopLevel, _MembersAndSupers):
 
 TopLevelUnion = Class | Interface | Function | Attribute
 
-import cattrs
+# Now make a serializer/deserializer
 
 converter = cattrs.Converter()
 converter.register_unstructure_hook(Pathname, lambda x: x.segments)
 converter.register_structure_hook(Pathname, lambda x, _: Pathname(x))
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def _structure(*types: Any) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    def dec(func: Callable[P, T]) -> Callable[P, T]:
+        for ty in types:
+            converter.register_structure_hook(ty, func)
+        return func
+
+    return dec
 
 
 def json_to_ir(json: Any) -> list[TopLevelUnion]:
     return converter.structure(json, list[TopLevelUnion])
 
 
+@_structure(Description, Description | bool)
 def structure_description(x: Any, _: Any) -> Description | bool:
     if isinstance(x, str):
         return x
@@ -342,41 +357,41 @@ def structure_description(x: Any, _: Any) -> Description | bool:
     return converter.structure(x, list[DescriptionItem])
 
 
-converter.register_structure_hook(Description, structure_description)
-converter.register_structure_hook(Description | bool, structure_description)
+def get_type_literal(t: type[DescriptionText]) -> str:
+    """Take the "blah" from the type annotation in
 
-map = {
-    t.__annotations__["type"].__args__[0]: t
-    for t in [DescriptionName, DescriptionText, DescriptionCode]
+    type: Literal["blah"]
+    """
+    return t.__annotations__["type"].__args__[0]  # type:ignore[no-any-return]
+
+
+description_type_map = {
+    get_type_literal(t): t for t in [DescriptionName, DescriptionText, DescriptionCode]
 }
 
-converter.register_structure_hook(
-    DescriptionItem, lambda o, _: converter.structure(o, map[o["type"]])
-)
+
+@_structure(DescriptionItem)
+def structure_description_item(o: Any, _: Any) -> DescriptionItem:
+    # Look up the expected type of o from the value of o["type"]
+    return converter.structure(o, description_type_map[o["type"]])
 
 
+@_structure(Type)
 def structure_type(x: Any, _: Any) -> Type:
     if isinstance(x, str) or x is None:
         return x
     return converter.structure(x, list[str | TypeXRef])
 
 
-converter.register_structure_hook(Type, structure_type)
-
-
+@_structure(str | TypeXRef)
 def structure_str_or_xref(x: Any, _: Any) -> Type:
     if isinstance(x, str):
         return x
     return converter.structure(x, TypeXRef)  # type:ignore[arg-type]
 
 
-converter.register_structure_hook(str | TypeXRef, structure_str_or_xref)
-
-
+@_structure(str | _NoDefault)
 def structure_str_or_nodefault(x: Any, _: Any) -> str | _NoDefault:
     if isinstance(x, str):
         return x
     return NO_DEFAULT
-
-
-converter.register_structure_hook(str | _NoDefault, structure_str_or_nodefault)
