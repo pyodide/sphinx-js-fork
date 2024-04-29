@@ -17,39 +17,6 @@ class TestTextBuilder(SphinxBuildTestCase):
         assert pos_method > pos_cstrct, (
             "Constructor appears after method in " + contents
         )
-        return
-
-        import json
-        from pathlib import Path
-
-        p = Path(__file__).parents[2]
-        j1 = json.load(open(p / "a.json"))
-        j2 = json.load(open(p / "py.json"))
-        for o in j1:
-            # del o["path"]
-            o.pop("exceptions", None)
-        for o in j2:
-            # del o["path"]
-            o.pop("exceptions", None)
-
-        idx = None
-        idx = 1
-        if idx is not None:
-            t1 = j1[idx]
-            t2 = j2[idx]
-        else:
-            t1 = j1
-            t2 = j2
-
-        differs = []
-        for idx, (a, b) in enumerate(zip(j1, j2, strict=True)):
-            if a != b:
-                differs.append(idx)
-        print(differs)
-        assert t1 == t2
-        return
-        for a, b in enumerate(zip(j1, j2, strict=True)):
-            assert a == b
 
     def test_autoclass_order(self):
         """Make sure fields come before methods."""

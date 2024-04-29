@@ -56,7 +56,6 @@ export function blah(a: OptionalThings): ConstructorlessClass {
   return 0 as ConstructorlessClass;
 }
 
-
 export function thunk(b: typeof blah) {}
 
 /**

@@ -19,21 +19,6 @@ const ExitCodes = {
   Watching: 7,
 };
 
-// Locate the kind IDs, look up the corresponding kindStrings, and add them to
-// the JSON
-function walk(o: any): any {
-  if ("kind" in o) {
-    try {
-      o["kindString"] = ReflectionKind.singularString(o["kind"]);
-    } catch (e) {}
-  }
-  for (let v of Object.values(o)) {
-    if (v && typeof v === "object") {
-      walk(v);
-    }
-  }
-}
-
 async function bootstrapAppTypedoc0_25(): Promise<Application> {
   return await Application.bootstrapWithPlugins({}, [
     new ArgumentsReader(0),
@@ -74,19 +59,11 @@ async function main() {
 
   const json = app.options.getValue("json");
   const basePath = app.options.getValue("basePath");
-  //   console.log(Reflect.ownKeys(project));
-  //   console.log(project.children?.map(x => ReflectionKind.singularString(x.kind)));
   const converter = new Converter(project, basePath);
   converter.computePaths();
-  const res = JSON.stringify(converter.convertAll());
-  await writeFile("a.json", res);
-
-  const serialized = app.serializer.projectToObject(project, process.cwd());
-  // This next line is the only thing we added
-  walk(serialized);
-
   const space = app.options.getValue("pretty") ? "\t" : "";
-  await writeFile(json, JSON.stringify(serialized, null, space));
+  const res = JSON.stringify(converter.convertAll(), null, space);
+  await writeFile(json, res);
   app.logger.info(`JSON written to ${json}`);
   app.logger.verbose(`JSON rendering took ${Date.now() - start}ms`);
 }

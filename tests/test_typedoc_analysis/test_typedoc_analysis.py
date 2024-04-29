@@ -1,6 +1,4 @@
 from copy import copy, deepcopy
-from json import loads
-from unittest import TestCase
 
 import pytest
 
@@ -21,7 +19,6 @@ from sphinx_js.ir import (
     TypeXRefIntrinsic,
 )
 from sphinx_js.renderers import AutoClassRenderer, AutoFunctionRenderer
-from sphinx_js.typedoc import Converter, parse
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
@@ -41,100 +38,6 @@ def join_descri(t: Type) -> str:
     return "".join(e.name if isinstance(e, TypeXRef) else e for e in t)
 
 
-class TestPopulateIndex(TestCase):
-    def test_top_level_function(self):
-        """Make sure nodes get indexed."""
-        # A simple TypeDoc JSON dump of a source file with a single, top-level
-        # function with no params or return value:
-        json = parse(
-            loads(
-                r"""
-                {
-                    "id": 0,
-                    "name": "misterRoot",
-                    "children": [
-                        {
-                            "id": 1,
-                            "name": "longnames",
-                            "kindString": "Module",
-                            "children": [
-                                {
-                                    "id": 2,
-                                    "name": "foo",
-                                    "kindString": "Function",
-                                    "signatures": [
-                                        {
-                                            "id": 3,
-                                            "name": "foo",
-                                            "kindString": "Call signature",
-                                            "comment": {"shortText": "Foo function."},
-                                            "type": {"type": "intrinsic", "name": "void"}
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    ],
-                    "symbolIdMap" : {"0" : {"sourceFileName": "tests/test_typedoc_analysis/source/longnames.ts", "qualifiedName": ""} }
-                }
-                """
-            )
-        )
-        from pathlib import Path
-
-        index = (
-            Converter(str(Path(__file__).parent.resolve())).populate_index(json).index
-        )
-        # Things get indexed by ID:
-        function = index[2]
-        assert function.name == "foo"
-        # things get paths
-        assert function.path == [
-            "./",
-            "source/",
-            "longnames.",
-            "foo",
-        ]
-        # Root gets indexed by ID:
-        root = index[0]
-        assert root.name == "misterRoot"
-
-
-def do_checks():
-    return
-    import json
-    from pathlib import Path
-
-    p = Path(__file__).parents[2]
-    j1 = json.load(open(p / "a.json"))
-    j2 = json.load(open(p / "py.json"))
-    j1 = sorted(j1, key=lambda t: t["path"])
-    j2 = sorted(j2, key=lambda t: t["path"])
-    assert j1[0]["path"] == j2[0]["path"]
-    for o in j1:
-        # del o["path"]
-        o.pop("exceptions", None)
-    for o in j2:
-        # del o["path"]
-        o.pop("exceptions", None)
-
-    idx = None
-    idx = 7
-    if idx is not None:
-        t1 = j1[idx]
-        t2 = j2[idx]
-    else:
-        t1 = j1
-        t2 = j2
-
-    differs = []
-    for idx, (a, b) in enumerate(zip(j1, j2, strict=False)):
-        if a != b:
-            differs.append(idx)
-    print(differs)
-    assert t2 == t1
-
-
 class TestPathSegments(TypeDocTestCase):
     """Make sure ``make_path_segments() `` works on all its manifold cases."""
 
@@ -142,9 +45,7 @@ class TestPathSegments(TypeDocTestCase):
 
     def commented_object(self, comment, **kwargs):
         """Return the object from ``json`` having the given comment short-text."""
-        from sphinx_js import ir
-
-        comment = [ir.DescriptionText(text=comment)]
+        comment = [DescriptionText(text=comment)]
         return dict_where(self.json, description=comment, **kwargs)
 
     def commented_object_path(self, comment, **kwargs):
@@ -306,7 +207,6 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         assert subclass.see_alsos == []
         assert subclass.properties == []
         assert subclass.exported_from == Pathname(["./", "nodes"])
-        do_checks()
 
     def test_interface(self):
         """Test that interfaces get indexed and have their supers exposed.
@@ -453,7 +353,6 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         ]:
             obj = self.analyzer.get_object([obj_name])
             assert join_type(obj.type) == type_name
-        do_checks()
 
     def test_named_interface(self):
         """Make sure interfaces can be referenced by name."""
