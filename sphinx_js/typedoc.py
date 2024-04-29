@@ -105,7 +105,7 @@ def typedoc_output(
 
     if tsconfig_path:
         tsconfig_path = str((Path(sphinx_conf_dir) / tsconfig_path).absolute())
-        command.add('--tsconfig', tsconfig_path)
+        command.add("--tsconfig", tsconfig_path)
 
     command.add("--basePath", base_dir)
 
@@ -319,7 +319,11 @@ class Analyzer:
         cls, abs_source_paths: list[str], app: Sphinx, base_dir: str
     ) -> "Analyzer":
         json = typedoc_output(
-            abs_source_paths, app.confdir, app.config.jsdoc_config_path, app.config.jsdoc_tsconfig_path, base_dir
+            abs_source_paths,
+            app.confdir,
+            app.config.jsdoc_config_path,
+            app.config.jsdoc_tsconfig_path,
+            base_dir,
         )
         return cls(
             json,
