@@ -9,7 +9,7 @@ from sphinx.cmd.build import main as sphinx_main
 from sphinx_js.jsdoc import Analyzer as JsAnalyzer
 from sphinx_js.jsdoc import jsdoc_output
 from sphinx_js.typedoc import Analyzer as TsAnalyzer
-from sphinx_js.typedoc import new_typedoc_output
+from sphinx_js.typedoc import typedoc_output
 
 
 class ThisDirTestCase:
@@ -79,7 +79,7 @@ class TypeDocTestCase(ThisDirTestCase):
     def setup_class(cls):
         """Run the TS analyzer over the TypeDoc output."""
         cls._source_dir = join(cls.this_dir(), "source")
-        cls.json = new_typedoc_output(
+        cls.json = typedoc_output(
             [join(cls._source_dir, file) for file in cls.files],
             cls._source_dir,
             "tsconfig.json",
@@ -146,8 +146,6 @@ def dict_where(json, already_seen=None, **kwargs):
                     return match
     elif isinstance(json, BaseModel) or hasattr(type(json), "__attrs_attrs__"):
         d = dict([k, v] for [k, v] in getmembers(json) if not k.startswith("_"))
-        print("??")
-        print(json, d)
         if matches_properties(d, **kwargs):
             return json
         for k, v in d.items():

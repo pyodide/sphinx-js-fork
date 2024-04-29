@@ -47,7 +47,7 @@ def version_to_str(t: Sequence[int]) -> str:
     return ".".join(str(x) for x in t)
 
 
-def new_typedoc_output(
+def typedoc_output(
     abs_source_paths: Sequence[str],
     sphinx_conf_dir: str | pathlib.Path,
     config_path: str,
@@ -121,7 +121,7 @@ class Analyzer:
     def from_disk(
         cls, abs_source_paths: Sequence[str], app: Sphinx, base_dir: str
     ) -> "Analyzer":
-        json = new_typedoc_output(
+        json = typedoc_output(
             abs_source_paths, app.confdir, app.config.jsdoc_config_path, base_dir
         )
         return cls(json, base_dir)
