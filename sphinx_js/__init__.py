@@ -176,6 +176,7 @@ def setup(app: Sphinx) -> None:
         "js_source_path", default=["../"], rebuild="env", types=[str, list]
     )
     app.add_config_value("jsdoc_config_path", default=None, rebuild="env")
+    app.add_config_value("jsdoc_tsconfig_path", default=None, rebuild="env")
     app.add_config_value("ts_type_xref_formatter", None, "env")
     app.add_config_value("ts_type_bold", False, "env")
     app.add_config_value("ts_should_destructure_arg", None, "env")
