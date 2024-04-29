@@ -8,6 +8,8 @@ import {
   ReflectionVisitor,
   SignatureReflection,
   SomeType,
+  TypeContext,
+  TypeParameterReflection,
 } from "typedoc";
 import { renderType } from "./renderType.ts";
 import {
@@ -25,6 +27,7 @@ import {
   TopLevelIR,
   TopLevel,
   Type,
+  TypeParam,
 } from "./ir.ts";
 import { delimiter, relative } from "path";
 
@@ -68,6 +71,11 @@ function parseFilePath(path: string, base_dir: string): string[] {
   }
   return pathSegments;
 }
+
+type ParamReflSubset = Pick<
+  ParameterReflection,
+  "comment" | "defaultValue" | "flags" | "name" | "type"
+>;
 
 /**
  * A ReflectionVisitor that computes the path for each reflection for us.
@@ -131,14 +139,15 @@ class PathComputer implements ReflectionVisitor {
     const segments = Array.from(
       parentSegments.length > 0 ? parentSegments : filePath,
     );
-    const suppressReflName = [
-      // Module names are redundant with the file path
-      ReflectionKind.Module,
-      // Signature names are redundant with the callable. TODO: do we want to
-      // handle callables with multiple signatures?
-      ReflectionKind.ConstructorSignature,
-      ReflectionKind.CallSignature,
-    ].includes(refl.kind);
+    const suppressReflName =
+      [
+        // Module names are redundant with the file path
+        ReflectionKind.Module,
+        // Signature names are redundant with the callable. TODO: do we want to
+        // handle callables with multiple signatures?
+        ReflectionKind.ConstructorSignature,
+        ReflectionKind.CallSignature,
+      ].includes(refl.kind) || refl.name === "__type";
     if (suppressReflName) {
       return segments;
     }
@@ -162,6 +171,9 @@ class PathComputer implements ReflectionVisitor {
       this.parentSegments,
       this.filePath,
     );
+    if (refl.name === "__type") {
+      refl.name = this.parentSegments.at(-1)!;
+    }
     this.pathMap.set(refl, segments);
     this.filePathMap.set(refl, this.filePath);
     return segments;
@@ -186,6 +198,12 @@ class PathComputer implements ReflectionVisitor {
     // Visit children
     refl.children?.forEach((child) => child.visit(this));
     refl.signatures?.forEach((child) => child.visit(this));
+    if (
+      refl.kind === ReflectionKind.Property &&
+      refl.type?.type == "reflection"
+    ) {
+      refl.type.declaration.visit(this);
+    }
     // Restore state
     this.parentSegments = origParentSegs;
     this.parentKind = origParentKind;
@@ -268,12 +286,15 @@ export class Converter {
     DeclarationReflection | SignatureReflection,
     Pathname
   >;
+  readonly _shouldDestructureArg: (p: ParamReflSubset) => boolean;
 
   constructor(project: ProjectReflection, basePath: string) {
     this.project = project;
     this.basePath = basePath;
     this.pathMap = new Map();
     this.filePathMap = new Map();
+    this._shouldDestructureArg = (param) =>
+      param.name === "destructureThisPlease";
   }
 
   computePaths() {
@@ -321,6 +342,10 @@ export class Converter {
   // Reflection visitor methods
 
   convertModule(mod: DeclarationReflection): ConvertResult {
+    return [undefined, mod.children];
+  }
+
+  convertNamespace(mod: DeclarationReflection): ConvertResult {
     return [undefined, mod.children];
   }
 
@@ -374,7 +399,7 @@ export class Converter {
       supers: this.relatedTypes(cls, "extendedTypes"),
       is_abstract: cls.flags.isAbstract,
       interfaces: this.relatedTypes(cls, "implementedTypes"),
-      type_params: [],
+      type_params: this.typeParamsToIR(cls.typeParameters),
       ...this.topLevelProperties(cls),
       kind: "classes",
     };
@@ -386,7 +411,7 @@ export class Converter {
     const result: Interface = {
       members,
       supers: this.relatedTypes(cls, "extendedTypes"),
-      type_params: [],
+      type_params: this.typeParamsToIR(cls.typeParameters),
       ...this.topLevelProperties(cls),
       kind: "classes",
     };
@@ -399,7 +424,10 @@ export class Converter {
       prop.type.declaration.kind == ReflectionKind.TypeLiteral &&
       prop.type.declaration.signatures?.length
     ) {
-      // return self.type.declaration.to_ir(converter)
+      // Render {f: () => void} like {f(): void}
+      // TODO: unclear if this is the right behavior. Maybe there should be a
+      // way to pick?
+      return [this.functionToIR(prop.type.declaration), []];
     }
     // TODO: add a readonly indicator if it's readonly
     const result: Attribute = {
@@ -468,6 +496,18 @@ export class Converter {
     return this.toIr(child)[0] as IRFunction | Attribute;
   }
 
+  ["convertType alias"](refl: DeclarationReflection): ConvertResult {
+    return [undefined, refl.children];
+  }
+
+  convertEnumeration(refl: DeclarationReflection): ConvertResult {
+    return [undefined, refl.children];
+  }
+
+  ["convertEnumeration Member"](refl: DeclarationReflection): ConvertResult {
+    return [undefined, refl.children];
+  }
+
   /**
    * Return the IR for the constructor and other members of a class or
    * interface.
@@ -519,8 +559,8 @@ export class Converter {
     refl: DeclarationReflection | SignatureReflection,
   ): TopLevel {
     const path = this.pathMap.get(refl);
+    const filePath = this.filePathMap.get(refl)!;
     if (!path) {
-      console.log();
       throw new Error(`Missing path for ${refl.name}`);
     }
     const block_tags = getCommentBlockTags(refl.comment);
@@ -532,7 +572,7 @@ export class Converter {
     return {
       name: refl.name,
       path,
-      deppath: this.filePathMap.get(refl)?.join(""),
+      deppath: filePath.join(""),
       filename: "",
       description: getCommentSummary(refl.comment),
       modifier_tags: [],
@@ -541,15 +581,84 @@ export class Converter {
       examples: block_tags["example"] || [],
       properties: [],
       see_alsos: [],
-      exported_from: this.filePathMap.get(refl),
+      exported_from: filePath,
       line: refl.sources?.[0]?.line || null,
       // modifier_tags: self.comment.modifierTags,
     };
   }
+
+  /**
+   * We want to document a destructured argument as if it were several separate
+   * arguments. This finds complex inline object types in the arguments list of
+   * a function and "destructures" them into separately documented arguments.
+   *
+   * E.g., a function
+   *
+   *       /**
+   *       * @param options
+   *       * @destructure options
+   *       *./
+   *       function f({x , y } : {
+   *           /** The x value *./
+   *           x : number,
+   *           /** The y value *./
+   *           y : string
+   *       }){ ... }
+   *
+   * should be documented like:
+   *
+   *       options.x (number) The x value
+   *       options.y (number) The y value
+   */
+  _destructureParam(param: ParameterReflection): ParamReflSubset[] {
+    console.log("_destructureParam", param.name);
+    const type = param.type;
+    if (type?.type !== "reflection") {
+      throw new Error("Unexpected");
+    }
+    const decl = type.declaration;
+    const children = decl.children!;
+    const result: ParamReflSubset[] = [];
+    for (const child of children) {
+      result.push({
+        name: param.name + "." + child.name,
+        type: child.type,
+        comment: child.comment,
+        defaultValue: undefined,
+        flags: child.flags,
+      });
+    }
+    return result;
+  }
+
+  _destructureParams(sig: SignatureReflection): ParamReflSubset[] {
+    const result = [];
+    const destructureTargets = sig.comment
+      ?.getTags("@destructure")
+      .flatMap((tag) => tag.content[0].text.split(" "));
+    const shouldDestructure = (p: ParameterReflection) => {
+      if (p.type?.type !== "reflection") {
+        return false;
+      }
+      if (destructureTargets?.includes(p.name)) {
+        return true;
+      }
+      return this._shouldDestructureArg(p);
+    };
+    for (const p of sig.parameters || []) {
+      if (shouldDestructure(p)) {
+        result.push(...this._destructureParam(p));
+      } else {
+        result.push(p);
+      }
+    }
+    return result;
+  }
+
   /**
    * Convert a signature parameter
    */
-  paramToIR(param: ParameterReflection): Param {
+  paramToIR(param: ParamReflSubset): Param {
     let type: Type = [];
     if (param.type) {
       type = renderType(this.pathMap, param.type);
@@ -582,9 +691,8 @@ export class Converter {
     // pathnames to the same function, which would cause the suffix tree to
     // raise an exception while being built. An eventual solution might be to
     // store the signatures in a one-to- many attr of Functions.
-
     const first_sig = func.signatures![0]; // Should always have at least one
-    const params = first_sig.parameters;
+    const params = this._destructureParams(first_sig);
     let returns: Return[] = [];
     let is_async = false;
     // We want to suppress the return type for constructors (it's technically
@@ -594,6 +702,14 @@ export class Converter {
       func.kind === ReflectionKind.Constructor ||
       !first_sig.type ||
       (first_sig.type.type === "intrinsic" && first_sig.type.name === "void");
+    let type_params = this.typeParamsToIR(first_sig.typeParameters);
+    if (func.kind === ReflectionKind.Constructor) {
+      // I think this is wrong
+      // TODO: remove it
+      type_params = this.typeParamsToIR(
+        (func.parent as DeclarationReflection).typeParameters,
+      );
+    }
     const topLevel = this.topLevelProperties(first_sig);
     if (!voidReturnType && first_sig.type) {
       // Compute return comment and return annotation.
@@ -612,10 +728,27 @@ export class Converter {
       ...this.memberProps(func),
       is_async,
       params: params?.map(this.paramToIR.bind(this)) || [],
-      type_params: [],
+      type_params,
       returns,
       exceptions: [],
       kind: "functions",
+    };
+  }
+  typeParamsToIR(
+    typeParams: TypeParameterReflection[] | undefined,
+  ): TypeParam[] {
+    return typeParams?.map((typeParam) => this.typeParamToIR(typeParam)) || [];
+  }
+
+  typeParamToIR(typeParam: TypeParameterReflection): TypeParam {
+    const extends_ = typeParam.type
+      ? renderType(this.pathMap, typeParam.type)
+      : undefined;
+    console.log(typeParam.comment);
+    return {
+      name: typeParam.name,
+      extends: extends_ || null,
+      description: getCommentSummary(typeParam.comment),
     };
   }
 }

@@ -111,6 +111,7 @@ class _NoDefault:
     """A conspicuous no-default value that will show up in templates to help
     troubleshoot code paths that grab ``Param.default`` without checking
     ``Param.has_default`` first."""
+
     _no_default: bool = True
 
     def __repr__(self) -> str:
@@ -327,7 +328,12 @@ converter = cattrs.Converter()
 converter.register_unstructure_hook(Pathname, lambda x: x.segments)
 converter.register_structure_hook(Pathname, lambda x, _: Pathname(x))
 
-def structure_description(x, _):
+
+def json_to_ir(json: Any) -> list[TopLevelUnion]:
+    return converter.structure(json, list[TopLevelUnion])
+
+
+def structure_description(x: Any, _: Any) -> Description | bool:
     if isinstance(x, str):
         return x
     if isinstance(x, bool):
@@ -348,7 +354,7 @@ converter.register_structure_hook(
 )
 
 
-def structure_type(x, _):
+def structure_type(x: Any, _: Any) -> Type:
     if isinstance(x, str) or x is None:
         return x
     return converter.structure(x, list[str | TypeXRef])
@@ -357,16 +363,16 @@ def structure_type(x, _):
 converter.register_structure_hook(Type, structure_type)
 
 
-def structure_str_or_xref(x, _):
+def structure_str_or_xref(x: Any, _: Any) -> Type:
     if isinstance(x, str):
         return x
-    return converter.structure(x, TypeXRef)
+    return converter.structure(x, TypeXRef)  # type:ignore[arg-type]
 
 
 converter.register_structure_hook(str | TypeXRef, structure_str_or_xref)
 
 
-def structure_str_or_nodefault(x, _):
+def structure_str_or_nodefault(x: Any, _: Any) -> str | _NoDefault:
     if isinstance(x, str):
         return x
     return NO_DEFAULT

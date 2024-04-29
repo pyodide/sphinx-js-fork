@@ -271,7 +271,30 @@ class Converter:
                 done.append(converted)
             if converted and getattr(node, "top_level", False):
                 top_level.append(converted)
+        r = ir.converter.unstructure(done, unstructure_as=list[ir.TopLevelUnion])
+        import json
+
+        json.dump(r, open("py.json", "w"))
         return done, top_level
+
+
+class NewAnalyzer:
+    _objects_by_path: SuffixTree[ir.TopLevel]
+
+    def __init__(self, objects: list[ir.TopLevel]) -> None:
+        self._objects_by_path = SuffixTree()
+        self._objects_by_path.add_many((obj.path.segments, obj) for obj in objects)
+
+    def get_object(
+        self,
+        path_suffix: list[str],
+        as_type: Literal["function", "class", "attribute"] = "function",
+    ) -> ir.TopLevel:
+        """Return the IR object with the given path suffix.
+
+        :arg as_type: Ignored
+        """
+        return self._objects_by_path.get(path_suffix)
 
 
 class Analyzer:
@@ -305,12 +328,9 @@ class Analyzer:
         ir_objects, top_level = converter.convert_all_nodes(project)
         # import cattrs
         # import json
-        r = ir.converter.unstructure(ir_objects, unstructure_as=list[ir.TopLevelUnion])
-        import json
-        json.dump(r, open("py.json", "w"))
         # structured = ir.converter.structure(r, list[ir.TopLevelUnion])
         # print(ir_objects[0], file=open("a1.data", "w"))
-        # print(structured, file=open("a2.data", "w")) 
+        # print(structured, file=open("a2.data", "w"))
         # assert structured == ir_objects
 
         self._base_dir = base_dir

@@ -58,28 +58,53 @@ class TypeRenderer implements TypeVisitor<Type> {
     return l;
   }
 
+  /**
+   * Render the type, maybe add parentheses
+   */
+  render(type: SomeType, context: TypeContext): Type {
+    const result = type.visit(this);
+    if (type.needsParenthesis(context)) {
+      result.unshift("(");
+      result.push(")");
+    }
+    return result;
+  }
+
   conditional(type: ConditionalType): Type {
     throw new Error("Not implemented");
   }
   indexedAccess(type: IndexedAccessType): Type {
-    throw new Error("Not implemented");
+    return ["<TODO: not implemented indexedAccess>"];
+    return [
+      ...this.render(type.objectType, TypeContext.indexedObject),
+      "[",
+      ...this.render(type.indexType, TypeContext.indexedIndex),
+      "]",
+    ];
   }
   inferred(type: InferredType): Type {
     throw new Error("Not implemented");
   }
   intersection(type: IntersectionType): Type {
-    throw new Error("Not implemented");
+    const result: Type = [];
+    for (const elt of type.types) {
+      result.push(...this.render(elt, TypeContext.intersectionElement));
+      result.push(" & ");
+    }
+    result.pop();
+    return result;
   }
   intrinsic(type: IntrinsicType): Type {
     return [intrinsicType(type.name)];
   }
   literal(type: LiteralType): Type {
-    if (type.value === "null") {
+    if (type.value === null) {
       return [intrinsicType("null")];
     }
     if (typeof type.value === "number") {
       return [intrinsicType("number")];
     }
+    console.log(type);
     throw new Error("Not implemented");
   }
   mapped(type: MappedType): Type {
@@ -155,26 +180,39 @@ class TypeRenderer implements TypeVisitor<Type> {
     throw new Error("Not implemented");
   }
   tuple(type: TupleType): Type {
-    throw new Error("Not implemented");
+    const result: Type = ["["];
+    for (const elt of type.elements) {
+      result.push(...this.render(elt, TypeContext.tupleElement));
+      result.push(", ");
+    }
+    result.pop();
+    result.push("]");
+    return result;
   }
   namedTupleMember(type: NamedTupleMember): Type {
-    throw new Error("Not implemented");
+    const result: Type = [`${type.name}${type.isOptional ? "?" : ""}: `];
+    result.push(...this.render(type.element, TypeContext.tupleElement));
+    return result;
   }
   typeOperator(type: TypeOperatorType): Type {
     throw new Error("Not implemented");
   }
   union(type: UnionType): Type {
-    throw new Error("Not implemented");
+    const result: Type = [];
+    for (const elt of type.types) {
+      result.push(...this.render(elt, TypeContext.unionElement));
+      result.push(" | ");
+    }
+    result.pop();
+    return result;
   }
   unknown(type: UnknownType): Type {
     return [type.name];
   }
   array(t: ArrayType): Type {
-    const res = t.elementType.visit(this);
-    if (t.elementType.needsParenthesis(TypeContext.arrayElement)) {
-      return ["(", ...res, ")[]"];
-    }
-    return [...res, "[]"];
+    const res = this.render(t.elementType, TypeContext.arrayElement);
+    res.push("[]");
+    return res;
   }
 
   renderSignature(sig: SignatureReflection): Type {
@@ -182,7 +220,7 @@ class TypeRenderer implements TypeVisitor<Type> {
     for (const param of sig.parameters || []) {
       result.push(param.name + ": ");
       result.push(...(param.type?.visit(this) || []));
-      result.push(",");
+      result.push(", ");
     }
     if (sig.parameters?.length) {
       result.pop();
@@ -216,7 +254,7 @@ class TypeRenderer implements TypeVisitor<Type> {
     for (const child of lit.children || []) {
       result.push(child.name);
       if (child.flags.isOptional) {
-        result.push("?:");
+        result.push("?: ");
       } else {
         result.push(": ");
       }

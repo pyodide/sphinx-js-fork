@@ -23,6 +23,7 @@ setup(
         # https://github.com/pallets/jinja/issues/1585
         "markupsafe==2.0.1",
         "attrs",
+        "cattrs",
     ],
     python_requires=">=3.10",
     classifiers=[

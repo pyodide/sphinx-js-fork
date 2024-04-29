@@ -366,7 +366,7 @@ class JsRenderer(Renderer):
         result = "\n".join(lines) + "\n"
         return result
 
-    def _formal_params(self, obj: Function | Class) -> str:
+    def _formal_params(self, obj: Function) -> str:
         """Return the JS function or class params, looking first to any
         explicit params written into the directive and falling back to those in
         comments or JS code.

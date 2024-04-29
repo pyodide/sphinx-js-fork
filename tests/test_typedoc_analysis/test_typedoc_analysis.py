@@ -21,7 +21,7 @@ from sphinx_js.ir import (
     TypeXRefIntrinsic,
 )
 from sphinx_js.renderers import AutoClassRenderer, AutoFunctionRenderer
-from sphinx_js.typedoc import Comment, Converter, DescriptionItem, parse
+from sphinx_js.typedoc import Converter, parse
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
@@ -100,6 +100,40 @@ class TestPopulateIndex(TestCase):
         assert root.name == "misterRoot"
 
 
+def do_checks():
+    import json
+    from pathlib import Path
+
+    p = Path(__file__).parents[2]
+    j1 = json.load(open(p / "a.json"))
+    j2 = json.load(open(p / "py.json"))
+    j1 = sorted(j1, key=lambda t: t["path"])
+    j2 = sorted(j2, key=lambda t: t["path"])
+    assert j1[0]["path"] == j2[0]["path"]
+    for o in j1:
+        # del o["path"]
+        o.pop("exceptions", None)
+    for o in j2:
+        # del o["path"]
+        o.pop("exceptions", None)
+
+    idx = None
+    idx = 7
+    if idx is not None:
+        t1 = j1[idx]
+        t2 = j2[idx]
+    else:
+        t1 = j1
+        t2 = j2
+
+    differs = []
+    for idx, (a, b) in enumerate(zip(j1, j2, strict=False)):
+        if a != b:
+            differs.append(idx)
+    print(differs)
+    assert t2 == t1
+
+
 class TestPathSegments(TypeDocTestCase):
     """Make sure ``make_path_segments() `` works on all its manifold cases."""
 
@@ -107,15 +141,17 @@ class TestPathSegments(TypeDocTestCase):
 
     def commented_object(self, comment, **kwargs):
         """Return the object from ``json`` having the given comment short-text."""
-        comment = Comment(summary=[DescriptionItem(kind="text", text=comment)])
-        return dict_where(self.json, comment_=comment, **kwargs)
+        from sphinx_js import ir
+
+        comment = [ir.DescriptionText(text=comment)]
+        return dict_where(self.json2, description=comment, **kwargs)
 
     def commented_object_path(self, comment, **kwargs):
         """Return the path segments of the object with the given comment."""
         obj = self.commented_object(comment, **kwargs)
         if obj is NO_MATCH:
             raise RuntimeError(f'No object found with the comment "{comment}".')
-        return obj.path
+        return obj.path.segments
 
     def test_class(self):
         assert self.commented_object_path("Foo class") == ["./", "pathSegments.", "Foo"]
@@ -195,9 +231,12 @@ class TestPathSegments(TypeDocTestCase):
         # constructor itself. They both have the same comments.
         #
         # Constructors get a #. They aren't static; they can see ``this``.
-        assert self.commented_object_path(
-            "Constructor", kindString="Constructor signature"
-        ) == ["./", "pathSegments.", "Foo#", "constructor"]
+        assert self.commented_object_path("Constructor") == [
+            "./",
+            "pathSegments.",
+            "Foo#",
+            "constructor",
+        ]
 
     def test_function(self):
         assert self.commented_object_path("Function") == ["./", "pathSegments.", "foo"]
@@ -208,8 +247,7 @@ class TestPathSegments(TypeDocTestCase):
     def test_relative_paths(self):
         """Make sure FS path segments are emitted if ``base_dir`` doesn't
         directly contain the code."""
-        obj = self.commented_object("Function")
-        assert obj.path == [
+        assert self.commented_object_path("Function") == [
             "./",
             "test_typedoc_analysis/",
             "source/",
@@ -237,7 +275,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         """Test that superclasses, implemented interfaces, abstractness, and
         nonexistent constructors, members, and top-level attrs are surfaced."""
         # Make sure is_abstract is sometimes false:
-        super = self.analyzer.get_object(["Superclass"])
+        super = self.new_analyzer.get_object(["Superclass"])
         assert not super.is_abstract
 
         # There should be a single member representing method():
@@ -246,7 +284,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         assert method.name == "method"
 
         # Class-specific attrs:
-        subclass = self.analyzer.get_object(["EmptySubclass"])
+        subclass = self.new_analyzer.get_object(["EmptySubclass"])
         assert isinstance(subclass, Class)
         assert subclass.constructor_ is None
         assert subclass.is_abstract
@@ -267,6 +305,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         assert subclass.see_alsos == []
         assert subclass.properties == []
         assert subclass.exported_from == Pathname(["./", "nodes"])
+        do_checks()
 
     def test_interface(self):
         """Test that interfaces get indexed and have their supers exposed.
@@ -275,19 +314,19 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         assuming node structure is the same as for classes.
 
         """
-        interface = self.analyzer.get_object(["Interface"])
+        interface = self.new_analyzer.get_object(["Interface"])
         assert interface.supers == [Pathname(["./", "nodes.", "SuperInterface"])]
 
     def test_interface_function_member(self):
         """Make sure function-like properties are understood."""
-        obj = self.analyzer.get_object(["InterfaceWithMembers"])
+        obj = self.new_analyzer.get_object(["InterfaceWithMembers"])
         prop = obj.members[0]
         assert isinstance(prop, Function)
         assert prop.name == "callableProperty"
 
     def test_variable(self):
         """Make sure top-level consts and vars are found."""
-        const = self.analyzer.get_object(["topLevelConst"])
+        const = self.new_analyzer.get_object(["topLevelConst"])
         assert const.type == [TypeXRefIntrinsic("number")]
 
     def test_function(self):
@@ -297,7 +336,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         This covers a few simple function typing cases as well.
 
         """
-        func = self.analyzer.get_object(["func"])
+        func = self.new_analyzer.get_object(["func"])
         assert isinstance(func, Function)
         assert func.params == [
             Param(
@@ -331,13 +370,13 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         The rest of their analysis should share a code path with functions.
 
         """
-        cls = self.analyzer.get_object(["ClassWithProperties"])
-        assert isinstance(cls.constructor, Function)
+        cls = self.new_analyzer.get_object(["ClassWithProperties"])
+        assert isinstance(cls.constructor_, Function)
 
     def test_properties(self):
         """Make sure properties are hooked onto classes and expose their
         flags."""
-        cls = self.analyzer.get_object(["ClassWithProperties"])
+        cls = self.new_analyzer.get_object(["ClassWithProperties"])
         # The properties are on the class and are Attributes:
         assert (
             len(
@@ -353,16 +392,16 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         )
         # The unique things about properties (over and above Variables) are set
         # right:
-        assert self.analyzer.get_object(
+        assert self.new_analyzer.get_object(
             ["ClassWithProperties.", "someStatic"]
         ).is_static
-        assert self.analyzer.get_object(
+        assert self.new_analyzer.get_object(
             ["ClassWithProperties#", "someOptional"]
         ).is_optional
-        assert self.analyzer.get_object(
+        assert self.new_analyzer.get_object(
             ["ClassWithProperties#", "somePrivate"]
         ).is_private
-        normal_property = self.analyzer.get_object(
+        normal_property = self.new_analyzer.get_object(
             ["ClassWithProperties#", "someNormal"]
         )
         assert (
@@ -375,14 +414,14 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
     def test_getter(self):
         """Test that we represent getters as Attributes and find their return
         types."""
-        getter = self.analyzer.get_object(["gettable"])
+        getter = self.new_analyzer.get_object(["gettable"])
         assert isinstance(getter, Attribute)
         assert getter.type == [TypeXRefIntrinsic("number")]
 
     def test_setter(self):
         """Test that we represent setters as Attributes and find the type of
         their 1 param."""
-        setter = self.analyzer.get_object(["settable"])
+        setter = self.new_analyzer.get_object(["settable"])
         assert isinstance(setter, Attribute)
         assert setter.type == [TypeXRefIntrinsic("string")]
 
@@ -411,12 +450,13 @@ class TestTypeName(TypeDocAnalyzerTestCase):
             ("obj", "object"),
             ("sym", "symbol"),
         ]:
-            obj = self.analyzer.get_object([obj_name])
+            obj = self.new_analyzer.get_object([obj_name])
             assert join_type(obj.type) == type_name
+        do_checks()
 
     def test_named_interface(self):
         """Make sure interfaces can be referenced by name."""
-        obj = self.analyzer.get_object(["interfacer"])
+        obj = self.new_analyzer.get_object(["interfacer"])
         assert obj.params[0].type == [
             TypeXRefInternal(name="Interface", path=["./", "types.", "Interface"])
         ]
@@ -424,7 +464,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
     def test_interface_readonly_member(self):
         """Make sure the readonly modifier doesn't keep us from computing the
         type of a property."""
-        obj = self.analyzer.get_object(["Interface"])
+        obj = self.new_analyzer.get_object(["Interface"])
         read_only_num = obj.members[0]
         assert read_only_num.name == "readOnlyNum"
         assert read_only_num.type == [TypeXRefIntrinsic("number")]
@@ -436,13 +476,13 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         function.
 
         """
-        obj = self.analyzer.get_object(["overload"])
+        obj = self.new_analyzer.get_object(["overload"])
         assert obj.params[0].type == [TypeXRefIntrinsic("string"), "[]"]
 
     def test_literal_types(self):
         """Make sure a thing of a named literal type has that type name
         attached."""
-        obj = self.analyzer.get_object(["certainNumbers"])
+        obj = self.new_analyzer.get_object(["certainNumbers"])
         assert obj.type == [
             TypeXRefInternal(
                 name="CertainNumbers", path=["./", "types.", "CertainNumbers"]
@@ -451,7 +491,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
 
     def test_unions(self):
         """Make sure unions get rendered properly."""
-        obj = self.analyzer.get_object(["union"])
+        obj = self.new_analyzer.get_object(["union"])
         assert obj.type == [
             TypeXRefIntrinsic("number"),
             " | ",
@@ -461,7 +501,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         ]
 
     def test_intersection(self):
-        obj = self.analyzer.get_object(["intersection"])
+        obj = self.new_analyzer.get_object(["intersection"])
         assert obj.type == [
             TypeXRefInternal(name="FooHaver", path=["./", "types.", "FooHaver"]),
             " & ",
@@ -470,7 +510,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
 
     def test_generic_function(self):
         """Make sure type params appear in args and return types."""
-        obj = self.analyzer.get_object(["aryIdentity"])
+        obj = self.new_analyzer.get_object(["aryIdentity"])
         T = ["T", "[]"]
         assert obj.params[0].type == T
         assert obj.returns[0].type == T
@@ -478,7 +518,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
     def test_generic_member(self):
         """Make sure members of a class have their type params taken into
         account."""
-        obj = self.analyzer.get_object(["add"])
+        obj = self.new_analyzer.get_object(["add"])
         assert len(obj.params) == 2
         T = ["T"]
         assert obj.params[0].type == T
@@ -487,7 +527,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
 
     def test_constrained_by_interface(self):
         """Make sure ``extends SomeInterface`` constraints are rendered."""
-        obj = self.analyzer.get_object(["constrainedIdentity"])
+        obj = self.new_analyzer.get_object(["constrainedIdentity"])
         T = ["T"]
         assert obj.params[0].type == T
         assert obj.returns[0].type == T
@@ -501,7 +541,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
 
     def test_constrained_by_key(self):
         """Make sure ``extends keyof SomeObject`` constraints are rendered."""
-        obj: Function = self.analyzer.get_object(["getProperty"])
+        obj: Function = self.new_analyzer.get_object(["getProperty"])
         assert obj.params[0].name == "obj"
         assert join_type(obj.params[0].type) == "T"
         assert join_type(obj.params[1].type) == "K"
@@ -535,7 +575,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
 
     def test_class_constrained(self):
         # TODO: this may belong somewhere else
-        obj: Class = self.analyzer.get_object(["ParamClass"])
+        obj: Class = self.new_analyzer.get_object(["ParamClass"])
         tp = copy(obj.type_params[0])
         tp.extends = join_type(tp.extends)
         assert tp == TypeParam(
@@ -556,14 +596,14 @@ class TestTypeName(TypeDocAnalyzerTestCase):
     def test_constrained_by_constructor(self):
         """Make sure ``new ()`` expressions and, more generally, per-property
         constraints are rendered properly."""
-        obj = self.analyzer.get_object(["create1"])
+        obj = self.new_analyzer.get_object(["create1"])
         assert join_type(obj.params[0].type) == "{new (x: number) => A}"
-        obj = self.analyzer.get_object(["create2"])
+        obj = self.new_analyzer.get_object(["create2"])
         assert join_type(obj.params[0].type) == "{new () => T}"
 
     def test_utility_types(self):
         """Test that a representative one of TS's utility types renders."""
-        obj = self.analyzer.get_object(["partial"])
+        obj = self.new_analyzer.get_object(["partial"])
         t = deepcopy(obj.type)
         t[0].sourcefilename = "xxx"
         assert t == [
@@ -574,7 +614,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         ]
 
     def test_constrained_by_property(self):
-        obj = self.analyzer.get_object(["objProps"])
+        obj = self.new_analyzer.get_object(["objProps"])
         assert obj.params[0].type == [
             "{ ",
             "label",
@@ -589,11 +629,11 @@ class TestTypeName(TypeDocAnalyzerTestCase):
 
     def test_optional_property(self):
         """Make sure optional properties render properly."""
-        obj = self.analyzer.get_object(["option"])
+        obj = self.new_analyzer.get_object(["option"])
         assert join_type(obj.type) == "{ a: number; b?: string; }"
 
     def test_code_in_description(self):
-        obj = self.analyzer.get_object(["codeInDescription"])
+        obj = self.new_analyzer.get_object(["codeInDescription"])
         assert obj.description == [
             DescriptionText(text="Code 1 had "),
             DescriptionCode(code="`single ticks around it`"),
@@ -607,34 +647,34 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         ]
 
     def test_destructured(self):
-        obj = self.analyzer.get_object(["destructureTest"])
+        obj = self.new_analyzer.get_object(["destructureTest"])
         assert obj.params[0].name == "options.a"
         assert join_type(obj.params[0].type) == "string"
         assert obj.params[0].description == [DescriptionText(text="The 'a' string.")]
         assert obj.params[1].name == "options.b"
         assert join_type(obj.params[1].type) == "{ c: string; }"
         assert obj.params[1].description == [DescriptionText(text="The 'b' string.")]
-        obj = self.analyzer.get_object(["destructureTest2"])
+        obj = self.new_analyzer.get_object(["destructureTest2"])
         assert obj.params[0].name == "options.a"
         assert join_type(obj.params[0].type) == "string"
         assert obj.params[0].description == [DescriptionText(text="The 'a' string.")]
         assert obj.params[1].name == "options.b"
         assert join_type(obj.params[1].type) == "{ c: string; }"
         assert obj.params[1].description == [DescriptionText(text="The 'b' object.")]
-        obj = self.analyzer.get_object(["destructureTest3"])
+        obj = self.new_analyzer.get_object(["destructureTest3"])
         assert obj.params[0].name == "options"
         assert join_type(obj.params[0].type) == "{ a: string; b: { c: string; }; }"
-        obj = self.analyzer.get_object(["destructureTest4"])
+        obj = self.new_analyzer.get_object(["destructureTest4"])
         assert obj.params[0].name == "destructureThisPlease.a"
         assert join_type(obj.params[0].type) == "string"
         assert obj.params[0].description == [DescriptionText(text="The 'a' string.")]
 
     def test_funcarg(self):
-        obj = self.analyzer.get_object(["funcArg"])
+        obj = self.new_analyzer.get_object(["funcArg"])
         assert obj.params[0].name == "a"
         assert join_type(obj.params[0].type) == "(b: number, c: number) => number"
 
     def test_namedtuplearg(self):
-        obj = self.analyzer.get_object(["namedTupleArg"])
+        obj = self.new_analyzer.get_object(["namedTupleArg"])
         assert obj.params[0].name == "namedTuple"
         assert join_type(obj.params[0].type) == "[key: string, value: any]"

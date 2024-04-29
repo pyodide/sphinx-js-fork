@@ -65,7 +65,7 @@ export type Member = {
 
 export type TypeParam = {
   name: string;
-  extends: Type;
+  extends: Type | null;
   description: Description;
 };
 
