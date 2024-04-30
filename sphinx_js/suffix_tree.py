@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import (
     Any,
     Generic,
@@ -32,7 +32,7 @@ class SuffixTree(Generic[T]):
         #: directly or indirectly. ``self._tree`` itself is a Tree.
         self._tree: _Tree = {}
 
-    def add(self, unambiguous_segments: list[str], value: T) -> None:
+    def add(self, unambiguous_segments: Sequence[str], value: T) -> None:
         """Add an item to the tree.
 
         :arg unambiguous_segments: A list of path segments that correspond
@@ -48,7 +48,9 @@ class SuffixTree(Generic[T]):
         else:
             tree["value"] = value
 
-    def add_many(self, segments_and_values: Iterable[tuple[list[str], Any]]) -> None:
+    def add_many(
+        self, segments_and_values: Iterable[tuple[Sequence[str], Any]]
+    ) -> None:
         """Add a batch of items to the tree all at once, and collect any
         errors.
 
@@ -67,7 +69,7 @@ class SuffixTree(Generic[T]):
         if conflicts:
             raise PathsTaken(conflicts)
 
-    def get_with_path(self, segments: list[str]) -> tuple[T, list[str]]:
+    def get_with_path(self, segments: Sequence[str]) -> tuple[T, Sequence[str]]:
         """Return the value stored at a path ending in the given segments,
         along with the full path found.
 
@@ -115,14 +117,14 @@ class SuffixTree(Generic[T]):
         # raised SuffixAmbiguous above. If there were a single one, we would
         # have followed it. So, since subtrees always eventually terminate in a
         # value, we must be at one now.
-        return tree["value"], (list(reversed(additional_segments)) + segments)
+        return tree["value"], (list(reversed(additional_segments)) + list(segments))
 
-    def get(self, segments: list[str]) -> T:
+    def get(self, segments: Sequence[str]) -> T:
         return self.get_with_path(segments)[0]
 
 
 class SuffixError(Exception):
-    def __init__(self, segments: list[str]):
+    def __init__(self, segments: Sequence[str]):
         self.segments = segments
 
     _message: str
@@ -144,7 +146,7 @@ class PathsTaken(Exception):
 
     """
 
-    def __init__(self, conflicts: list[list[str]]) -> None:
+    def __init__(self, conflicts: list[Sequence[str]]) -> None:
         """
         :arg conflicts: A list of paths, each given as a list of segments
         """
@@ -172,7 +174,7 @@ class SuffixAmbiguous(SuffixError):
 
     def __init__(
         self,
-        segments: list[str],
+        segments: Sequence[str],
         next_possible_keys: list[str],
         or_ends_here: bool = False,
     ) -> None:

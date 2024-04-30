@@ -83,7 +83,7 @@ class Pathname:
 
     """
 
-    def __init__(self, segments: list[str]):
+    def __init__(self, segments: Sequence[str]):
         self.segments = segments
 
     def __str__(self) -> str:
