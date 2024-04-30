@@ -30,6 +30,7 @@ import {
   TypeParam,
 } from "./ir.ts";
 import { delimiter, relative } from "path";
+import { SphinxJsConfig } from "./sphinxJsConfig.ts";
 
 function parseFilePath(path: string, base_dir: string): string[] {
   // First we want to know if path is under base_dir.
@@ -327,6 +328,7 @@ type ParamReflSubset = Pick<
 export class Converter {
   readonly project: ProjectReflection;
   readonly basePath: string;
+  readonly config: SphinxJsConfig;
 
   readonly pathMap: Map<DeclarationReflection | SignatureReflection, Pathname>;
   readonly filePathMap: Map<
@@ -334,16 +336,18 @@ export class Converter {
     Pathname
   >;
   readonly documentationRoots: Set<DeclarationReflection | SignatureReflection>;
-  readonly _shouldDestructureArg: (p: ParamReflSubset) => boolean;
 
-  constructor(project: ProjectReflection, basePath: string) {
+  constructor(
+    project: ProjectReflection,
+    basePath: string,
+    config: SphinxJsConfig,
+  ) {
     this.project = project;
     this.basePath = basePath;
+    this.config = config;
     this.pathMap = new Map();
     this.filePathMap = new Map();
     this.documentationRoots = new Set();
-    this._shouldDestructureArg = (param) =>
-      param.name === "destructureThisPlease";
   }
 
   renderType(type: SomeType, context: TypeContext = TypeContext.none): Type {
@@ -701,7 +705,8 @@ export class Converter {
       if (destructureTargets?.includes(p.name)) {
         return true;
       }
-      return this._shouldDestructureArg(p);
+      const shouldDestructure = this.config.shouldDestructureArg;
+      return shouldDestructure && shouldDestructure(p);
     };
     for (const p of sig.parameters || []) {
       if (shouldDestructure(p)) {

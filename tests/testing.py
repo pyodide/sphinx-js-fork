@@ -79,11 +79,16 @@ class TypeDocTestCase(ThisDirTestCase):
     def setup_class(cls):
         """Run the TS analyzer over the TypeDoc output."""
         cls._source_dir = join(cls.this_dir(), "source")
+        from pathlib import Path
+
+        config_file = Path(__file__).parent / "sphinxJsConfig.ts"
+
         cls.json = typedoc_output(
             [join(cls._source_dir, file) for file in cls.files],
             cls._source_dir,
             "tsconfig.json",
             cls._source_dir,
+            str(config_file),
         )
 
 

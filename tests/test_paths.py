@@ -97,19 +97,20 @@ def test_global_install(tmp_path_factory, monkeypatch):
     subprocess.run(["npm", "i", "-g", "typedoc"])
     typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", str(tmpdir2))
     monkeypatch.setenv("TYPEDOC_NODE_MODULES", str(Path(typedoc).parents[3]))
-    dir = Path(__file__).parents[1] / "sphinx_js/js"
+    dir = Path(__file__).parents[1].resolve() / "sphinx_js/js"
 
     res = subprocess.run(
         [
             "npx",
             "tsx",
             "--import",
-            dir / "register.mjs",
+            dir / "registerImportHook.mjs",
             dir / "call_typedoc.ts",
             "--version",
         ],
-        check=True,
         capture_output=True,
         encoding="utf8",
     )
+    print(res.stderr)
+    res.check_returncode()
     assert "TypeDoc 0.25" in res.stdout

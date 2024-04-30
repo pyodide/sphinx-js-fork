@@ -52,6 +52,7 @@ def typedoc_output(
     sphinx_conf_dir: str | pathlib.Path,
     config_path: str,
     base_dir: str,
+    config_file: str | None,
 ) -> list[ir.TopLevelUnion]:
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
@@ -67,8 +68,10 @@ def typedoc_output(
     command = Command("npx")
     command.add("tsx")
     dir = Path(__file__).parent.resolve() / "js"
-    command.add("--import", str(dir / "registerImportHooks.mjs"))
+    command.add("--import", str(dir / "registerImportHook.mjs"))
     command.add(str(dir / "call_typedoc.ts"))
+    if config_file:
+        command.add("--sphinx-js-config", config_file)
     command.add("--entryPointStrategy", "expand")
 
     if config_path:
@@ -121,7 +124,11 @@ class Analyzer:
         cls, abs_source_paths: Sequence[str], app: Sphinx, base_dir: str
     ) -> "Analyzer":
         json = typedoc_output(
-            abs_source_paths, app.confdir, app.config.jsdoc_config_path, base_dir
+            abs_source_paths,
+            app.confdir,
+            app.config.jsdoc_config_path,
+            base_dir,
+            app.config.ts_sphinx_js_config,
         )
         return cls(json, base_dir)
 
