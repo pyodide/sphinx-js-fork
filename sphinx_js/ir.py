@@ -297,7 +297,7 @@ class Interface(TopLevel, _MembersAndSupers):
 class Class(TopLevel, _MembersAndSupers):
     #: The default constructor for this class. Absent if the constructor is
     #: inherited.
-    constructor: Function | None
+    constructor_: Function | None
     #: Whether this is an abstract class
     is_abstract: bool
     #: Interfaces this class implements

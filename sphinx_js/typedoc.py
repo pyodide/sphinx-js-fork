@@ -715,7 +715,7 @@ class Class(ClassOrInterface):
     def to_ir(self, converter: Converter) -> tuple[ir.Class | None, Sequence["Node"]]:
         constructor, members = self._constructor_and_members(converter)
         result = ir.Class(
-            constructor=constructor,
+            constructor_=constructor,
             members=members,
             supers=self._related_types(converter, kind="extendedTypes"),
             is_abstract=self.flags.isAbstract,
