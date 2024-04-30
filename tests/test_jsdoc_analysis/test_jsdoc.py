@@ -130,7 +130,7 @@ class TestClass(JsDocTestCase):
         assert getter.description == "Setting this also frobs the frobnicator."
 
         # Constructor:
-        constructor = cls.constructor
+        constructor = cls.constructor_
         assert constructor.name == "Foo"
         assert constructor.path == Pathname(
             ["./", "class.", "Foo"]

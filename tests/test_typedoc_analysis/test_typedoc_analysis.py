@@ -248,7 +248,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         # Class-specific attrs:
         subclass = self.analyzer.get_object(["EmptySubclass"])
         assert isinstance(subclass, Class)
-        assert subclass.constructor is None
+        assert subclass.constructor_ is None
         assert subclass.is_abstract
         assert subclass.interfaces == [Pathname(["./", "nodes.", "Interface"])]
 
@@ -332,7 +332,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
 
         """
         cls = self.analyzer.get_object(["ClassWithProperties"])
-        assert isinstance(cls.constructor, Function)
+        assert isinstance(cls.constructor_, Function)
 
     def test_properties(self):
         """Make sure properties are hooked onto classes and expose their
