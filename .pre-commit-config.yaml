@@ -51,6 +51,7 @@ repos:
         args: []
         additional_dependencies:
           - attrs
+          - cattrs
           - jinja2
           - nox
           - pydantic

@@ -22,50 +22,60 @@ unwrapping of comments, making another representation inevitable. Therefore,
 let's at least have a well-documented one and one slightly more likely to
 survive template changes.
 
+This has to match js/ir.ts
 """
-from collections.abc import Sequence
-from typing import Any
 
+from collections.abc import Callable, Sequence
+from typing import Any, Literal, ParamSpec, TypeVar
+
+import cattrs
 from attrs import Factory, define, field
 
 from .analyzer_utils import dotted_path
 
 
 @define
-class TypeXRef:
+class TypeXRefIntrinsic:
     name: str
+    type: Literal["intrinsic"] = "intrinsic"
 
 
 @define
-class TypeXRefIntrinsic(TypeXRef):
-    pass
-
-
-@define
-class TypeXRefInternal(TypeXRef):
+class TypeXRefInternal:
+    name: str
     path: list[str]
+    type: Literal["internal"] = "internal"
 
 
 @define
-class TypeXRefExternal(TypeXRef):
+class TypeXRefExternal:
+    name: str
     package: str
+    # TODO: use snake case for these like for everything else
     sourcefilename: str
     qualifiedName: str
+    type: Literal["external"] = "external"
+
+
+TypeXRef = TypeXRefExternal | TypeXRefInternal | TypeXRefIntrinsic
 
 
 @define
 class DescriptionName:
     text: str
+    type: Literal["name"] = "name"
 
 
 @define
 class DescriptionText:
     text: str
+    type: Literal["text"] = "text"
 
 
 @define
 class DescriptionCode:
     code: str
+    type: Literal["code"] = "code"
 
 
 DescriptionItem = DescriptionName | DescriptionText | DescriptionCode
@@ -90,7 +100,7 @@ class Pathname:
         return "".join(self.segments)
 
     def __repr__(self) -> str:
-        return "<Pathname(%r)>" % self.segments
+        return "Pathname(%r)" % self.segments
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, self.__class__) and self.segments == other.segments
@@ -99,13 +109,16 @@ class Pathname:
         return dotted_path(self.segments)
 
 
+@define
 class _NoDefault:
     """A conspicuous no-default value that will show up in templates to help
     troubleshoot code paths that grab ``Param.default`` without checking
     ``Param.has_default`` first."""
 
+    _no_default: bool = True
+
     def __repr__(self) -> str:
-        return "<no default value>"
+        return "NO_DEFAULT"
 
 
 NO_DEFAULT = _NoDefault()
@@ -242,7 +255,10 @@ class TopLevel:
     #: None if not exported for use by outside code. Otherwise, the Sphinx
     #: dotted path to the module it is exported from, e.g. 'foo.bar'
     exported_from: Pathname | None
+    #: Descriminator
     kind: str = field(kw_only=True)
+    #: Is it a root documentation item? Used by autosummary.
+    documentation_root: bool = field(kw_only=True, default=False)
 
 
 @define(slots=False)
@@ -307,5 +323,86 @@ class Class(TopLevel, _MembersAndSupers):
     # `undocumented: True` doclet and so are presently filtered out. But we do
     # have the space to include them someday.
     type_params: list[TypeParam] = Factory(list)
-    params: list[Param] = Factory(list)
     kind: str = "classes"
+
+
+TopLevelUnion = Class | Interface | Function | Attribute
+
+# Now make a serializer/deserializer.
+# TODO: Add tests to make sure that serialization and deserialization are a
+# round trip.
+
+
+def json_to_ir(json: Any) -> list[TopLevelUnion]:
+    """Structure raw json into a list of TopLevels"""
+    return converter.structure(json, list[TopLevelUnion])
+
+
+converter = cattrs.Converter()
+# We just serialize Pathname as a list
+converter.register_unstructure_hook(Pathname, lambda x: x.segments)
+converter.register_structure_hook(Pathname, lambda x, _: Pathname(x))
+
+# Nothing else needs custom serialization. Add a decorator to register custom
+# deserializers for the various unions.
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def _structure(*types: Any) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    def dec(func: Callable[P, T]) -> Callable[P, T]:
+        for ty in types:
+            converter.register_structure_hook(ty, func)
+        return func
+
+    return dec
+
+
+@_structure(Description, Description | bool)
+def structure_description(x: Any, _: Any) -> Description | bool:
+    if isinstance(x, str):
+        return x
+    if isinstance(x, bool):
+        return x
+    return converter.structure(x, list[DescriptionItem])
+
+
+def get_type_literal(t: type[DescriptionText]) -> str:
+    """Take the "blah" from the type annotation in
+
+    type: Literal["blah"]
+    """
+    return t.__annotations__["type"].__args__[0]  # type:ignore[no-any-return]
+
+
+description_type_map = {
+    get_type_literal(t): t for t in [DescriptionName, DescriptionText, DescriptionCode]
+}
+
+
+@_structure(DescriptionItem)
+def structure_description_item(x: Any, _: Any) -> DescriptionItem:
+    # Look up the expected type of x from the value of x["type"]
+    return converter.structure(x, description_type_map[x["type"]])
+
+
+@_structure(Type)
+def structure_type(x: Any, _: Any) -> Type:
+    if isinstance(x, str) or x is None:
+        return x
+    return converter.structure(x, list[str | TypeXRef])
+
+
+@_structure(str | TypeXRef)
+def structure_str_or_xref(x: Any, _: Any) -> Type:
+    if isinstance(x, str):
+        return x
+    return converter.structure(x, TypeXRef)  # type:ignore[arg-type]
+
+
+@_structure(str | _NoDefault)
+def structure_str_or_nodefault(x: Any, _: Any) -> str | _NoDefault:
+    if isinstance(x, str):
+        return x
+    return NO_DEFAULT
