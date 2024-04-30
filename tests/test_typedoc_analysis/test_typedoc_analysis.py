@@ -332,7 +332,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
 
         """
         cls = self.analyzer.get_object(["ClassWithProperties"])
-        assert isinstance(cls.constructor, Function)
+        assert isinstance(cls.constructor_, Function)
 
     def test_properties(self):
         """Make sure properties are hooked onto classes and expose their
