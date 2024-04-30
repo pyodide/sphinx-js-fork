@@ -67,7 +67,7 @@ def typedoc_output(
     command = Command("npx")
     command.add("tsx")
     dir = Path(__file__).parent.resolve() / "js"
-    command.add("--import", str(dir / "register.mjs"))
+    command.add("--import", str(dir / "registerImportHooks.mjs"))
     command.add(str(dir / "call_typedoc.ts"))
     command.add("--entryPointStrategy", "expand")
 
