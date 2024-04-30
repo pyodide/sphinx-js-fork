@@ -254,7 +254,9 @@ class TopLevel:
     #: None if not exported for use by outside code. Otherwise, the Sphinx
     #: dotted path to the module it is exported from, e.g. 'foo.bar'
     exported_from: Pathname | None
+    #: Descriminator
     kind: str = field(kw_only=True)
+    #: Is it a root documentation item? Used by autosummary.
     top_level: bool = field(kw_only=True, default=False)
 
 
@@ -325,11 +327,22 @@ class Class(TopLevel, _MembersAndSupers):
 
 TopLevelUnion = Class | Interface | Function | Attribute
 
-# Now make a serializer/deserializer
+# Now make a serializer/deserializer.
+# TODO: Add tests to make sure that serialization and deserialization are a
+# round trip.
+
+def json_to_ir(json: Any) -> list[TopLevelUnion]:
+    """Structure raw json into a list of TopLevels"""
+    return converter.structure(json, list[TopLevelUnion])
+
 
 converter = cattrs.Converter()
+# We just serialize Pathname as a list
 converter.register_unstructure_hook(Pathname, lambda x: x.segments)
 converter.register_structure_hook(Pathname, lambda x, _: Pathname(x))
+
+# Nothing else needs custom serialization. Add a decorator to register custom
+# deserializers for the various unions.
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -342,10 +355,6 @@ def _structure(*types: Any) -> Callable[[Callable[P, T]], Callable[P, T]]:
         return func
 
     return dec
-
-
-def json_to_ir(json: Any) -> list[TopLevelUnion]:
-    return converter.structure(json, list[TopLevelUnion])
 
 
 @_structure(Description, Description | bool)
@@ -371,9 +380,9 @@ description_type_map = {
 
 
 @_structure(DescriptionItem)
-def structure_description_item(o: Any, _: Any) -> DescriptionItem:
-    # Look up the expected type of o from the value of o["type"]
-    return converter.structure(o, description_type_map[o["type"]])
+def structure_description_item(x: Any, _: Any) -> DescriptionItem:
+    # Look up the expected type of x from the value of x["type"]
+    return converter.structure(x, description_type_map[x["type"]])
 
 
 @_structure(Type)
