@@ -582,3 +582,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
     def test_query(self):
         obj = self.analyzer.get_object(["queryType"])
         assert join_type(obj.type) == "typeof A"
+
+    def test_type_operator(self):
+        obj = self.analyzer.get_object(["typeOperatorType"])
+        assert join_type(obj.type) == "keyof A"

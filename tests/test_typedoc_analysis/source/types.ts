@@ -191,3 +191,4 @@ export function funcArg(a: (b: number, c: number) => number) {}
 export function namedTupleArg(namedTuple: [key: string, value: any]) {}
 
 export let queryType: typeof A;
+export let typeOperatorType: keyof A;
