@@ -8,6 +8,7 @@ import {
   ReflectionVisitor,
   SignatureReflection,
   SomeType,
+  TypeContext,
   TypeParameterReflection,
 } from "typedoc";
 import { renderType } from "./renderType.ts";
@@ -345,6 +346,10 @@ export class Converter {
       param.name === "destructureThisPlease";
   }
 
+  renderType(type: SomeType, context: TypeContext = TypeContext.none): Type {
+    return renderType(this.basePath, this.pathMap, type, context);
+  }
+
   computePaths() {
     this.project.visit(
       new PathComputer(
@@ -425,7 +430,7 @@ export class Converter {
     if (!v.type) {
       throw new Error(`Type of ${v.name} is undefined`);
     }
-    const type = renderType(this.pathMap, v.type);
+    const type = this.renderType(v.type);
     const result: Attribute = {
       ...this.memberProps(v),
       ...this.topLevelProperties(v),
@@ -494,7 +499,7 @@ export class Converter {
     }
     // TODO: add a readonly indicator if it's readonly
     const result: Attribute = {
-      type: renderType(this.pathMap, prop.type!),
+      type: this.renderType(prop.type!),
       ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
       description: renderCommentSummary(prop.comment),
@@ -533,7 +538,7 @@ export class Converter {
     }
     // TODO: add a readonly indicator if there's no setter.
     const result: Attribute = {
-      type: renderType(this.pathMap, type),
+      type: this.renderType(type),
       ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
       kind: "attributes",
@@ -714,7 +719,7 @@ export class Converter {
   paramToIR(param: ParamReflSubset): Param {
     let type: Type = [];
     if (param.type) {
-      type = renderType(this.pathMap, param.type);
+      type = this.renderType(param.type);
     }
     let description = renderCommentSummary(param.comment);
     if (description.length === 0 && param.type?.type === "reflection") {
@@ -768,7 +773,7 @@ export class Converter {
     const topLevel = this.topLevelProperties(first_sig);
     if (!voidReturnType && first_sig.type) {
       // Compute return comment and return annotation.
-      const returnType = renderType(this.pathMap, first_sig.type);
+      const returnType = this.renderType(first_sig.type);
       const description = topLevel.block_tags.returns?.[0] || [];
       returns = [{ type: returnType, description }];
       // Put async in front of the function if it returns a Promise.
@@ -797,7 +802,7 @@ export class Converter {
 
   typeParamToIR(typeParam: TypeParameterReflection): TypeParam {
     const extends_ = typeParam.type
-      ? renderType(this.pathMap, typeParam.type)
+      ? this.renderType(typeParam.type, TypeContext.referenceTypeArgument)
       : null;
     return {
       name: typeParam.name,

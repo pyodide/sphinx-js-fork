@@ -34,13 +34,32 @@ import {
   intrinsicType,
 } from "./ir.ts";
 
+/**
+ * Render types into a list of strings and XRefs.
+ *
+ * Most visitor nodes should be similar to the implementation of getTypeString
+ * on the same type.
+ *
+ * TODO: implement the remaining not implemented cases and add test coverage.
+ */
 class TypeRenderer implements TypeVisitor<Type> {
-  reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>;
+  private readonly basePath: string;
+  // For resolving XRefs.
+  private readonly reflToPath: Map<
+    DeclarationReflection | SignatureReflection,
+    string[]
+  >;
   constructor(
+    basePath: string,
     reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>,
   ) {
+    this.basePath = basePath;
     this.reflToPath = reflToPath;
   }
+
+  /**
+   * Helper for inserting type parameters
+   */
   addTypeParams(
     type: { typeArguments?: SomeType[] | undefined },
     l: Type,
@@ -74,6 +93,7 @@ class TypeRenderer implements TypeVisitor<Type> {
     throw new Error("Not implemented");
   }
   indexedAccess(type: IndexedAccessType): Type {
+    // TODO: switch to correct impl
     return ["<TODO: not implemented indexedAccess>"];
     return [
       ...this.render(type.objectType, TypeContext.indexedObject),
@@ -102,6 +122,8 @@ class TypeRenderer implements TypeVisitor<Type> {
       return [intrinsicType("null")];
     }
     if (typeof type.value === "number") {
+      // I suppose we could keep the number if we wanted to, but I think it
+      // makes more sense to put number here
       return [intrinsicType("number")];
     }
     console.log(type);
@@ -114,6 +136,8 @@ class TypeRenderer implements TypeVisitor<Type> {
     throw new Error("Not implemented");
   }
   predicate(type: PredicateType): Type {
+    // Consider using typedoc's representation for this instead of this custom
+    // string.
     return [
       intrinsicType("boolean"),
       " (typeguard for ",
@@ -126,15 +150,20 @@ class TypeRenderer implements TypeVisitor<Type> {
   }
   reference(type: ReferenceType): Type {
     if (type.isIntentionallyBroken()) {
+      // If it's intentionally broken, don't add an xref. It's probably a type
+      // parameter.
       return this.addTypeParams(type, [type.name]);
     }
     // TODO: should we pass down app.serializer? app?
-    const fakeSerializer = { projectRoot: process.cwd() } as Serializer;
+    const fakeSerializer = { projectRoot: this.basePath } as Serializer;
+    // Calling toObject resolves the file names with respect to projectRoot.
+    // qualifiedName and sourcefilename  are supposed to be absolute.
     const fileInfo = type.symbolId?.toObject(fakeSerializer);
+    // If it has a package field, it's external otherwise it's internal.
     if (type.package) {
       const res: TypeXRefExternal = {
         name: type.name,
-        package: type.package!,
+        package: type.package,
         qualifiedName: fileInfo?.qualifiedName,
         sourcefilename: fileInfo?.sourceFileName,
         type: "external",
@@ -180,12 +209,13 @@ class TypeRenderer implements TypeVisitor<Type> {
     throw new Error("Not implemented");
   }
   tuple(type: TupleType): Type {
-    const result: Type = ["["];
+    const result: Type = [];
     for (const elt of type.elements) {
       result.push(...this.render(elt, TypeContext.tupleElement));
       result.push(", ");
     }
     result.pop();
+    result.unshift("[");
     result.push("]");
     return result;
   }
@@ -207,6 +237,8 @@ class TypeRenderer implements TypeVisitor<Type> {
     return result;
   }
   unknown(type: UnknownType): Type {
+    // I'm not sure how we get here: generally nobody explicitly annotates
+    // unknown, maybe it's inferred sometimes?
     return [type.name];
   }
   array(t: ArrayType): Type {
@@ -245,10 +277,21 @@ class TypeRenderer implements TypeVisitor<Type> {
         throw new Error("oops");
       }
       const key = index_sig.parameters[0];
+      // There's no exact TypeContext for indexedAccess b/c typedoc doesn't
+      // render it like this. mappedParameter and mappedTemplate look quite
+      // similar:
+      // [k in mappedParam]: mappedTemplate
+      //  vs
+      // [k: keyType]: valueType
+      const keyType = this.render(key.type!, TypeContext.mappedParameter);
+      const valueType = this.render(
+        index_sig.type!,
+        TypeContext.mappedTemplate,
+      );
       result.push("[", key.name, ": ");
-      result.push(...(key.type?.visit(this) || []));
+      result.push(...keyType);
       result.push("]", ": ");
-      result.push(...(index_sig.type?.visit(this) || []));
+      result.push(...valueType);
       result.push("; ");
     }
     for (const child of lit.children || []) {
@@ -267,8 +310,11 @@ class TypeRenderer implements TypeVisitor<Type> {
 }
 
 export function renderType(
+  basePath: string,
   reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>,
   type: SomeType,
+  context: TypeContext = TypeContext.none,
 ): Type {
-  return type.visit(new TypeRenderer(reflToPath));
+  const renderer = new TypeRenderer(basePath, reflToPath);
+  return renderer.render(type, context);
 }

@@ -51,6 +51,7 @@ class TypeXRefInternal:
 class TypeXRefExternal:
     name: str
     package: str
+    # TODO: use snake case for these like for everything else
     sourcefilename: str
     qualifiedName: str
     type: Literal["external"] = "external"
