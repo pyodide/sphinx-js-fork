@@ -117,7 +117,7 @@ class _NoDefault:
     _no_default: bool = True
 
     def __repr__(self) -> str:
-        return "'no default value'"
+        return "NO_DEFAULT"
 
 
 NO_DEFAULT = _NoDefault()
