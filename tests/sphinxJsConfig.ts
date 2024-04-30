@@ -1,3 +1,3 @@
 export const config = {
-    shouldDestructureArg: (param) => param.name === "destructureThisPlease"
+  shouldDestructureArg: (param) => param.name === "destructureThisPlease",
 };
