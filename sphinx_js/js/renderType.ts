@@ -146,7 +146,10 @@ class TypeRenderer implements TypeVisitor<Type> {
     ];
   }
   query(type: QueryType): Type {
-    throw new Error("Not implemented");
+    return [
+      "typeof ",
+      ...this.render(type.queryType, TypeContext.queryTypeTarget),
+    ];
   }
   reference(type: ReferenceType): Type {
     if (type.isIntentionallyBroken()) {
