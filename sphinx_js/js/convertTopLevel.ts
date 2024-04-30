@@ -8,7 +8,6 @@ import {
   ReflectionVisitor,
   SignatureReflection,
   SomeType,
-  TypeContext,
   TypeParameterReflection,
 } from "typedoc";
 import { renderType } from "./renderType.ts";
@@ -30,11 +29,6 @@ import {
   TypeParam,
 } from "./ir.ts";
 import { delimiter, relative } from "path";
-
-type ConvertResult = [
-  TopLevelIR | undefined,
-  DeclarationReflection[] | undefined,
-];
 
 function parseFilePath(path: string, base_dir: string): string[] {
   // First we want to know if path is under base_dir.
@@ -72,10 +66,16 @@ function parseFilePath(path: string, base_dir: string): string[] {
   return pathSegments;
 }
 
-type ParamReflSubset = Pick<
-  ParameterReflection,
-  "comment" | "defaultValue" | "flags" | "name" | "type"
->;
+/**
+ * We currently replace {a : () => void} with {a() => void}. "a" is a reflection
+ * with a TypeLiteral type kind, and the type has name "__type". We don't want
+ * this to appear in the docs so we have to check for it and remove it.
+ */
+function isAnonymousTypeLiteral(
+  refl: DeclarationReflection | SignatureReflection,
+): boolean {
+  return refl.kind === ReflectionKind.TypeLiteral && refl.name === "__type";
+}
 
 /**
  * A ReflectionVisitor that computes the path for each reflection for us.
@@ -84,29 +84,31 @@ type ParamReflSubset = Pick<
  * SignatureReflections.
  */
 class PathComputer implements ReflectionVisitor {
+  readonly basePath: string;
   // The maps we're trying to fill in.
   readonly pathMap: Map<DeclarationReflection | SignatureReflection, Pathname>;
   readonly filePathMap: Map<
     DeclarationReflection | SignatureReflection,
     Pathname
   >;
-  readonly basePath: string;
-  readonly topLevels: Set<DeclarationReflection | SignatureReflection>;
+  // Record which reflections are documentation roots. Used in sphinx for
+  // automodule and autosummary directives.
+  readonly documentationRoots: Set<DeclarationReflection | SignatureReflection>;
 
   // State for the visitor
   parentKind: ReflectionKind | undefined;
   parentSegments: string[];
   filePath: string[];
   constructor(
+    basePath: string,
     pathMap: Map<DeclarationReflection | SignatureReflection, Pathname>,
     filePathMap: Map<DeclarationReflection | SignatureReflection, Pathname>,
-    basePath: string,
-    topLevels: Set<DeclarationReflection | SignatureReflection>,
+    documentationRoots: Set<DeclarationReflection | SignatureReflection>,
   ) {
     this.pathMap = pathMap;
     this.filePathMap = filePathMap;
     this.basePath = basePath;
-    this.topLevels = topLevels;
+    this.documentationRoots = documentationRoots;
     this.parentKind = undefined;
     this.parentSegments = [];
     this.filePath = [];
@@ -143,6 +145,7 @@ class PathComputer implements ReflectionVisitor {
     const segments = Array.from(
       parentSegments.length > 0 ? parentSegments : filePath,
     );
+    // Skip some redundant names
     const suppressReflName =
       [
         // Module names are redundant with the file path
@@ -151,7 +154,7 @@ class PathComputer implements ReflectionVisitor {
         // handle callables with multiple signatures?
         ReflectionKind.ConstructorSignature,
         ReflectionKind.CallSignature,
-      ].includes(refl.kind) || refl.name === "__type";
+      ].includes(refl.kind) || isAnonymousTypeLiteral(refl);
     if (suppressReflName) {
       return segments;
     }
@@ -175,7 +178,9 @@ class PathComputer implements ReflectionVisitor {
       this.parentSegments,
       this.filePath,
     );
-    if (refl.name === "__type") {
+    if (isAnonymousTypeLiteral(refl)) {
+      // Rename the anonymous type literal to share its name with the attribute
+      // it is the type of.
       refl.name = this.parentSegments.at(-1)!;
     }
     this.pathMap.set(refl, segments);
@@ -186,12 +191,17 @@ class PathComputer implements ReflectionVisitor {
   // The visitor methods
 
   project(project: ProjectReflection) {
+    // Compute the set of documentation roots.
+    // This consists of all children of the Project and all children of Modules.
     for (const child of project.children!) {
-      this.topLevels.add(child);
-      if (child.kind === ReflectionKind.Module) {
-        child.children!.forEach((c) => this.topLevels.add(c));
+      this.documentationRoots.add(child);
+    }
+    for (const module of project.getChildrenByKind(ReflectionKind.Module)) {
+      for (const child of module.children!) {
+        this.documentationRoots.add(child);
       }
     }
+    // Visit children
     project.children?.forEach((x) => x.visit(this));
   }
 
@@ -212,6 +222,9 @@ class PathComputer implements ReflectionVisitor {
       refl.kind === ReflectionKind.Property &&
       refl.type?.type == "reflection"
     ) {
+      // If the property has a function type, we replace it with a function
+      // described by the declaration. Just in case that happens we compute the
+      // path for the declaration here.
       refl.type.declaration.visit(this);
     }
     // Restore state
@@ -243,7 +256,7 @@ function renderCommentContent(content: CommentDisplayPart[]): Description {
   });
 }
 
-function getCommentSummary(c: Comment | undefined): Description {
+function renderCommentSummary(c: Comment | undefined): Description {
   if (!c) {
     return [];
   }
@@ -280,6 +293,28 @@ function getCommentBlockTags(c: Comment | undefined): {
 }
 
 /**
+ * The type returned by most methods on the converter.
+ *
+ * A pair, an optional TopLevel and an optional list of additional reflections
+ * to convert.
+ */
+type ConvertResult = [
+  TopLevelIR | undefined,
+  DeclarationReflection[] | undefined,
+];
+
+/**
+ * We generate some "synthetic parameters" when destructuring parameters. It
+ * would be possible to convert directly to our IR but it causes some code
+ * duplication. Instead, we keep track of the subset of fields that `paramToIR`
+ * actually needs here.
+ */
+type ParamReflSubset = Pick<
+  ParameterReflection,
+  "comment" | "defaultValue" | "flags" | "name" | "type"
+>;
+
+/**
  * Main class for creating IR from the ProjectReflection.
  *
  * The main toIr logic is a sort of visitor for ReflectionKinds. We don't use
@@ -291,12 +326,13 @@ function getCommentBlockTags(c: Comment | undefined): {
 export class Converter {
   readonly project: ProjectReflection;
   readonly basePath: string;
+
   readonly pathMap: Map<DeclarationReflection | SignatureReflection, Pathname>;
   readonly filePathMap: Map<
     DeclarationReflection | SignatureReflection,
     Pathname
   >;
-  readonly topLevels: Set<DeclarationReflection | SignatureReflection>;
+  readonly documentationRoots: Set<DeclarationReflection | SignatureReflection>;
   readonly _shouldDestructureArg: (p: ParamReflSubset) => boolean;
 
   constructor(project: ProjectReflection, basePath: string) {
@@ -304,7 +340,7 @@ export class Converter {
     this.basePath = basePath;
     this.pathMap = new Map();
     this.filePathMap = new Map();
-    this.topLevels = new Set();
+    this.documentationRoots = new Set();
     this._shouldDestructureArg = (param) =>
       param.name === "destructureThisPlease";
   }
@@ -312,10 +348,10 @@ export class Converter {
   computePaths() {
     this.project.visit(
       new PathComputer(
+        this.basePath,
         this.pathMap,
         this.filePathMap,
-        this.basePath,
-        this.topLevels,
+        this.documentationRoots,
       ),
     );
   }
@@ -347,6 +383,20 @@ export class Converter {
    * Reflections that still need converting.
    */
   toIr(object: DeclarationReflection | SignatureReflection): ConvertResult {
+    if (
+      [
+        ReflectionKind.Module,
+        ReflectionKind.Namespace,
+        ReflectionKind.TypeAlias,
+        ReflectionKind.Enum,
+        ReflectionKind.EnumMember,
+      ].includes(object.kind)
+    ) {
+      // TODO: The children of these have no rendered parent in the docs. If
+      // "object" is marked as a documentation_root, maybe the children should
+      // be too?
+      return [undefined, (object as DeclarationReflection).children];
+    }
     const kind = ReflectionKind.singularString(object.kind);
     const convertFunc = `convert${kind}` as keyof this;
     if (!this[convertFunc]) {
@@ -354,28 +404,13 @@ export class Converter {
     }
     // @ts-ignore
     const result: ConvertResult = this[convertFunc](object);
-    if (this.topLevels.has(object)) {
-      console.log(
-        "topLevel",
-        object.name,
-        ReflectionKind.singularString(object.kind),
-      );
-    }
-    if (this.topLevels.has(object) && result[0]) {
-      result[0].top_level = true;
+    if (this.documentationRoots.has(object) && result[0]) {
+      result[0].documentation_root = true;
     }
     return result;
   }
 
   // Reflection visitor methods
-
-  convertModule(mod: DeclarationReflection): ConvertResult {
-    return [undefined, mod.children];
-  }
-
-  convertNamespace(mod: DeclarationReflection): ConvertResult {
-    return [undefined, mod.children];
-  }
 
   convertFunction(func: DeclarationReflection): ConvertResult {
     return [this.functionToIR(func), func.children];
@@ -462,7 +497,7 @@ export class Converter {
       type: renderType(this.pathMap, prop.type!),
       ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
-      description: getCommentSummary(prop.comment),
+      description: renderCommentSummary(prop.comment),
       kind: "attributes",
     };
     return [result, prop.children];
@@ -503,7 +538,7 @@ export class Converter {
       ...this.topLevelProperties(prop),
       kind: "attributes",
     };
-    result.description = getCommentSummary(sig.comment);
+    result.description = renderCommentSummary(sig.comment);
     return [result, prop.children];
   }
 
@@ -522,18 +557,6 @@ export class Converter {
     }
     // Should we assert that the "descendants" component is empty?
     return this.toIr(child)[0] as IRFunction | Attribute;
-  }
-
-  ["convertType alias"](refl: DeclarationReflection): ConvertResult {
-    return [undefined, refl.children];
-  }
-
-  convertEnumeration(refl: DeclarationReflection): ConvertResult {
-    return [undefined, refl.children];
-  }
-
-  ["convertEnumeration Member"](refl: DeclarationReflection): ConvertResult {
-    return [undefined, refl.children];
   }
 
   /**
@@ -602,7 +625,7 @@ export class Converter {
       path,
       deppath: filePath.join(""),
       filename: "",
-      description: getCommentSummary(refl.comment),
+      description: renderCommentSummary(refl.comment),
       modifier_tags: [],
       block_tags,
       deprecated,
@@ -610,8 +633,8 @@ export class Converter {
       properties: [],
       see_alsos: [],
       exported_from: filePath,
-      line: refl.sources?.[0]?.line || null,
-      top_level: false,
+      line: refl.sources?.[0].line || null,
+      documentation_root: false,
       // modifier_tags: self.comment.modifierTags,
     };
   }
@@ -640,7 +663,6 @@ export class Converter {
    *       options.y (number) The y value
    */
   _destructureParam(param: ParameterReflection): ParamReflSubset[] {
-    console.log("_destructureParam", param.name);
     const type = param.type;
     if (type?.type !== "reflection") {
       throw new Error("Unexpected");
@@ -662,6 +684,8 @@ export class Converter {
 
   _destructureParams(sig: SignatureReflection): ParamReflSubset[] {
     const result = [];
+    // Destructure a parameter if it's type is a reflection and it is requested
+    // with @destructure or _shouldDestructureArg.
     const destructureTargets = sig.comment
       ?.getTags("@destructure")
       .flatMap((tag) => tag.content[0].text.split(" "));
@@ -692,10 +716,12 @@ export class Converter {
     if (param.type) {
       type = renderType(this.pathMap, param.type);
     }
-    let description = getCommentSummary(param.comment);
+    let description = renderCommentSummary(param.comment);
     if (description.length === 0 && param.type?.type === "reflection") {
-      // TODO: isn't this a weird thing to do here?
-      description = getCommentSummary(
+      // If the parameter type is given as the typeof something else, use the
+      // description from the target?
+      // TODO: isn't this a weird thing to do here? I think we should remove it?
+      description = renderCommentSummary(
         param.type.declaration?.signatures?.[0].comment,
       );
     }
@@ -772,12 +798,11 @@ export class Converter {
   typeParamToIR(typeParam: TypeParameterReflection): TypeParam {
     const extends_ = typeParam.type
       ? renderType(this.pathMap, typeParam.type)
-      : undefined;
-    console.log(typeParam.comment);
+      : null;
     return {
       name: typeParam.name,
-      extends: extends_ || null,
-      description: getCommentSummary(typeParam.comment),
+      extends: extends_,
+      description: renderCommentSummary(typeParam.comment),
     };
   }
 }

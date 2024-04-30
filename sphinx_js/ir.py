@@ -257,7 +257,7 @@ class TopLevel:
     #: Descriminator
     kind: str = field(kw_only=True)
     #: Is it a root documentation item? Used by autosummary.
-    top_level: bool = field(kw_only=True, default=False)
+    documentation_root: bool = field(kw_only=True, default=False)
 
 
 @define(slots=False)
@@ -330,6 +330,7 @@ TopLevelUnion = Class | Interface | Function | Attribute
 # Now make a serializer/deserializer.
 # TODO: Add tests to make sure that serialization and deserialization are a
 # round trip.
+
 
 def json_to_ir(json: Any) -> list[TopLevelUnion]:
     """Structure raw json into a list of TopLevels"""

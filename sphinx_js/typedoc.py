@@ -101,7 +101,6 @@ class Analyzer:
         self._base_dir = base_dir
         self._objects_by_path = SuffixTree()
         self._objects_by_path.add_many((obj.path.segments, obj) for obj in objects)
-        print("top_levels", [obj.name for obj in objects if obj.top_level])
         modules = self._create_modules(objects)
         self._modules_by_path = SuffixTree()
         self._modules_by_path.add_many((obj.path.segments, obj) for obj in modules)
@@ -130,7 +129,7 @@ class Analyzer:
         self, ir_objects: Sequence[ir.TopLevel]
     ) -> Iterator[tuple[ir.TopLevel, str, str]]:
         for obj in ir_objects:
-            if not obj.top_level:
+            if not obj.documentation_root:
                 continue
             assert obj.deppath
             yield (obj, obj.deppath, obj.kind)
