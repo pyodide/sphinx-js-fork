@@ -22,8 +22,8 @@ export type TypeXRefInternal = {
 export type TypeXRefExternal = {
   name: string;
   package: string;
-  sourcefilename: string | undefined;
-  qualifiedName: string | undefined;
+  sourcefilename: string | null;
+  qualifiedName: string | null;
   type: "external";
 };
 
@@ -75,7 +75,7 @@ export type Param = {
   is_variadic: boolean;
   has_default: boolean;
   default: string | NoDefault;
-  type?: Type;
+  type: Type;
 };
 
 export type Return = {
@@ -85,7 +85,7 @@ export type Return = {
 
 export type Module = {
   filename: string;
-  deppath?: string;
+  deppath: string;
   path: Pathname;
   line: number;
   attributes: TopLevel[];
@@ -97,7 +97,7 @@ export type TopLevel = {
   name: string;
   path: Pathname;
   filename: string;
-  deppath?: string;
+  deppath: string;
   description: Description;
   modifier_tags: string[];
   block_tags: { [key: string]: Description[] };
@@ -106,7 +106,7 @@ export type TopLevel = {
   examples: Description[];
   see_alsos: string[];
   properties: Attribute[];
-  exported_from?: Pathname;
+  exported_from: Pathname | null;
   documentation_root: boolean;
 };
 
