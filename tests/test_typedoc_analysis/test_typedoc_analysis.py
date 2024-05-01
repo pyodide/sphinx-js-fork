@@ -635,3 +635,12 @@ class TestTypeName(TypeDocAnalyzerTestCase):
     def test_private_type_alias2(self):
         obj = self.analyzer.get_object(["typeIsPrivateTypeAlias2"])
         assert join_type(obj.type) == "{ a: number; b: string; }"
+
+    def test_hidden_type_top_level(self):
+        obj = self.analyzer.get_object(["hiddenType"])
+        assert obj.modifier_tags == ["@hidetype"]
+        assert obj.type == []
+
+    def test_hidden_type_member(self):
+        obj = self.analyzer.get_object(["HasHiddenTypeMember"])
+        assert obj.members[0].type == []

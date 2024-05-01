@@ -23,7 +23,9 @@ const ExitCodes = {
 
 async function bootstrapAppTypedoc0_25(args: string[]): Promise<Application> {
   return await Application.bootstrapWithPlugins(
-    { plugin: [fileURLToPath(import.meta.resolve("./typedocPlugin.ts"))] },
+    {
+      plugin: [fileURLToPath(import.meta.resolve("./typedocPlugin.ts"))],
+    },
     [
       new ArgumentsReader(0, args),
       new TypeDocReader(),
@@ -53,6 +55,7 @@ async function main() {
     console.log(app.toString());
     return ExitCodes.Ok;
   }
+  app.options.getValue("modifierTags").push("@hidetype");
   const config = await loadConfig(app.options.getValue("sphinxJsConfig"));
   const symbolToType = redirectPrivateTypes(app);
 

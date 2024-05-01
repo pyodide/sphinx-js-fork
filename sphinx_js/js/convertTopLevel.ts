@@ -450,7 +450,12 @@ export class Converter {
     if (!v.type) {
       throw new Error(`Type of ${v.name} is undefined`);
     }
-    const type = this.renderType(v.type);
+    let type: Type;
+    if (v.comment?.modifierTags.has("@hidetype")) {
+      type = [];
+    } else {
+      type = this.renderType(v.type);
+    }
     const result: Attribute = {
       ...this.memberProps(v),
       ...this.topLevelProperties(v),
@@ -517,9 +522,17 @@ export class Converter {
       // way to pick?
       return [this.functionToIR(prop.type.declaration), []];
     }
+    let type: Type;
+    if (prop.comment?.modifierTags.has("@hidetype")) {
+      // We should probably also be able to hide the type of a thing with a
+      // function type literal type...
+      type = [];
+    } else {
+      type = this.renderType(prop.type!);
+    }
     // TODO: add a readonly indicator if it's readonly
     const result: Attribute = {
-      type: this.renderType(prop.type!),
+      type,
       ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
       description: renderCommentSummary(prop.comment),
@@ -651,7 +664,7 @@ export class Converter {
       deppath: filePath.join(""),
       filename: "",
       description: renderCommentSummary(refl.comment),
-      modifier_tags: [],
+      modifier_tags: Array.from(refl.comment?.modifierTags || []),
       block_tags,
       deprecated,
       examples: block_tags["example"] || [],
@@ -660,7 +673,6 @@ export class Converter {
       exported_from: filePath,
       line: refl.sources?.[0].line || null,
       documentation_root: false,
-      // modifier_tags: self.comment.modifierTags,
     };
   }
 
