@@ -32,7 +32,7 @@ import {
 import { sep, relative } from "path";
 import { SphinxJsConfig } from "./sphinxJsConfig.ts";
 
-function parseFilePath(path: string, base_dir: string): string[] {
+export function parseFilePath(path: string, base_dir: string): string[] {
   // First we want to know if path is under base_dir.
   // Get directions from base_dir to the path
   const rel = relative(base_dir, path);
