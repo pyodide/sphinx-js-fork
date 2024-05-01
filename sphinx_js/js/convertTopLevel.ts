@@ -777,6 +777,10 @@ export class Converter {
     // raise an exception while being built. An eventual solution might be to
     // store the signatures in a one-to- many attr of Functions.
     const first_sig = func.signatures![0]; // Should always have at least one
+
+    // Make sure name matches, can be different in case this comes from
+    // isAnonymousTypeLiteral returning true.
+    first_sig.name = func.name;
     const params = this._destructureParams(first_sig);
     let returns: Return[] = [];
     let is_async = false;

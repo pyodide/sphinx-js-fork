@@ -440,6 +440,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         """Make sure members of a class have their type params taken into
         account."""
         obj = self.analyzer.get_object(["add"])
+        assert obj.name == "add"
         assert len(obj.params) == 2
         T = ["T"]
         assert obj.params[0].type == T
