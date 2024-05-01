@@ -588,11 +588,13 @@ class AutoClassRenderer(JsRenderer):
             exported_from=obj.exported_from,
             class_comment=render_description(obj.description),
             is_abstract=isinstance(obj, Class) and obj.is_abstract,
-            interfaces=obj.interfaces if isinstance(obj, Class) else [],
+            interfaces=[self.render_type(x) for x in obj.interfaces]
+            if isinstance(obj, Class)
+            else [],
             is_interface=isinstance(
                 obj, Interface
             ),  # TODO: Make interfaces not look so much like classes. This will require taking complete control of templating from Sphinx.
-            supers=obj.supers,
+            supers=[self.render_type(x) for x in obj.supers],
             constructor_comment=render_description(constructor.description),
             content="\n".join(self._content),
             members=self._members_of(

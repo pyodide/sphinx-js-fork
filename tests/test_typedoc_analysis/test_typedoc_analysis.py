@@ -211,10 +211,17 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         assert isinstance(subclass, Class)
         assert subclass.constructor_ is None
         assert subclass.is_abstract
-        assert subclass.interfaces == [Pathname(["./", "nodes.", "Interface"])]
+        assert subclass.interfaces == [
+            [TypeXRefInternal("Interface", ["./", "nodes.", "Interface"])]
+        ]
+
+        subclass2 = self.analyzer.get_object(["EmptySubclass2"])
+        assert join_type(subclass2.supers[0]) == "Promise<number>"
 
         # _MembersAndSupers attrs:
-        assert subclass.supers == [Pathname(["./", "nodes.", "Superclass"])]
+        assert subclass.supers == [
+            [TypeXRefInternal("Superclass", ["./", "nodes.", "Superclass"])]
+        ]
         assert subclass.members == []
 
         # TopLevel attrs. This should cover them for other kinds of objs as
@@ -237,7 +244,9 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
 
         """
         interface = self.analyzer.get_object(["Interface"])
-        assert interface.supers == [Pathname(["./", "nodes.", "SuperInterface"])]
+        assert interface.supers == [
+            [TypeXRefInternal("SuperInterface", ["./", "nodes.", "SuperInterface"])]
+        ]
 
     def test_interface_function_member(self):
         """Make sure function-like properties are understood."""

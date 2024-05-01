@@ -298,7 +298,7 @@ class _MembersAndSupers:
     members: list[Function | Attribute]
     #: Objects this one extends: for example, superclasses of a class or
     #: superinterfaces of an interface
-    supers: list[Pathname]
+    supers: list[Type]
 
 
 @define
@@ -317,7 +317,7 @@ class Class(TopLevel, _MembersAndSupers):
     #: Whether this is an abstract class
     is_abstract: bool
     #: Interfaces this class implements
-    interfaces: list[Pathname]
+    interfaces: list[Type]
     # There's room here for additional fields like @example on the class doclet
     # itself. These are supported and extracted by jsdoc, but they end up in an
     # `undocumented: True` doclet and so are presently filtered out. But we do

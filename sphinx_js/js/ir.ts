@@ -128,7 +128,7 @@ export type IRFunction = TopLevel &
 
 export type _MembersAndSupers = {
   members: (IRFunction | Attribute)[];
-  supers: Pathname[];
+  supers: Type[];
 };
 
 export type Interface = TopLevel &
@@ -141,7 +141,7 @@ export type Class = TopLevel &
   _MembersAndSupers & {
     constructor_: IRFunction | null;
     is_abstract: boolean;
-    interfaces: Pathname[];
+    interfaces: Type[];
     type_params: TypeParam[];
     kind: "classes";
   };
