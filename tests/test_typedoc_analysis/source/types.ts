@@ -203,3 +203,14 @@ export function namedTupleArg(namedTuple: [key: string, value: any]) {}
 
 export let queryType: typeof A;
 export let typeOperatorType: keyof A;
+
+type PrivateTypeAlias1 = { a: number; b: string };
+
+// Should expand the private type alias
+export let typeIsPrivateTypeAlias1: PrivateTypeAlias1;
+
+/** @private */
+export type PrivateTypeAlias2 = { a: number; b: string };
+
+// Should expand the private type alias
+export let typeIsPrivateTypeAlias2: PrivateTypeAlias2;

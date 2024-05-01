@@ -34,6 +34,7 @@ import {
   intrinsicType,
 } from "./ir.ts";
 import { parseFilePath } from "./convertTopLevel.ts";
+import { ReadonlySymbolToType } from "./redirectPrivateAliases.ts";
 
 /**
  * Render types into a list of strings and XRefs.
@@ -46,16 +47,23 @@ import { parseFilePath } from "./convertTopLevel.ts";
 class TypeRenderer implements TypeVisitor<Type> {
   private readonly basePath: string;
   // For resolving XRefs.
-  private readonly reflToPath: Map<
+  private readonly reflToPath: ReadonlyMap<
     DeclarationReflection | SignatureReflection,
     string[]
   >;
+  private readonly symbolToType: ReadonlySymbolToType;
+
   constructor(
     basePath: string,
-    reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>,
+    reflToPath: ReadonlyMap<
+      DeclarationReflection | SignatureReflection,
+      string[]
+    >,
+    symbolToType: ReadonlySymbolToType,
   ) {
     this.basePath = basePath;
     this.reflToPath = reflToPath;
+    this.symbolToType = symbolToType;
   }
 
   /**
@@ -153,6 +161,24 @@ class TypeRenderer implements TypeVisitor<Type> {
       return this.addTypeParams(type, [type.name]);
     }
     if (type.reflection) {
+      const refl = type.reflection;
+      if (refl.flags.isPrivate && refl.isDeclaration()) {
+        // If it's private, we don't really want to emit an XRef to it. In the
+        // typedocPlugin.ts we tried to calculate Reflections for these, so now
+        // we try to look it up. I couldn't get the line+column numbers to match
+        // up so in this case we index on file name and reference name.
+
+        // Another place where we incorrectly handle merged declarations
+        const src = refl.sources![0];
+        const newTarget = this.symbolToType.get(
+          `${src.fullFileName}:${refl.name}`,
+        );
+        if (newTarget) {
+          // TODO: this doesn't handle parentheses correctly.
+          return newTarget.visit(this);
+        }
+      }
+
       const path = this.reflToPath.get(
         type.reflection as DeclarationReflection,
       );
@@ -171,6 +197,16 @@ class TypeRenderer implements TypeVisitor<Type> {
     if (!type.symbolId) {
       throw new Error("This should not happen");
     }
+    // See if this refers to a private type. In that case we should inline the
+    // type reflection rather than referring to the non-exported name.
+    const newTarget = this.symbolToType.get(
+      `${type.symbolId.fileName}:${type.symbolId.pos}`,
+    );
+    if (newTarget) {
+      // TODO: this doesn't handle parentheses correctly.
+      return newTarget.visit(this);
+    }
+
     const path = parseFilePath(type.symbolId.fileName, this.basePath);
     let res: TypeXRefExternal | TypeXRefInternal;
     if (path.includes("node_modules/")) {
@@ -323,10 +359,14 @@ class TypeRenderer implements TypeVisitor<Type> {
 
 export function renderType(
   basePath: string,
-  reflToPath: Map<DeclarationReflection | SignatureReflection, string[]>,
+  reflToPath: ReadonlyMap<
+    DeclarationReflection | SignatureReflection,
+    string[]
+  >,
+  symbolToType: ReadonlySymbolToType,
   type: SomeType,
   context: TypeContext = TypeContext.none,
 ): Type {
-  const renderer = new TypeRenderer(basePath, reflToPath);
+  const renderer = new TypeRenderer(basePath, reflToPath, symbolToType);
   return renderer.render(type, context);
 }
