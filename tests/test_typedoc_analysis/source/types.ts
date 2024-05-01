@@ -146,7 +146,7 @@ export function codeInDescription() {}
  * @param options.b - The 'b' string.
  * @destructure options
  */
-export function destructureTest({ a, b }: { a: string; b: { c: string } }) {}
+export function destructureTest({ a, b }: { b: { c: string }; a: string }) {}
 
 /**
  * An example with destructured args 2
@@ -158,14 +158,14 @@ export function destructureTest2({
   a,
   b,
 }: {
-  /**  The 'a' string. */
-  a: string;
   /** The 'b' object. */
   b: { c: string };
+  /**  The 'a' string. */
+  a: string;
 }) {}
 
 /**
- * An example with destructured args 3
+ * An example with no destructured args 3
  *
  * @param options - The options.
  * @param options.a - The 'a' string.
