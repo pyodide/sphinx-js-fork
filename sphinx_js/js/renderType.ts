@@ -121,13 +121,7 @@ class TypeRenderer implements TypeVisitor<Type> {
     if (type.value === null) {
       return [intrinsicType("null")];
     }
-    if (typeof type.value === "number") {
-      // I suppose we could keep the number if we wanted to, but I think it
-      // makes more sense to put number here
-      return [intrinsicType("number")];
-    }
-    console.log(type);
-    throw new Error("Not implemented");
+    return [JSON.stringify(type.value)];
   }
   mapped(type: MappedType): Type {
     throw new Error("Not implemented");
