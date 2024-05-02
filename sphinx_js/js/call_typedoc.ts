@@ -4,9 +4,10 @@ import {
   TypeDocReader,
   PackageJsonReader,
   TSConfigReader,
-  ReflectionKind,
 } from "typedoc";
 import { writeFile } from "fs/promises";
+import { Converter } from "./convertTopLevel.ts";
+import { SphinxJsConfig } from "./sphinxJsConfig.ts";
 
 const ExitCodes = {
   Ok: 0,
@@ -18,41 +19,45 @@ const ExitCodes = {
   Watching: 7,
 };
 
-// Locate the kind IDs, look up the corresponding kindStrings, and add them to
-// the JSON
-function walk(o) {
-  if ("kind" in o) {
-    try {
-      o["kindString"] = ReflectionKind.singularString(o["kind"]);
-    } catch (e) {}
-  }
-  for (let v of Object.values(o)) {
-    if (v && typeof v === "object") {
-      walk(v);
-    }
-  }
-}
-
-async function bootstrapAppTypedoc0_25() {
+async function bootstrapAppTypedoc0_25(args: string[]): Promise<Application> {
   return await Application.bootstrapWithPlugins({}, [
-    new ArgumentsReader(0),
+    new ArgumentsReader(0, args),
     new TypeDocReader(),
     new PackageJsonReader(),
     new TSConfigReader(),
-    new ArgumentsReader(300),
+    new ArgumentsReader(300, args),
   ]);
+}
+
+async function loadConfig(args: string[]): Promise<SphinxJsConfig> {
+  const configIndex = args.indexOf("--sphinx-js-config");
+  if (configIndex === -1) {
+    return {};
+  }
+  if (configIndex === args.length) {
+    console.error("Expected --sphinx-js-config to have an argument");
+    process.exit(1);
+  }
+  const [_option, value] = args.splice(configIndex, 2);
+  const configModule = await import(value);
+  return configModule.config;
 }
 
 async function main() {
   // Most of this stuff is copied from typedoc/src/lib/cli.ts
   const start = Date.now();
-  let app = await bootstrapAppTypedoc0_25();
+  const args = process.argv.slice(2);
+  const config = await loadConfig(args);
+  let app = await bootstrapAppTypedoc0_25(args);
   if (app.options.getValue("version")) {
     console.log(app.toString());
     return ExitCodes.Ok;
   }
 
   const project = await app.convert();
+  if (!project) {
+    return ExitCodes.CompileError;
+  }
   const preValidationWarnCount = app.logger.warningCount;
   app.validate(project);
   const hadValidationWarnings =
@@ -69,13 +74,14 @@ async function main() {
   }
 
   const json = app.options.getValue("json");
-  const serialized = app.serializer.projectToObject(project, process.cwd());
-  // This next line is the only thing we added
-  walk(serialized);
-
+  const basePath = app.options.getValue("basePath");
+  const converter = new Converter(project, basePath, config);
+  converter.computePaths();
   const space = app.options.getValue("pretty") ? "\t" : "";
-  await writeFile(json, JSON.stringify(serialized, null, space));
+  const res = JSON.stringify(converter.convertAll(), null, space);
+  await writeFile(json, res);
   app.logger.info(`JSON written to ${json}`);
   app.logger.verbose(`JSON rendering took ${Date.now() - start}ms`);
 }
-await main();
+
+process.exit(await main());

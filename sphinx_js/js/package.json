@@ -1,0 +1,10 @@
+{
+  "name": "sphinx_js",
+  "type": "module",
+  "dependencies": {
+    "typedoc": "^0.25.13"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7"
+  }
+}

@@ -1,6 +1,4 @@
 from copy import copy, deepcopy
-from json import loads
-from unittest import TestCase
 
 import pytest
 
@@ -21,7 +19,6 @@ from sphinx_js.ir import (
     TypeXRefIntrinsic,
 )
 from sphinx_js.renderers import AutoClassRenderer, AutoFunctionRenderer
-from sphinx_js.typedoc import Comment, Converter, DescriptionItem, parse
 from tests.testing import NO_MATCH, TypeDocAnalyzerTestCase, TypeDocTestCase, dict_where
 
 
@@ -41,65 +38,6 @@ def join_descri(t: Type) -> str:
     return "".join(e.name if isinstance(e, TypeXRef) else e for e in t)
 
 
-class TestPopulateIndex(TestCase):
-    def test_top_level_function(self):
-        """Make sure nodes get indexed."""
-        # A simple TypeDoc JSON dump of a source file with a single, top-level
-        # function with no params or return value:
-        json = parse(
-            loads(
-                r"""
-                {
-                    "id": 0,
-                    "name": "misterRoot",
-                    "children": [
-                        {
-                            "id": 1,
-                            "name": "longnames",
-                            "kindString": "Module",
-                            "children": [
-                                {
-                                    "id": 2,
-                                    "name": "foo",
-                                    "kindString": "Function",
-                                    "signatures": [
-                                        {
-                                            "id": 3,
-                                            "name": "foo",
-                                            "kindString": "Call signature",
-                                            "comment": {"shortText": "Foo function."},
-                                            "type": {"type": "intrinsic", "name": "void"}
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    ],
-                    "symbolIdMap" : {"0" : {"sourceFileName": "tests/test_typedoc_analysis/source/longnames.ts", "qualifiedName": ""} }
-                }
-                """
-            )
-        )
-        from pathlib import Path
-
-        index = (
-            Converter(str(Path(__file__).parent.resolve())).populate_index(json).index
-        )
-        # Things get indexed by ID:
-        function = index[2]
-        assert function.name == "foo"
-        # things get paths
-        assert function.path == [
-            "./",
-            "source/",
-            "longnames.",
-            "foo",
-        ]
-        # Root gets indexed by ID:
-        root = index[0]
-        assert root.name == "misterRoot"
-
-
 class TestPathSegments(TypeDocTestCase):
     """Make sure ``make_path_segments() `` works on all its manifold cases."""
 
@@ -107,15 +45,15 @@ class TestPathSegments(TypeDocTestCase):
 
     def commented_object(self, comment, **kwargs):
         """Return the object from ``json`` having the given comment short-text."""
-        comment = Comment(summary=[DescriptionItem(kind="text", text=comment)])
-        return dict_where(self.json, comment_=comment, **kwargs)
+        comment = [DescriptionText(text=comment)]
+        return dict_where(self.json, description=comment, **kwargs)
 
     def commented_object_path(self, comment, **kwargs):
         """Return the path segments of the object with the given comment."""
         obj = self.commented_object(comment, **kwargs)
         if obj is NO_MATCH:
             raise RuntimeError(f'No object found with the comment "{comment}".')
-        return obj.path
+        return obj.path.segments
 
     def test_class(self):
         assert self.commented_object_path("Foo class") == ["./", "pathSegments.", "Foo"]
@@ -195,9 +133,12 @@ class TestPathSegments(TypeDocTestCase):
         # constructor itself. They both have the same comments.
         #
         # Constructors get a #. They aren't static; they can see ``this``.
-        assert self.commented_object_path(
-            "Constructor", kindString="Constructor signature"
-        ) == ["./", "pathSegments.", "Foo#", "constructor"]
+        assert self.commented_object_path("Constructor") == [
+            "./",
+            "pathSegments.",
+            "Foo#",
+            "constructor",
+        ]
 
     def test_function(self):
         assert self.commented_object_path("Function") == ["./", "pathSegments.", "foo"]
@@ -208,8 +149,7 @@ class TestPathSegments(TypeDocTestCase):
     def test_relative_paths(self):
         """Make sure FS path segments are emitted if ``base_dir`` doesn't
         directly contain the code."""
-        obj = self.commented_object("Function")
-        assert obj.path == [
+        assert self.commented_object_path("Function") == [
             "./",
             "test_typedoc_analysis/",
             "source/",
