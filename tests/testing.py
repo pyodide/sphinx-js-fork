@@ -3,7 +3,6 @@ from inspect import getmembers
 from os.path import dirname, join
 from shutil import rmtree
 
-from pydantic import BaseModel
 from sphinx.cmd.build import main as sphinx_main
 
 from sphinx_js.jsdoc import Analyzer as JsAnalyzer
@@ -149,7 +148,7 @@ def dict_where(json, already_seen=None, **kwargs):
                 match = dict_where(v, already_seen, **kwargs)
                 if match is not NO_MATCH:
                     return match
-    elif isinstance(json, BaseModel) or hasattr(type(json), "__attrs_attrs__"):
+    elif hasattr(type(json), "__attrs_attrs__"):
         d = dict([k, v] for [k, v] in getmembers(json) if not k.startswith("_"))
         if matches_properties(d, **kwargs):
             return json
