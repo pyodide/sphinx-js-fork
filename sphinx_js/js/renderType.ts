@@ -228,7 +228,11 @@ class TypeRenderer implements TypeVisitor<Type> {
     return result;
   }
   typeOperator(type: TypeOperatorType): Type {
-    throw new Error("Not implemented");
+    return [
+      type.operator,
+      " ",
+      ...this.render(type.target, TypeContext.typeOperatorTarget),
+    ];
   }
   union(type: UnionType): Type {
     const result: Type = [];
