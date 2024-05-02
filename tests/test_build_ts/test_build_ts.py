@@ -253,7 +253,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                 """\
                 module.a
 
-                   type: number
+                   type: 7
 
                    The thing.
 
