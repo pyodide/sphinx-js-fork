@@ -1,14 +1,14 @@
 import sys
+from inspect import getmembers
 from os.path import dirname, join
 from shutil import rmtree
 
-from pydantic import BaseModel
 from sphinx.cmd.build import main as sphinx_main
 
 from sphinx_js.jsdoc import Analyzer as JsAnalyzer
 from sphinx_js.jsdoc import jsdoc_output
 from sphinx_js.typedoc import Analyzer as TsAnalyzer
-from sphinx_js.typedoc import Converter, typedoc_output
+from sphinx_js.typedoc import typedoc_output
 
 
 class ThisDirTestCase:
@@ -78,14 +78,18 @@ class TypeDocTestCase(ThisDirTestCase):
     def setup_class(cls):
         """Run the TS analyzer over the TypeDoc output."""
         cls._source_dir = join(cls.this_dir(), "source")
+        from pathlib import Path
+
+        config_file = Path(__file__).parent / "sphinxJsConfig.ts"
+
         cls.json = typedoc_output(
             [join(cls._source_dir, file) for file in cls.files],
             cls._source_dir,
             None,
             "tsconfig.json",
             cls._source_dir,
+            str(config_file),
         )
-        Converter(cls._source_dir).populate_index(cls.json)
 
 
 class TypeDocAnalyzerTestCase(TypeDocTestCase):
@@ -99,9 +103,7 @@ class TypeDocAnalyzerTestCase(TypeDocTestCase):
         def should_destructure(sig, p):
             return p.name == "destructureThisPlease"
 
-        cls.analyzer = TsAnalyzer(
-            cls.json, cls._source_dir, should_destructure_arg=should_destructure
-        )
+        cls.analyzer = TsAnalyzer(cls.json, cls._source_dir)
 
 
 NO_MATCH = object()
@@ -147,10 +149,11 @@ def dict_where(json, already_seen=None, **kwargs):
                 match = dict_where(v, already_seen, **kwargs)
                 if match is not NO_MATCH:
                     return match
-    elif isinstance(json, BaseModel):
-        if matches_properties(json.__dict__, **kwargs):
+    elif hasattr(type(json), "__attrs_attrs__"):
+        d = dict([k, v] for [k, v] in getmembers(json) if not k.startswith("_"))
+        if matches_properties(d, **kwargs):
             return json
-        for k, v in json.__dict__.items():
+        for k, v in d.items():
             if k.startswith("_"):
                 continue
             if id(v) not in already_seen:

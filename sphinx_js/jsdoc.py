@@ -7,7 +7,7 @@ then lazily constitute IR objects as requested.
 import pathlib
 import subprocess
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from errno import ENOENT
 from json import dumps, load
 from os.path import join, normpath, relpath, sep, splitext
@@ -168,7 +168,7 @@ class Analyzer:
         doclet, full_path = self._doclets_by_path.get_with_path(path_suffix)
         return doclet_as_whatever(doclet, full_path)
 
-    def _doclet_as_class(self, doclet: Doclet, full_path: list[str]) -> Class:
+    def _doclet_as_class(self, doclet: Doclet, full_path: Sequence[str]) -> Class:
         # This is an instance method so it can get at the base dir.
         members: list[Function | Attribute] = []
         for member_doclet in self._doclets_by_class[tuple(full_path)]:
@@ -193,12 +193,12 @@ class Analyzer:
             # Right now, a class generates several doclets, all but one of
             # which are marked as undocumented. In the one that's left, most of
             # the fields are about the default constructor:
-            constructor=self._doclet_as_function(doclet, full_path),
+            constructor_=self._doclet_as_function(doclet, full_path),
             members=members,
             **top_level_properties(doclet, full_path, self._base_dir),
         )
 
-    def _doclet_as_function(self, doclet: Doclet, full_path: list[str]) -> Function:
+    def _doclet_as_function(self, doclet: Doclet, full_path: Sequence[str]) -> Function:
         return Function(
             description=description(doclet),
             exported_from=None,
@@ -213,7 +213,9 @@ class Analyzer:
             **top_level_properties(doclet, full_path, self._base_dir),
         )
 
-    def _doclet_as_attribute(self, doclet: Doclet, full_path: list[str]) -> Attribute:
+    def _doclet_as_attribute(
+        self, doclet: Doclet, full_path: Sequence[str]
+    ) -> Attribute:
         return Attribute(
             description=description(doclet),
             exported_from=None,
@@ -361,7 +363,7 @@ def get_type(props: Doclet) -> str | None:
 
 
 def top_level_properties(
-    doclet: Doclet, full_path: list[str], base_dir: str
+    doclet: Doclet, full_path: Sequence[str], base_dir: str
 ) -> dict[str, Any]:
     """Extract information common to complex entities, and return it as a dict.
 

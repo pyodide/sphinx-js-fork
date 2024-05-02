@@ -47,3 +47,6 @@ export class ClassWithProperties {
 export class Indexable {
   [id: string]: any; // smoketest
 }
+
+// Test that we don't fail on a reexport
+export { Blah } from "./exports";

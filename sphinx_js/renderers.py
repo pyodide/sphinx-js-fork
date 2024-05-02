@@ -366,10 +366,10 @@ class JsRenderer(Renderer):
         result = "\n".join(lines) + "\n"
         return result
 
-    def _formal_params(self, obj: Function | Class) -> str:
-        """Return the JS function or class params, looking first to any
-        explicit params written into the directive and falling back to those in
-        comments or JS code.
+    def _formal_params(self, obj: Function) -> str:
+        """Return the JS function params, looking first to any explicit params
+        written into the directive and falling back to those in comments or JS
+        code.
 
         Return a ReST-escaped string ready for substitution into the template.
 
@@ -550,7 +550,7 @@ class AutoClassRenderer(JsRenderer):
         # TODO: At the moment, we pull most fields (params, returns,
         # exceptions, etc.) off the constructor only. We could pull them off
         # the class itself too in the future.
-        if not isinstance(obj, Class) or not obj.constructor:
+        if not isinstance(obj, Class) or not obj.constructor_:
             # One way or another, it has no constructor, so make a blank one to
             # keep from repeating this long test for every constructor-using
             # line in the dict() call:
@@ -577,7 +577,7 @@ class AutoClassRenderer(JsRenderer):
                 returns=[],
             )
         else:
-            constructor = obj.constructor
+            constructor = obj.constructor_
         return dict(
             name=name,
             params=self._formal_params(constructor),

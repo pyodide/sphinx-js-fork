@@ -139,17 +139,17 @@ export let option: { a: number; b?: string };
 export function codeInDescription() {}
 
 /**
- * An example with destructured args
+ * An example with destructured args 1
  *
  * @param options
  * @param options.a - The 'a' string.
  * @param options.b - The 'b' string.
  * @destructure options
  */
-export function destructureTest({ a, b }: { a: string; b: { c: string } }) {}
+export function destructureTest({ a, b }: { b: { c: string }; a: string }) {}
 
 /**
- * An example with destructured args
+ * An example with destructured args 2
  *
  * @param options
  * @destructure options
@@ -158,14 +158,14 @@ export function destructureTest2({
   a,
   b,
 }: {
-  /**  The 'a' string. */
-  a: string;
   /** The 'b' object. */
   b: { c: string };
+  /**  The 'a' string. */
+  a: string;
 }) {}
 
 /**
- * An example with destructured args
+ * An example with no destructured args 3
  *
  * @param options - The options.
  * @param options.a - The 'a' string.
@@ -174,7 +174,7 @@ export function destructureTest2({
 export function destructureTest3({ a, b }: { a: string; b: { c: string } }) {}
 
 /**
- * A test for should_destructure_arg
+ * A test for should_destructure_arg 4
  */
 export function destructureTest4(destructureThisPlease: {
   /**  The 'a' string. */
@@ -189,3 +189,6 @@ export function destructureTest4(destructureThisPlease: {
 export function funcArg(a: (b: number, c: number) => number) {}
 
 export function namedTupleArg(namedTuple: [key: string, value: any]) {}
+
+export let queryType: typeof A;
+export let typeOperatorType: keyof A;

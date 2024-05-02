@@ -2,7 +2,7 @@
 
 import os
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import cache, wraps
 from json import dump, load
 from pathlib import Path
@@ -96,7 +96,7 @@ def is_explicitly_rooted(path: str) -> bool:
     return path.startswith(("../", "./")) or path in ("..", ".")
 
 
-def dotted_path(segments: list[str]) -> str:
+def dotted_path(segments: Sequence[str]) -> str:
     """Convert a JS object path (``['dir/', 'file/', 'class#',
     'instanceMethod']``) to a dotted style that Sphinx will better index.
 
