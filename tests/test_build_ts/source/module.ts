@@ -38,6 +38,6 @@ export class Z {
 export const q = { a: "z29", b: 76 };
 
 /**
- * Interface documentation
+ * Documentation for the interface I
  */
 export interface I {}

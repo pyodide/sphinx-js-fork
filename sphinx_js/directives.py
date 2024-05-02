@@ -9,6 +9,7 @@ can access each other and collaborate.
 """
 import re
 from collections.abc import Iterable
+from functools import cache
 from os.path import join, relpath
 from typing import Any
 
@@ -20,7 +21,9 @@ from docutils.parsers.rst.directives import flag
 from docutils.utils import new_document
 from sphinx import addnodes
 from sphinx.application import Sphinx
-from sphinx.domains.javascript import JSCallable
+from sphinx.domains import ObjType
+from sphinx.domains.javascript import JavaScriptDomain, JSCallable, JSObject
+from sphinx.locale import _
 
 from .renderers import (
     AutoAttributeRenderer,
@@ -178,6 +181,39 @@ class JSFunction(JSCallable):
         return result
 
 
+class JSInterface(JSCallable):
+    """Like a callable but with a different prefix."""
+
+    allow_nesting = True
+
+    def get_display_prefix(self) -> list[Node]:
+        return [
+            addnodes.desc_sig_keyword("interface", "interface"),
+            addnodes.desc_sig_space(),
+        ]
+
+
+@cache
+def patch_js_interface() -> None:
+    orig_get_index_text = JSObject.get_index_text
+
+    def patched_get_index_text(
+        self: JSObject, objectname: str, name_obj: tuple[str, str]
+    ) -> str:
+        name, obj = name_obj
+        if self.objtype == "interface":
+            return _("%s() (interface)") % name
+        return orig_get_index_text(self, objectname, name_obj)
+
+    JSObject.get_index_text = patched_get_index_text  # type:ignore[method-assign]
+
+
+def add_js_interface(app: Sphinx) -> None:
+    patch_js_interface()
+    JavaScriptDomain.object_types["interface"] = ObjType(_("interface"), "interface")
+    app.add_directive_to_domain("js", "interface", JSInterface)
+
+
 def auto_module_directive_bound_to_app(app: Sphinx) -> type[Directive]:
     class AutoModuleDirective(JsDirectiveWithChildren):
         """TODO: words here"""
@@ -198,3 +234,22 @@ def auto_summary_directive_bound_to_app(app: Sphinx) -> type[Directive]:
             return self._run(AutoSummaryRenderer, app)
 
     return JsDocSummary
+
+
+def add_directives(app: Sphinx) -> None:
+    app.add_directive_to_domain(
+        "js", "autofunction", auto_function_directive_bound_to_app(app)
+    )
+    app.add_directive_to_domain(
+        "js", "autoclass", auto_class_directive_bound_to_app(app)
+    )
+    app.add_directive_to_domain(
+        "js", "autoattribute", auto_attribute_directive_bound_to_app(app)
+    )
+    app.add_directive_to_domain(
+        "js", "automodule", auto_module_directive_bound_to_app(app)
+    )
+    app.add_directive_to_domain(
+        "js", "autosummary", auto_summary_directive_bound_to_app(app)
+    )
+    add_js_interface(app)
