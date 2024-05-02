@@ -83,11 +83,12 @@ class TypeDocTestCase(ThisDirTestCase):
         config_file = Path(__file__).parent / "sphinxJsConfig.ts"
 
         cls.json = typedoc_output(
-            [join(cls._source_dir, file) for file in cls.files],
-            cls._source_dir,
-            "tsconfig.json",
-            cls._source_dir,
-            str(config_file),
+            abs_source_paths=[join(cls._source_dir, file) for file in cls.files],
+            base_dir=cls._source_dir,
+            ts_sphinx_js_config=str(config_file),
+            typedoc_config_path=None,
+            tsconfig_path="tsconfig.json",
+            sphinx_conf_dir=cls._source_dir,
         )
 
 
