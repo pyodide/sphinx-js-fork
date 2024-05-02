@@ -684,6 +684,20 @@ export class Converter {
     }
     const decl = type.declaration;
     const children = decl.children!;
+    // Sort destructured parameter by order in the type declaration in the
+    // source file. Before we sort they are in alphabetical order by name. Maybe
+    // we should have a way to pick the desired behavior? There are three
+    // reasonable orders:
+    //
+    // 1. alphabetical by name
+    // 2. In order of the @options.b annotations
+    // 3. In order of their declarations in the type
+    //
+    // This does order 3
+    children.sort(
+      ({ sources: a }, { sources: b }) =>
+        a![0].line - b![0].line || a![0].character - b![0].character,
+    );
     const result: ParamReflSubset[] = [];
     for (const child of children) {
       result.push({
