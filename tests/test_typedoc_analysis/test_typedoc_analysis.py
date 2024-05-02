@@ -41,7 +41,7 @@ def join_descri(t: Type) -> str:
 class TestPathSegments(TypeDocTestCase):
     """Make sure ``make_path_segments() `` works on all its manifold cases."""
 
-    files = ["pathSegments.ts"]
+    files = ["subdir/pathSegments.ts"]
 
     def commented_object(self, comment, **kwargs):
         """Return the object from ``json`` having the given comment short-text."""
@@ -56,11 +56,17 @@ class TestPathSegments(TypeDocTestCase):
         return obj.path.segments
 
     def test_class(self):
-        assert self.commented_object_path("Foo class") == ["./", "pathSegments.", "Foo"]
+        assert self.commented_object_path("Foo class") == [
+            "./",
+            "subdir/",
+            "pathSegments.",
+            "Foo",
+        ]
 
     def test_instance_property(self):
         assert self.commented_object_path("Num instance var") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "Foo#",
             "numInstanceVar",
@@ -69,6 +75,7 @@ class TestPathSegments(TypeDocTestCase):
     def test_static_property(self):
         assert self.commented_object_path("Static member") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "Foo.",
             "staticMember",
@@ -77,6 +84,7 @@ class TestPathSegments(TypeDocTestCase):
     def test_interface_property(self):
         assert self.commented_object_path("Interface property") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "Face.",
             "moof",
@@ -87,6 +95,7 @@ class TestPathSegments(TypeDocTestCase):
         like #./~ get their pathnames built correctly."""
         assert self.commented_object_path("Weird var") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "Foo#",
             "weird#Var",
@@ -95,6 +104,7 @@ class TestPathSegments(TypeDocTestCase):
     def test_getter(self):
         assert self.commented_object_path("Getter") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "Foo#",
             "getter",
@@ -103,6 +113,7 @@ class TestPathSegments(TypeDocTestCase):
     def test_setter(self):
         assert self.commented_object_path("Setter") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "Foo#",
             "setter",
@@ -111,6 +122,7 @@ class TestPathSegments(TypeDocTestCase):
     def test_method(self):
         assert self.commented_object_path("Method") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "Foo#",
             "someMethod",
@@ -122,6 +134,7 @@ class TestPathSegments(TypeDocTestCase):
         expect."""
         assert self.commented_object_path("Static method") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "Foo.",
             "staticMethod",
@@ -135,13 +148,19 @@ class TestPathSegments(TypeDocTestCase):
         # Constructors get a #. They aren't static; they can see ``this``.
         assert self.commented_object_path("Constructor") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "Foo#",
             "constructor",
         ]
 
     def test_function(self):
-        assert self.commented_object_path("Function") == ["./", "pathSegments.", "foo"]
+        assert self.commented_object_path("Function") == [
+            "./",
+            "subdir/",
+            "pathSegments.",
+            "foo",
+        ]
 
     @pytest.mark.xfail(
         reason="Test approach doesn't work anymore and broken by typedoc v0.20"
@@ -153,6 +172,7 @@ class TestPathSegments(TypeDocTestCase):
             "./",
             "test_typedoc_analysis/",
             "source/",
+            "subdir/",
             "pathSegments.",
             "foo",
         ]
@@ -161,6 +181,7 @@ class TestPathSegments(TypeDocTestCase):
         """Make sure namespaces get into the path segments."""
         assert self.commented_object_path("Namespaced number") == [
             "./",
+            "subdir/",
             "pathSegments.",
             "SomeSpace.",
             "spacedNumber",

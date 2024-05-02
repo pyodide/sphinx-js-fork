@@ -29,7 +29,7 @@ import {
   Type,
   TypeParam,
 } from "./ir.ts";
-import { delimiter, relative } from "path";
+import { sep, relative } from "path";
 import { SphinxJsConfig } from "./sphinxJsConfig.ts";
 
 function parseFilePath(path: string, base_dir: string): string[] {
@@ -39,12 +39,12 @@ function parseFilePath(path: string, base_dir: string): string[] {
   let pathSegments: string[];
   if (!rel.startsWith("..")) {
     // We don't have to go up so path is under base_dir
-    pathSegments = rel.split(delimiter);
+    pathSegments = rel.split(sep);
   } else {
     // It's not under base_dir... maybe it's in a global node_modules or
     // something? This makes it look the same as if it were under a local
     // node_modules.
-    pathSegments = path.split(delimiter);
+    pathSegments = path.split(sep);
     pathSegments.reverse();
     const idx = pathSegments.indexOf("node_modules");
     if (idx !== -1) {
