@@ -167,8 +167,8 @@ class TypeRenderer implements TypeVisitor<Type> {
       const res: TypeXRefExternal = {
         name: type.name,
         package: type.package,
-        qualifiedName: fileInfo?.qualifiedName,
-        sourcefilename: fileInfo?.sourceFileName,
+        qualifiedName: fileInfo?.qualifiedName || null,
+        sourcefilename: fileInfo?.sourceFileName || null,
         type: "external",
       };
       return this.addTypeParams(type, [res]);
