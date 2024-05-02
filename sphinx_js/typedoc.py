@@ -49,11 +49,11 @@ def version_to_str(t: Sequence[int]) -> str:
 
 def typedoc_output(
     abs_source_paths: Sequence[str],
-    sphinx_conf_dir: str | pathlib.Path,
-    config_path: str | None,
-    tsconfig_path: str | None,
     base_dir: str,
-    config_file: str | None,
+    sphinx_conf_dir: str | pathlib.Path,
+    typedoc_config_path: str | None,
+    tsconfig_path: str | None,
+    ts_sphinx_js_config: str | None,
 ) -> list[ir.TopLevelUnion]:
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
@@ -71,13 +71,15 @@ def typedoc_output(
     dir = Path(__file__).parent.resolve() / "js"
     command.add("--import", str(dir / "registerImportHook.mjs"))
     command.add(str(dir / "call_typedoc.ts"))
-    if config_file:
-        command.add("--sphinx-js-config", config_file)
+    if ts_sphinx_js_config:
+        command.add("--sphinx-js-config", ts_sphinx_js_config)
     command.add("--entryPointStrategy", "expand")
 
-    if config_path:
-        config_path = str((Path(sphinx_conf_dir) / config_path).absolute())
-        command.add("--options", config_path)
+    if typedoc_config_path:
+        typedoc_config_path = str(
+            (Path(sphinx_conf_dir) / typedoc_config_path).absolute()
+        )
+        command.add("--options", typedoc_config_path)
 
     if tsconfig_path:
         tsconfig_path = str((Path(sphinx_conf_dir) / tsconfig_path).absolute())
@@ -130,10 +132,11 @@ class Analyzer:
     ) -> "Analyzer":
         json = typedoc_output(
             abs_source_paths,
-            app.confdir,
-            app.config.jsdoc_config_path,
-            app.config.jsdoc_tsconfig_path,
-            base_dir,
+            base_dir=base_dir,
+            sphinx_conf_dir=app.confdir,
+            typedoc_config_path=app.config.jsdoc_config_path,
+            tsconfig_path=app.config.jsdoc_tsconfig_path,
+            ts_sphinx_js_config=app.config.ts_sphinx_js_config,
         )
         return cls(json, base_dir)
 
