@@ -333,7 +333,7 @@ class JsRenderer(Renderer):
                 renderer_class = AutoAttributeRenderer
             case Function(_):
                 renderer_class = AutoFunctionRenderer
-            case Class(_):
+            case Class(_) | Interface(_):
                 renderer_class = AutoClassRenderer
             case _:
                 raise RuntimeError("This shouldn't happen...")
@@ -676,6 +676,7 @@ class AutoModuleRenderer(JsRenderer):
         rst.append(self.rst_for_group(obj.attributes))
         rst.append(self.rst_for_group(obj.functions))
         rst.append(self.rst_for_group(obj.classes))
+        rst.append(self.rst_for_group(obj.interfaces))
         return "\n\n".join(["\n\n".join(r) for r in rst])
 
 
@@ -699,6 +700,7 @@ class AutoSummaryRenderer(Renderer):
             ("attributes", module.attributes),
             ("functions", module.functions),
             ("classes", module.classes),
+            ("interfaces", module.interfaces),
         ]
         pkgname = "".join(self._partial_path)
 
