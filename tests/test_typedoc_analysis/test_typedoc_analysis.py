@@ -578,3 +578,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         obj = self.analyzer.get_object(["namedTupleArg"])
         assert obj.params[0].name == "namedTuple"
         assert join_type(obj.params[0].type) == "[key: string, value: any]"
+
+    def test_query(self):
+        obj = self.analyzer.get_object(["queryType"])
+        assert join_type(obj.type) == "typeof A"
