@@ -392,13 +392,19 @@ export class Converter {
    * Reflections that still need converting.
    */
   toIr(object: DeclarationReflection | SignatureReflection): ConvertResult {
+    // ReflectionKinds that we give no conversion.
     if (
       [
         ReflectionKind.Module,
         ReflectionKind.Namespace,
+        // TODO: document TypeAliases
         ReflectionKind.TypeAlias,
+        // TODO: document enums
         ReflectionKind.Enum,
         ReflectionKind.EnumMember,
+        // A ReferenceReflection is when we reexport something.
+        // TODO: should we handle this somehow?
+        ReflectionKind.Reference,
       ].includes(object.kind)
     ) {
       // TODO: The children of these have no rendered parent in the docs. If

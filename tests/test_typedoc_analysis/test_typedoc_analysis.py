@@ -171,7 +171,7 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
     """Test all the branches of ``convert_node()`` by analyzing every kind of
     TypeDoc JSON object."""
 
-    files = ["nodes.ts"]
+    files = ["nodes.ts", "exports.ts"]
 
     def test_class1(self):
         """Test that superclasses, implemented interfaces, abstractness, and
