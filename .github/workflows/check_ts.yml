@@ -1,14 +1,12 @@
 name: check-ts
 on:
   pull_request:
+permissions: write-all
+
 
 jobs:
   ts:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      repository-projects: write
     steps:
       - uses: actions/checkout@v3
       - name: Get diff lines
