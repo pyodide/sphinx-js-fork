@@ -154,6 +154,12 @@ class Analyzer:
         summary section. Skip docs labeled as "@private".
         """
         modules = {}
+        singular_kind_to_plural_kind = {
+            "class": "classes",
+            "interface": "interfaces",
+            "function": "functions",
+            "attribute": "attributes",
+        }
         for obj, path, kind in self._get_toplevel_objects(ir_objects):
             pathparts = path.split("/")
             for i in range(len(pathparts) - 1):
@@ -163,7 +169,7 @@ class Analyzer:
                     filename=path, deppath=path, path=ir.Pathname(pathparts), line=1
                 )
             mod = modules[path]
-            getattr(mod, kind).append(obj)
+            getattr(mod, singular_kind_to_plural_kind[kind]).append(obj)
 
         for mod in modules.values():
             mod.attributes = sorted(mod.attributes, key=attrgetter("name"))

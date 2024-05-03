@@ -113,7 +113,7 @@ export type TopLevel = {
 export type Attribute = TopLevel &
   Member & {
     type: Type;
-    kind: "attributes";
+    kind: "attribute";
   };
 
 export type IRFunction = TopLevel &
@@ -122,7 +122,7 @@ export type IRFunction = TopLevel &
     params: Param[];
     returns: Return[];
     type_params: TypeParam[];
-    kind: "functions";
+    kind: "function";
     exceptions: never[];
   };
 
@@ -134,7 +134,7 @@ export type _MembersAndSupers = {
 export type Interface = TopLevel &
   _MembersAndSupers & {
     type_params: TypeParam[];
-    kind: "interfaces";
+    kind: "interface";
   };
 
 export type Class = TopLevel &
@@ -143,7 +143,7 @@ export type Class = TopLevel &
     is_abstract: boolean;
     interfaces: Type[];
     type_params: TypeParam[];
-    kind: "classes";
+    kind: "class";
   };
 
 export type TopLevelIR = Attribute | IRFunction | Class | Interface;
