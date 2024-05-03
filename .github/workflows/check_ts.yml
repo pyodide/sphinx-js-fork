@@ -3,7 +3,6 @@ on:
   pull_request:
 permissions: write-all
 
-
 jobs:
   ts:
     runs-on: ubuntu-latest
