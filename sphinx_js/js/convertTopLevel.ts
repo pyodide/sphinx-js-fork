@@ -31,6 +31,7 @@ import {
 } from "./ir.ts";
 import { sep, relative } from "path";
 import { SphinxJsConfig } from "./sphinxJsConfig.ts";
+import { ReadonlySymbolToType } from "./redirectPrivateAliases.ts";
 
 export function parseFilePath(path: string, base_dir: string): string[] {
   // First we want to know if path is under base_dir.
@@ -329,6 +330,7 @@ export class Converter {
   readonly project: ProjectReflection;
   readonly basePath: string;
   readonly config: SphinxJsConfig;
+  readonly symbolToType: ReadonlySymbolToType;
 
   readonly pathMap: Map<DeclarationReflection | SignatureReflection, Pathname>;
   readonly filePathMap: Map<
@@ -341,17 +343,25 @@ export class Converter {
     project: ProjectReflection,
     basePath: string,
     config: SphinxJsConfig,
+    symbolToType: ReadonlySymbolToType,
   ) {
     this.project = project;
     this.basePath = basePath;
     this.config = config;
+    this.symbolToType = symbolToType;
     this.pathMap = new Map();
     this.filePathMap = new Map();
     this.documentationRoots = new Set();
   }
 
   renderType(type: SomeType, context: TypeContext = TypeContext.none): Type {
-    return renderType(this.basePath, this.pathMap, type, context);
+    return renderType(
+      this.basePath,
+      this.pathMap,
+      this.symbolToType,
+      type,
+      context,
+    );
   }
 
   computePaths() {

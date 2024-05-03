@@ -627,3 +627,11 @@ class TestTypeName(TypeDocAnalyzerTestCase):
     def test_type_operator(self):
         obj = self.analyzer.get_object(["typeOperatorType"])
         assert join_type(obj.type) == "keyof A"
+
+    def test_private_type_alias1(self):
+        obj = self.analyzer.get_object(["typeIsPrivateTypeAlias1"])
+        assert join_type(obj.type) == "{ a: number; b: string; }"
+
+    def test_private_type_alias2(self):
+        obj = self.analyzer.get_object(["typeIsPrivateTypeAlias2"])
+        assert join_type(obj.type) == "{ a: number; b: string; }"

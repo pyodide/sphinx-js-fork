@@ -72,7 +72,7 @@ def typedoc_output(
     command.add("--import", str(dir / "registerImportHook.mjs"))
     command.add(str(dir / "call_typedoc.ts"))
     if ts_sphinx_js_config:
-        command.add("--sphinx-js-config", ts_sphinx_js_config)
+        command.add("--sphinxJsConfig", ts_sphinx_js_config)
     command.add("--entryPointStrategy", "expand")
 
     if typedoc_config_path:

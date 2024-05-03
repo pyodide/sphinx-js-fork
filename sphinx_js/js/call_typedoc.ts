@@ -8,6 +8,8 @@ import {
 import { writeFile } from "fs/promises";
 import { Converter } from "./convertTopLevel.ts";
 import { SphinxJsConfig } from "./sphinxJsConfig.ts";
+import { fileURLToPath } from "url";
+import { redirectPrivateTypes } from "./redirectPrivateAliases.ts";
 
 const ExitCodes = {
   Ok: 0,
@@ -20,26 +22,25 @@ const ExitCodes = {
 };
 
 async function bootstrapAppTypedoc0_25(args: string[]): Promise<Application> {
-  return await Application.bootstrapWithPlugins({}, [
-    new ArgumentsReader(0, args),
-    new TypeDocReader(),
-    new PackageJsonReader(),
-    new TSConfigReader(),
-    new ArgumentsReader(300, args),
-  ]);
+  return await Application.bootstrapWithPlugins(
+    { plugin: [fileURLToPath(import.meta.resolve("./typedocPlugin.ts"))] },
+    [
+      new ArgumentsReader(0, args),
+      new TypeDocReader(),
+      new PackageJsonReader(),
+      new TSConfigReader(),
+      new ArgumentsReader(300, args),
+    ],
+  );
 }
 
-async function loadConfig(args: string[]): Promise<SphinxJsConfig> {
-  const configIndex = args.indexOf("--sphinx-js-config");
-  if (configIndex === -1) {
+async function loadConfig(
+  configPath: string | undefined,
+): Promise<SphinxJsConfig> {
+  if (!configPath) {
     return {};
   }
-  if (configIndex === args.length) {
-    console.error("Expected --sphinx-js-config to have an argument");
-    process.exit(1);
-  }
-  const [_option, value] = args.splice(configIndex, 2);
-  const configModule = await import(value);
+  const configModule = await import(configPath);
   return configModule.config;
 }
 
@@ -47,12 +48,13 @@ async function main() {
   // Most of this stuff is copied from typedoc/src/lib/cli.ts
   const start = Date.now();
   const args = process.argv.slice(2);
-  const config = await loadConfig(args);
   let app = await bootstrapAppTypedoc0_25(args);
   if (app.options.getValue("version")) {
     console.log(app.toString());
     return ExitCodes.Ok;
   }
+  const config = await loadConfig(app.options.getValue("sphinxJsConfig"));
+  const symbolToType = redirectPrivateTypes(app);
 
   const project = await app.convert();
   if (!project) {
@@ -73,12 +75,12 @@ async function main() {
     return ExitCodes.ValidationError;
   }
 
-  const json = app.options.getValue("json");
   const basePath = app.options.getValue("basePath");
-  const converter = new Converter(project, basePath, config);
+  const converter = new Converter(project, basePath, config, symbolToType);
   converter.computePaths();
   const space = app.options.getValue("pretty") ? "\t" : "";
   const res = JSON.stringify(converter.convertAll(), null, space);
+  const json = app.options.getValue("json");
   await writeFile(json, res);
   app.logger.info(`JSON written to ${json}`);
   app.logger.verbose(`JSON rendering took ${Date.now() - start}ms`);
