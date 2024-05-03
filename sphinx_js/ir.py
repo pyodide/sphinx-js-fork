@@ -202,6 +202,7 @@ class Module:
     attributes: list["TopLevel"] = Factory(list)
     functions: list["Function"] = Factory(list)
     classes: list["Class"] = Factory(list)
+    interfaces: list["Interface"] = Factory(list)
 
 
 @define(slots=False)
@@ -306,7 +307,7 @@ class Interface(TopLevel, _MembersAndSupers):
     """An interface, a la TypeScript"""
 
     type_params: list[TypeParam] = Factory(list)
-    kind: str = "classes"
+    kind: str = "interfaces"
 
 
 @define

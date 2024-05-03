@@ -134,7 +134,7 @@ export type _MembersAndSupers = {
 export type Interface = TopLevel &
   _MembersAndSupers & {
     type_params: TypeParam[];
-    kind: "classes";
+    kind: "interfaces";
   };
 
 export type Class = TopLevel &

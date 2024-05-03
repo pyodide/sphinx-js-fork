@@ -315,6 +315,14 @@ class TestTextBuilder(SphinxBuildTestCase):
                       type: number
 
                    Z.z()
+
+                class module.I()
+
+                   Interface documentation
+
+                   *interface*
+
+                   *exported from* "module"
                 """
             ),
         )
@@ -412,3 +420,6 @@ class TestHtmlBuilder(SphinxBuildTestCase):
 
         classes = soup.find(class_="classes")
         assert classes.find(class_="summary").get_text() == "This is a summary."
+
+        classes = soup.find(class_="interfaces")
+        assert classes.find(class_="summary").get_text() == "Interface documentation"

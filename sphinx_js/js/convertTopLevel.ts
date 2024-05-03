@@ -518,7 +518,7 @@ export class Converter {
       supers: this.relatedTypes(cls, "extendedTypes"),
       type_params: this.typeParamsToIR(cls.typeParameters),
       ...this.topLevelProperties(cls),
-      kind: "classes",
+      kind: "interfaces",
     };
     return [result, cls.children];
   }

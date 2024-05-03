@@ -169,4 +169,5 @@ class Analyzer:
             mod.attributes = sorted(mod.attributes, key=attrgetter("name"))
             mod.functions = sorted(mod.functions, key=attrgetter("name"))
             mod.classes = sorted(mod.classes, key=attrgetter("name"))
+            mod.interfaces = sorted(mod.interfaces, key=attrgetter("name"))
         return modules.values()
