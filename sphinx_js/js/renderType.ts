@@ -69,7 +69,7 @@ class TypeRenderer implements TypeVisitor<Type> {
   /**
    * Helper for inserting type parameters
    */
-  addTypeParams(
+  addTypeArguments(
     type: { typeArguments?: SomeType[] | undefined },
     l: Type,
   ): Type {
@@ -154,46 +154,31 @@ class TypeRenderer implements TypeVisitor<Type> {
       ...this.render(type.queryType, TypeContext.queryTypeTarget),
     ];
   }
-  reference(type: ReferenceType): Type {
-    if (type.isIntentionallyBroken()) {
-      // If it's intentionally broken, don't add an xref. It's probably a type
-      // parameter.
-      return this.addTypeParams(type, [type.name]);
-    }
+  /**
+   * If it's a reference to a private type alias, replace it with a reflection.
+   * Otherwise return undefined.
+   */
+  convertPrivateReferenceToReflection(type: ReferenceType): Type | undefined {
     if (type.reflection) {
-      const refl = type.reflection;
-      if (refl.flags.isPrivate && refl.isDeclaration()) {
-        // If it's private, we don't really want to emit an XRef to it. In the
-        // typedocPlugin.ts we tried to calculate Reflections for these, so now
-        // we try to look it up. I couldn't get the line+column numbers to match
-        // up so in this case we index on file name and reference name.
+      const refl = type.reflection as DeclarationReflection;
 
-        // Another place where we incorrectly handle merged declarations
-        const src = refl.sources![0];
-        const newTarget = this.symbolToType.get(
-          `${src.fullFileName}:${refl.name}`,
-        );
-        if (newTarget) {
-          // TODO: this doesn't handle parentheses correctly.
-          return newTarget.visit(this);
-        }
-      }
+      // If it's private, we don't really want to emit an XRef to it. In the
+      // typedocPlugin.ts we tried to calculate Reflections for these, so now
+      // we try to look it up. I couldn't get the line+column numbers to match
+      // up so in this case we index on file name and reference name.
 
-      const path = this.reflToPath.get(
-        type.reflection as DeclarationReflection,
+      // Another place where we incorrectly handle merged declarations
+      const src = refl.sources![0];
+      const newTarget = this.symbolToType.get(
+        `${src.fullFileName}:${refl.name}`,
       );
-      if (!path) {
-        throw new Error(
-          `Broken internal xref to ${type.reflection?.toStringHierarchy()}`,
-        );
+      if (newTarget) {
+        // TODO: this doesn't handle parentheses correctly.
+        return newTarget.visit(this);
       }
-      const res: TypeXRefInternal = {
-        name: type.name,
-        path,
-        type: "internal",
-      };
-      return this.addTypeParams(type, [res]);
+      return undefined;
     }
+
     if (!type.symbolId) {
       throw new Error("This should not happen");
     }
@@ -206,26 +191,80 @@ class TypeRenderer implements TypeVisitor<Type> {
       // TODO: this doesn't handle parentheses correctly.
       return newTarget.visit(this);
     }
+    return undefined;
+  }
+  /**
+   * Convert a reference type to either an XRefExternal or an XRefInternal. It
+   * works on things that `convertPrivateReferenceToReflection` but it will
+   * throw an error if the type `isIntentionallyBroken`.
+   *
+   * This logic is also used for relatedTypes for classes (extends and
+   * implements).
+   * TODO: handle type arguments in extends and implements.
+   */
+  convertReferenceToXRef(type: ReferenceType): Type {
+    if (type.isIntentionallyBroken()) {
+      throw new Error("Bad type");
+    }
+
+    if (type.reflection) {
+      const path = this.reflToPath.get(
+        type.reflection as DeclarationReflection,
+      );
+      if (!path) {
+        throw new Error(
+          `Broken internal xref to ${type.reflection?.toStringHierarchy()}`,
+        );
+      }
+      const xref: TypeXRefInternal = {
+        name: type.name,
+        path,
+        type: "internal",
+      };
+      return this.addTypeArguments(type, [xref]);
+    }
+
+    if (!type.symbolId) {
+      throw new Error("This shouldn't happen");
+    }
 
     const path = parseFilePath(type.symbolId.fileName, this.basePath);
-    let res: TypeXRefExternal | TypeXRefInternal;
     if (path.includes("node_modules/")) {
       // External reference
-      res = {
+      const xref: TypeXRefExternal = {
         name: type.name,
         package: type.package!,
         qualifiedName: type.symbolId.qualifiedName || null,
         sourcefilename: type.symbolId.fileName || null,
         type: "external",
       };
+      return this.addTypeArguments(type, [xref]);
     } else {
-      res = {
+      const xref: TypeXRefInternal = {
         name: type.name,
         path,
         type: "internal",
       };
+      return this.addTypeArguments(type, [xref]);
     }
-    return this.addTypeParams(type, [res]);
+  }
+
+  reference(type: ReferenceType): Type {
+    let res;
+    if (type.isIntentionallyBroken()) {
+      // If it's intentionally broken, don't add an xref. It's probably a type
+      // parameter.
+      return this.addTypeArguments(type, [type.name]);
+    } else {
+      // if we got a reflection use that. It's not all that clear how to deal
+      // with type arguments here though...
+      res = this.convertPrivateReferenceToReflection(type);
+      // else use convertReferenceToXRef
+      if (res) {
+        return res;
+      }
+      return this.convertReferenceToXRef(type);
+    }
   }
   reflection(type: ReflectionType): Type {
     if (type.declaration.kind === ReflectionKind.TypeLiteral) {
@@ -369,4 +408,17 @@ export function renderType(
 ): Type {
   const renderer = new TypeRenderer(basePath, reflToPath, symbolToType);
   return renderer.render(type, context);
+}
+
+export function referenceToXRef(
+  basePath: string,
+  reflToPath: ReadonlyMap<
+    DeclarationReflection | SignatureReflection,
+    string[]
+  >,
+  symbolToType: ReadonlySymbolToType,
+  type: ReferenceType,
+): Type {
+  const renderer = new TypeRenderer(basePath, reflToPath, symbolToType);
+  return renderer.convertReferenceToXRef(type);
 }

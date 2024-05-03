@@ -21,14 +21,14 @@
    {% if supers -%}
      **Extends:**
        {% for super in supers -%}
-         - :js:class:`~{{ super.dotted() }}`
+         - {{ super }}
        {% endfor %}
    {%- endif %}
 
    {% if interfaces -%}
      **Implements:**
        {% for interface in interfaces -%}
-         - :js:class:`~{{ interface.dotted() }}`
+         - {{ interface }}
        {% endfor %}
    {%- endif %}
 

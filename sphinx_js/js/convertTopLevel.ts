@@ -4,6 +4,7 @@ import {
   DeclarationReflection,
   ParameterReflection,
   ProjectReflection,
+  ReferenceType,
   ReflectionKind,
   ReflectionVisitor,
   SignatureReflection,
@@ -11,7 +12,7 @@ import {
   TypeContext,
   TypeParameterReflection,
 } from "typedoc";
-import { renderType } from "./renderType.ts";
+import { referenceToXRef, renderType } from "./renderType.ts";
 import {
   NO_DEFAULT,
   Attribute,
@@ -28,6 +29,8 @@ import {
   TopLevel,
   Type,
   TypeParam,
+  TypeXRefInternal,
+  TypeXRefExternal,
 } from "./ir.ts";
 import { sep, relative } from "path";
 import { SphinxJsConfig } from "./sphinxJsConfig.ts";
@@ -364,6 +367,15 @@ export class Converter {
     );
   }
 
+  referenceToXRef(type: ReferenceType): Type {
+    return referenceToXRef(
+      this.basePath,
+      this.pathMap,
+      this.symbolToType,
+      type,
+    );
+  }
+
   computePaths() {
     this.project.visit(
       new PathComputer(
@@ -472,14 +484,14 @@ export class Converter {
   relatedTypes(
     cls: DeclarationReflection,
     kind: "extendedTypes" | "implementedTypes",
-  ): Pathname[] {
+  ): Type[] {
     const origTypes = cls[kind] || [];
-    const result: Pathname[] = [];
+    const result: Type[] = [];
     for (const t of origTypes) {
       if (t.type !== "reference") {
         continue;
       }
-      result.push(this.pathMap.get(t.reflection as DeclarationReflection)!);
+      result.push(this.referenceToXRef(t));
     }
     return result;
   }

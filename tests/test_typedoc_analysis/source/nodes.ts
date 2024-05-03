@@ -15,6 +15,10 @@ export interface InterfaceWithMembers {
  */
 export abstract class EmptySubclass extends Superclass implements Interface {}
 
+export abstract class EmptySubclass2
+  extends Promise<number>
+  implements Interface {}
+
 export const topLevelConst = 3;
 
 /**
