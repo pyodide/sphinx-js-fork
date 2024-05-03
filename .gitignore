@@ -22,3 +22,5 @@ venv
 .venv
 coverage.xml
 test-results.xml
+node_modules
+tsconfig.tsbuildinfo

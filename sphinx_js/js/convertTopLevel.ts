@@ -12,7 +12,7 @@ import {
   TypeContext,
   TypeParameterReflection,
 } from "typedoc";
-import { referenceToXRef, renderType } from "./renderType.ts";
+import { referenceToXRef, convertType } from "./convertType.ts";
 import {
   NO_DEFAULT,
   Attribute,
@@ -78,7 +78,7 @@ export function parseFilePath(path: string, base_dir: string): string[] {
 function isAnonymousTypeLiteral(
   refl: DeclarationReflection | SignatureReflection,
 ): boolean {
-  return refl.kind === ReflectionKind.TypeLiteral && refl.name === "__type";
+  return refl.kindOf(ReflectionKind.TypeLiteral) && refl.name === "__type";
 }
 
 /**
@@ -151,14 +151,14 @@ class PathComputer implements ReflectionVisitor {
     );
     // Skip some redundant names
     const suppressReflName =
-      [
+      refl.kindOf(
         // Module names are redundant with the file path
-        ReflectionKind.Module,
-        // Signature names are redundant with the callable. TODO: do we want to
-        // handle callables with multiple signatures?
-        ReflectionKind.ConstructorSignature,
-        ReflectionKind.CallSignature,
-      ].includes(refl.kind) || isAnonymousTypeLiteral(refl);
+        ReflectionKind.Module |
+          // Signature names are redundant with the callable. TODO: do we want to
+          // handle callables with multiple signatures?
+          ReflectionKind.ConstructorSignature |
+          ReflectionKind.CallSignature,
+      ) || isAnonymousTypeLiteral(refl);
     if (suppressReflName) {
       return segments;
     }
@@ -359,7 +359,7 @@ export class Converter {
   }
 
   renderType(type: SomeType, context: TypeContext = TypeContext.none): Type {
-    return renderType(
+    return convertType(
       this.basePath,
       this.pathMap,
       this.symbolToType,
@@ -418,18 +418,18 @@ export class Converter {
   toIr(object: DeclarationReflection | SignatureReflection): ConvertResult {
     // ReflectionKinds that we give no conversion.
     if (
-      [
-        ReflectionKind.Module,
-        ReflectionKind.Namespace,
-        // TODO: document TypeAliases
-        ReflectionKind.TypeAlias,
-        // TODO: document enums
-        ReflectionKind.Enum,
-        ReflectionKind.EnumMember,
-        // A ReferenceReflection is when we reexport something.
-        // TODO: should we handle this somehow?
-        ReflectionKind.Reference,
-      ].includes(object.kind)
+      object.kindOf(
+        ReflectionKind.Module |
+          ReflectionKind.Namespace |
+          // TODO: document TypeAliases
+          ReflectionKind.TypeAlias |
+          // TODO: document enums
+          ReflectionKind.Enum |
+          ReflectionKind.EnumMember |
+          // A ReferenceReflection is when we reexport something.
+          // TODO: should we handle this somehow?
+          ReflectionKind.Reference,
+      )
     ) {
       // TODO: The children of these have no rendered parent in the docs. If
       // "object" is marked as a documentation_root, maybe the children should
@@ -528,7 +528,7 @@ export class Converter {
   convertProperty(prop: DeclarationReflection): ConvertResult {
     if (
       prop.type?.type === "reflection" &&
-      prop.type.declaration.kind == ReflectionKind.TypeLiteral &&
+      prop.type.declaration.kindOf(ReflectionKind.TypeLiteral) &&
       prop.type.declaration.signatures?.length
     ) {
       // Render {f: () => void} like {f(): void}
@@ -596,12 +596,12 @@ export class Converter {
 
   convertClassChild(child: DeclarationReflection): IRFunction | Attribute {
     if (
-      ![
-        ReflectionKind.Accessor,
-        ReflectionKind.Constructor,
-        ReflectionKind.Method,
-        ReflectionKind.Property,
-      ].includes(child.kind)
+      !child.kindOf(
+        ReflectionKind.Accessor |
+          ReflectionKind.Constructor |
+          ReflectionKind.Method |
+          ReflectionKind.Property,
+      )
     ) {
       throw new TypeError(
         "Expected an Accessor, Constructor, Method, or Property",
@@ -632,7 +632,7 @@ export class Converter {
       if (child.inheritedFrom) {
         continue;
       }
-      if (child.kind === ReflectionKind.Constructor) {
+      if (child.kindOf(ReflectionKind.Constructor)) {
         // This really, really should happen exactly once per class.
         constructor = this.functionToIR(child);
         constructor.returns = [];
@@ -824,11 +824,11 @@ export class Converter {
     // correct that it returns a class instance but it looks weird).
     // Also hide explicit void return type.
     const voidReturnType =
-      func.kind === ReflectionKind.Constructor ||
+      func.kindOf(ReflectionKind.Constructor) ||
       !first_sig.type ||
       (first_sig.type.type === "intrinsic" && first_sig.type.name === "void");
     let type_params = this.typeParamsToIR(first_sig.typeParameters);
-    if (func.kind === ReflectionKind.Constructor) {
+    if (func.kindOf(ReflectionKind.Constructor)) {
       // I think this is wrong
       // TODO: remove it
       type_params = this.typeParamsToIR(

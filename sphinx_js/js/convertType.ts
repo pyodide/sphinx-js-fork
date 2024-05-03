@@ -16,7 +16,6 @@ import {
   ReflectionKind,
   ReflectionType,
   RestType,
-  Serializer,
   SignatureReflection,
   SomeType,
   TemplateLiteralType,
@@ -32,19 +31,19 @@ import {
   TypeXRefExternal,
   TypeXRefInternal,
   intrinsicType,
-} from "./ir.ts";
-import { parseFilePath } from "./convertTopLevel.ts";
-import { ReadonlySymbolToType } from "./redirectPrivateAliases.ts";
+} from "./ir.js";
+import { parseFilePath } from "./convertTopLevel.js";
+import { ReadonlySymbolToType } from "./redirectPrivateAliases.js";
 
 /**
- * Render types into a list of strings and XRefs.
+ * Convert types into a list of strings and XRefs.
  *
  * Most visitor nodes should be similar to the implementation of getTypeString
  * on the same type.
  *
  * TODO: implement the remaining not implemented cases and add test coverage.
  */
-class TypeRenderer implements TypeVisitor<Type> {
+class TypeConverter implements TypeVisitor<Type> {
   private readonly basePath: string;
   // For resolving XRefs.
   private readonly reflToPath: ReadonlyMap<
@@ -87,9 +86,9 @@ class TypeRenderer implements TypeVisitor<Type> {
   }
 
   /**
-   * Render the type, maybe add parentheses
+   * Convert the type, maybe add parentheses
    */
-  render(type: SomeType, context: TypeContext): Type {
+  convert(type: SomeType, context: TypeContext): Type {
     const result = type.visit(this);
     if (type.needsParenthesis(context)) {
       result.unshift("(");
@@ -105,9 +104,9 @@ class TypeRenderer implements TypeVisitor<Type> {
     // TODO: switch to correct impl
     return ["<TODO: not implemented indexedAccess>"];
     return [
-      ...this.render(type.objectType, TypeContext.indexedObject),
+      ...this.convert(type.objectType, TypeContext.indexedObject),
       "[",
-      ...this.render(type.indexType, TypeContext.indexedIndex),
+      ...this.convert(type.indexType, TypeContext.indexedIndex),
       "]",
     ];
   }
@@ -117,7 +116,7 @@ class TypeRenderer implements TypeVisitor<Type> {
   intersection(type: IntersectionType): Type {
     const result: Type = [];
     for (const elt of type.types) {
-      result.push(...this.render(elt, TypeContext.intersectionElement));
+      result.push(...this.convert(elt, TypeContext.intersectionElement));
       result.push(" & ");
     }
     result.pop();
@@ -151,7 +150,7 @@ class TypeRenderer implements TypeVisitor<Type> {
   query(type: QueryType): Type {
     return [
       "typeof ",
-      ...this.render(type.queryType, TypeContext.queryTypeTarget),
+      ...this.convert(type.queryType, TypeContext.queryTypeTarget),
     ];
   }
   /**
@@ -267,21 +266,17 @@ class TypeRenderer implements TypeVisitor<Type> {
     }
   }
   reflection(type: ReflectionType): Type {
-    if (type.declaration.kind === ReflectionKind.TypeLiteral) {
-      return this.renderTypeLiteral(type.declaration);
+    if (type.declaration.kindOf(ReflectionKind.TypeLiteral)) {
+      return this.convertTypeLiteral(type.declaration);
     }
-    if (type.declaration.kind === ReflectionKind.Constructor) {
-      const result = this.renderSignature(type.declaration.signatures![0]);
+    if (type.declaration.kindOf(ReflectionKind.Constructor)) {
+      const result = this.convertSignature(type.declaration.signatures![0]);
       result.unshift("{new ");
       result.push("}");
       return result;
     }
-    if (
-      [ReflectionKind.Function, ReflectionKind.Method].includes(
-        type.declaration.kind,
-      )
-    ) {
-      return this.renderSignature(type.declaration.signatures![0]);
+    if (type.declaration.kindOf(ReflectionKind.FunctionOrMethod)) {
+      return this.convertSignature(type.declaration.signatures![0]);
     }
     throw new Error("Not implemented");
   }
@@ -294,7 +289,7 @@ class TypeRenderer implements TypeVisitor<Type> {
   tuple(type: TupleType): Type {
     const result: Type = [];
     for (const elt of type.elements) {
-      result.push(...this.render(elt, TypeContext.tupleElement));
+      result.push(...this.convert(elt, TypeContext.tupleElement));
       result.push(", ");
     }
     result.pop();
@@ -304,20 +299,20 @@ class TypeRenderer implements TypeVisitor<Type> {
   }
   namedTupleMember(type: NamedTupleMember): Type {
     const result: Type = [`${type.name}${type.isOptional ? "?" : ""}: `];
-    result.push(...this.render(type.element, TypeContext.tupleElement));
+    result.push(...this.convert(type.element, TypeContext.tupleElement));
     return result;
   }
   typeOperator(type: TypeOperatorType): Type {
     return [
       type.operator,
       " ",
-      ...this.render(type.target, TypeContext.typeOperatorTarget),
+      ...this.convert(type.target, TypeContext.typeOperatorTarget),
     ];
   }
   union(type: UnionType): Type {
     const result: Type = [];
     for (const elt of type.types) {
-      result.push(...this.render(elt, TypeContext.unionElement));
+      result.push(...this.convert(elt, TypeContext.unionElement));
       result.push(" | ");
     }
     result.pop();
@@ -329,12 +324,12 @@ class TypeRenderer implements TypeVisitor<Type> {
     return [type.name];
   }
   array(t: ArrayType): Type {
-    const res = this.render(t.elementType, TypeContext.arrayElement);
+    const res = this.convert(t.elementType, TypeContext.arrayElement);
     res.push("[]");
     return res;
   }
 
-  renderSignature(sig: SignatureReflection): Type {
+  convertSignature(sig: SignatureReflection): Type {
     const result: Type = ["("];
     for (const param of sig.parameters || []) {
       result.push(param.name + ": ");
@@ -353,9 +348,9 @@ class TypeRenderer implements TypeVisitor<Type> {
     return result;
   }
 
-  renderTypeLiteral(lit: DeclarationReflection): Type {
+  convertTypeLiteral(lit: DeclarationReflection): Type {
     if (lit.signatures) {
-      return this.renderSignature(lit.signatures[0]);
+      return this.convertSignature(lit.signatures[0]);
     }
     const result: Type = ["{ "];
     const index_sig = lit.indexSignature;
@@ -370,8 +365,8 @@ class TypeRenderer implements TypeVisitor<Type> {
       // [k in mappedParam]: mappedTemplate
       //  vs
       // [k: keyType]: valueType
-      const keyType = this.render(key.type!, TypeContext.mappedParameter);
-      const valueType = this.render(
+      const keyType = this.convert(key.type!, TypeContext.mappedParameter);
+      const valueType = this.convert(
         index_sig.type!,
         TypeContext.mappedTemplate,
       );
@@ -396,7 +391,7 @@ class TypeRenderer implements TypeVisitor<Type> {
   }
 }
 
-export function renderType(
+export function convertType(
   basePath: string,
   reflToPath: ReadonlyMap<
     DeclarationReflection | SignatureReflection,
@@ -406,8 +401,8 @@ export function renderType(
   type: SomeType,
   context: TypeContext = TypeContext.none,
 ): Type {
-  const renderer = new TypeRenderer(basePath, reflToPath, symbolToType);
-  return renderer.render(type, context);
+  const typeConverter = new TypeConverter(basePath, reflToPath, symbolToType);
+  return typeConverter.convert(type, context);
 }
 
 export function referenceToXRef(
@@ -419,6 +414,6 @@ export function referenceToXRef(
   symbolToType: ReadonlySymbolToType,
   type: ReferenceType,
 ): Type {
-  const renderer = new TypeRenderer(basePath, reflToPath, symbolToType);
-  return renderer.convertReferenceToXRef(type);
+  const converter = new TypeConverter(basePath, reflToPath, symbolToType);
+  return converter.convertReferenceToXRef(type);
 }
