@@ -1,7 +1,5 @@
 {
   "compilerOptions": {
-    "incremental": true,
-    "tsBuildInfoFile": "tsconfig.tsbuildinfo",
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
