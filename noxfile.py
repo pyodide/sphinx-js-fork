@@ -4,7 +4,7 @@ import nox
 from nox.sessions import Session
 
 
-@nox.session(python=["3.10", "3.11"])
+@nox.session(python=["3.10", "3.11", "3.12"])
 def tests(session: Session) -> None:
     session.install("-r", "requirements_dev.txt")
     venvroot = Path(session.bin).parent
@@ -22,7 +22,7 @@ def tests(session: Session) -> None:
     )
 
 
-@nox.session(python=["3.11"])
+@nox.session(python=["3.12"])
 @nox.parametrize("typedoc", ["0.25"])
 def test_typedoc(session: Session, typedoc: str) -> None:
     session.install("-r", "requirements_dev.txt")
