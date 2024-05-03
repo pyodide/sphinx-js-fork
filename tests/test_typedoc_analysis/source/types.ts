@@ -214,3 +214,17 @@ export type PrivateTypeAlias2 = { a: number; b: string };
 
 // Should expand the private type alias
 export let typeIsPrivateTypeAlias2: PrivateTypeAlias2;
+
+/**
+ * Some comment
+ * @hidetype
+ */
+export let hiddenType: number;
+
+export class HasHiddenTypeMember {
+  /**
+   * Some comment
+   * @hidetype
+   */
+  hasHiddenType: number;
+}
