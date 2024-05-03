@@ -33,3 +33,5 @@ jobs:
           line-numbers: ${{steps.diff.outputs.lineNumbers}}
           output-behaviour: both
           comment-behaviour: new
+          ts-config-path: "./sphinx_js/js/tsconfig.json"
+
