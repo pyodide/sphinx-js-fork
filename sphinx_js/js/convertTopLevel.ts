@@ -856,7 +856,7 @@ export class Converter {
       type_params,
       returns,
       exceptions: [],
-      kind: "function",
+      kind: "functions",
     };
   }
   typeParamsToIR(
