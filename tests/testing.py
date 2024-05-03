@@ -82,7 +82,7 @@ class TypeDocTestCase(ThisDirTestCase):
 
         config_file = Path(__file__).parent / "sphinxJsConfig.ts"
 
-        cls.json = typedoc_output(
+        [cls.json, cls.extra_data] = typedoc_output(
             abs_source_paths=[join(cls._source_dir, file) for file in cls.files],
             base_dir=cls._source_dir,
             ts_sphinx_js_config=str(config_file),
@@ -103,7 +103,7 @@ class TypeDocAnalyzerTestCase(TypeDocTestCase):
         def should_destructure(sig, p):
             return p.name == "destructureThisPlease"
 
-        cls.analyzer = TsAnalyzer(cls.json, cls._source_dir)
+        cls.analyzer = TsAnalyzer(cls.json, cls.extra_data, cls._source_dir)
 
 
 NO_MATCH = object()

@@ -5,7 +5,7 @@
 // TODO: we don't seem to resolve imports correctly in this file, but it works
 // to do a dynamic import. Figure out why.
 
-export async function load(app: any) {
+export async function load(app: any): Promise<void> {
   // @ts-ignore
   const typedoc = await import("typedoc");
   app.options.addDeclaration({

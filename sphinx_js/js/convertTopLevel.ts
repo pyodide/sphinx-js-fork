@@ -29,8 +29,6 @@ import {
   TopLevel,
   Type,
   TypeParam,
-  TypeXRefInternal,
-  TypeXRefExternal,
 } from "./ir.ts";
 import { sep, relative } from "path";
 import { SphinxJsConfig } from "./sphinxJsConfig.ts";
@@ -341,6 +339,7 @@ export class Converter {
     Pathname
   >;
   readonly documentationRoots: Set<DeclarationReflection | SignatureReflection>;
+  readonly typedocToIRMap: Map<DeclarationReflection, TopLevel>;
 
   constructor(
     project: ProjectReflection,
@@ -352,9 +351,11 @@ export class Converter {
     this.basePath = basePath;
     this.config = config;
     this.symbolToType = symbolToType;
+
     this.pathMap = new Map();
     this.filePathMap = new Map();
     this.documentationRoots = new Set();
+    this.typedocToIRMap = new Map();
   }
 
   renderType(type: SomeType, context: TypeContext = TypeContext.none): Type {
@@ -397,6 +398,7 @@ export class Converter {
       const node = todo.pop()!;
       const [converted, rest] = this.toIr(node);
       if (converted) {
+        this.typedocToIRMap.set(node, converted);
         result.push(converted);
       }
       todo.push(...(rest || []));

@@ -101,13 +101,17 @@ export function redirectPrivateTypes(app: Application): ReadonlySymbolToType {
   }
 
   const origCreateSymbolReference = ReferenceType.createSymbolReference;
-  ReferenceType.createSymbolReference = function (symbol, context, name) {
+  ReferenceType.createSymbolReference = function (
+    symbol: ts.Symbol,
+    context: Context,
+    name: string,
+  ) {
     const owningModule = getOwningModule(context);
     getReferencedSymbols(owningModule).add(symbol);
     return origCreateSymbolReference.call(this, symbol, context, name);
   };
 
-  function onResolveBegin(context: Context) {
+  function onResolveBegin(context: Context): void {
     const modules: (DeclarationReflection | ProjectReflection)[] =
       context.project.getChildrenByKind(ReflectionKind.Module);
     if (modules.length === 0) {

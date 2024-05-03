@@ -11,7 +11,7 @@ from json import load
 from operator import attrgetter
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Literal
+from typing import Any, Literal
 
 from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
@@ -54,7 +54,7 @@ def typedoc_output(
     typedoc_config_path: str | None,
     tsconfig_path: str | None,
     ts_sphinx_js_config: str | None,
-) -> list[ir.TopLevelUnion]:
+) -> tuple[list[ir.TopLevelUnion], dict[str, Any]]:
     """Return the loaded JSON output of the TypeDoc command run over the given
     paths."""
     typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", sphinx_conf_dir)
@@ -100,14 +100,19 @@ def typedoc_output(
             else:
                 raise
         # typedoc emits a valid JSON file even if it finds no TS files in the dir:
-        return ir.json_to_ir(load(temp))
+        json_ir, extra_data = load(temp)
+        return ir.json_to_ir(json_ir), extra_data
 
 
 class Analyzer:
     _objects_by_path: SuffixTree[ir.TopLevel]
     _modules_by_path: SuffixTree[ir.Module]
+    _extra_data: dict[str, Any]
 
-    def __init__(self, objects: Sequence[ir.TopLevel], base_dir: str) -> None:
+    def __init__(
+        self, objects: Sequence[ir.TopLevel], extra_data: dict[str, Any], base_dir: str
+    ) -> None:
+        self._extra_data = extra_data
         self._base_dir = base_dir
         self._objects_by_path = SuffixTree()
         self._objects_by_path.add_many((obj.path.segments, obj) for obj in objects)
@@ -130,7 +135,7 @@ class Analyzer:
     def from_disk(
         cls, abs_source_paths: Sequence[str], app: Sphinx, base_dir: str
     ) -> "Analyzer":
-        json = typedoc_output(
+        json, extra_data = typedoc_output(
             abs_source_paths,
             base_dir=base_dir,
             sphinx_conf_dir=app.confdir,
@@ -138,7 +143,7 @@ class Analyzer:
             tsconfig_path=app.config.jsdoc_tsconfig_path,
             ts_sphinx_js_config=app.config.ts_sphinx_js_config,
         )
-        return cls(json, base_dir)
+        return cls(json, extra_data, base_dir)
 
     def _get_toplevel_objects(
         self, ir_objects: Sequence[ir.TopLevel]
