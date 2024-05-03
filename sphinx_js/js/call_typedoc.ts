@@ -55,9 +55,13 @@ async function main() {
     console.log(app.toString());
     return ExitCodes.Ok;
   }
+  app.extraData = {};
   app.options.getValue("modifierTags").push("@hidetype");
-  const config = await loadConfig(app.options.getValue("sphinxJsConfig"));
+  const userConfigPath = app.options.getValue("sphinxJsConfig");
+  const config = await loadConfig(userConfigPath);
+  app.logger.info(`Loaded user config from ${userConfigPath}`);
   const symbolToType = redirectPrivateTypes(app);
+  await config.preConvert?.(app);
 
   const project = await app.convert();
   if (!project) {
@@ -82,7 +86,9 @@ async function main() {
   const converter = new Converter(project, basePath, config, symbolToType);
   converter.computePaths();
   const space = app.options.getValue("pretty") ? "\t" : "";
-  const res = JSON.stringify(converter.convertAll(), null, space);
+  const result = converter.convertAll();
+  await config.postConvert?.(app, project, converter.typedocToIRMap);
+  const res = JSON.stringify([result, app.extraData], null, space);
   const json = app.options.getValue("json");
   await writeFile(json, res);
   app.logger.info(`JSON written to ${json}`);
