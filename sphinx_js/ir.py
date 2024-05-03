@@ -273,7 +273,7 @@ class Attribute(TopLevel, _Member):
 
     #: The type this property's value can have
     type: Type
-    kind: str = "attributes"
+    kind: Literal["attribute"] = "attribute"
 
 
 @define
@@ -285,7 +285,7 @@ class Function(TopLevel, _Member):
     exceptions: list[Exc]
     returns: list[Return]
     type_params: list[TypeParam] = Factory(list)
-    kind: str = "functions"
+    kind: Literal["function"] = "function"
 
 
 @define
@@ -307,7 +307,7 @@ class Interface(TopLevel, _MembersAndSupers):
     """An interface, a la TypeScript"""
 
     type_params: list[TypeParam] = Factory(list)
-    kind: str = "interfaces"
+    kind: Literal["interface"] = "interface"
 
 
 @define
@@ -324,7 +324,7 @@ class Class(TopLevel, _MembersAndSupers):
     # `undocumented: True` doclet and so are presently filtered out. But we do
     # have the space to include them someday.
     type_params: list[TypeParam] = Factory(list)
-    kind: str = "classes"
+    kind: Literal["class"] = "class"
 
 
 TopLevelUnion = Class | Interface | Function | Attribute

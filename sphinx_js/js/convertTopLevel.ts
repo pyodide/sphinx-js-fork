@@ -471,7 +471,7 @@ export class Converter {
     const result: Attribute = {
       ...this.memberProps(v),
       ...this.topLevelProperties(v),
-      kind: "attributes",
+      kind: "attribute",
       type,
     };
     return [result, v.children];
@@ -506,7 +506,7 @@ export class Converter {
       interfaces: this.relatedTypes(cls, "implementedTypes"),
       type_params: this.typeParamsToIR(cls.typeParameters),
       ...this.topLevelProperties(cls),
-      kind: "classes",
+      kind: "class",
     };
     return [result, cls.children];
   }
@@ -518,7 +518,7 @@ export class Converter {
       supers: this.relatedTypes(cls, "extendedTypes"),
       type_params: this.typeParamsToIR(cls.typeParameters),
       ...this.topLevelProperties(cls),
-      kind: "interfaces",
+      kind: "interface",
     };
     return [result, cls.children];
   }
@@ -548,7 +548,7 @@ export class Converter {
       ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
       description: renderCommentSummary(prop.comment),
-      kind: "attributes",
+      kind: "attribute",
     };
     return [result, prop.children];
   }
@@ -586,7 +586,7 @@ export class Converter {
       type: this.renderType(type),
       ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
-      kind: "attributes",
+      kind: "attribute",
     };
     result.description = renderCommentSummary(sig.comment);
     return [result, prop.children];
@@ -854,7 +854,7 @@ export class Converter {
       type_params,
       returns,
       exceptions: [],
-      kind: "functions",
+      kind: "function",
     };
   }
   typeParamsToIR(
