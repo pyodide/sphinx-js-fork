@@ -1,9 +1,14 @@
 name: check-ts
 on:
   pull_request:
+
 jobs:
   ts:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      repository-projects: write
     steps:
       - uses: actions/checkout@v3
       - name: Get diff lines
@@ -34,4 +39,3 @@ jobs:
           output-behaviour: both
           comment-behaviour: new
           ts-config-path: "./sphinx_js/js/tsconfig.json"
-
