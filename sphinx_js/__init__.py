@@ -5,15 +5,12 @@ from textwrap import dedent
 from typing import Any
 
 from sphinx.application import Sphinx
+from sphinx.domains.javascript import JavaScriptDomain
 from sphinx.errors import SphinxError
 
 from .directives import (
     JSFunction,
-    auto_attribute_directive_bound_to_app,
-    auto_class_directive_bound_to_app,
-    auto_function_directive_bound_to_app,
-    auto_module_directive_bound_to_app,
-    auto_summary_directive_bound_to_app,
+    add_directives,
     sphinx_js_type_role,
 )
 from .jsdoc import Analyzer as JsAnalyzer
@@ -94,7 +91,6 @@ def fix_staticfunction_objtype() -> None:
     """Override js:function directive with one that understands static and async
     prefixes
     """
-    from sphinx.domains.javascript import JavaScriptDomain
 
     JavaScriptDomain.directives["function"] = JSFunction
 
@@ -153,21 +149,7 @@ def setup(app: Sphinx) -> None:
     # is RSTs.
     app.connect("builder-inited", analyze)
 
-    app.add_directive_to_domain(
-        "js", "autofunction", auto_function_directive_bound_to_app(app)
-    )
-    app.add_directive_to_domain(
-        "js", "autoclass", auto_class_directive_bound_to_app(app)
-    )
-    app.add_directive_to_domain(
-        "js", "autoattribute", auto_attribute_directive_bound_to_app(app)
-    )
-    app.add_directive_to_domain(
-        "js", "automodule", auto_module_directive_bound_to_app(app)
-    )
-    app.add_directive_to_domain(
-        "js", "autosummary", auto_summary_directive_bound_to_app(app)
-    )
+    add_directives(app)
 
     # TODO: We could add a js:module with app.add_directive_to_domain().
 

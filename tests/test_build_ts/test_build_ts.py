@@ -93,9 +93,7 @@ class TestTextBuilder(SphinxBuildTestCase):
         question marks sticking out of them."""
         self._file_contents_eq(
             "autoclass_interface_optionals",
-            "class OptionalThings()\n"
-            "\n"
-            "   *interface*\n"
+            "interface OptionalThings()\n"
             "\n"
             '   *exported from* "class"\n'
             "\n"
@@ -316,11 +314,9 @@ class TestTextBuilder(SphinxBuildTestCase):
 
                    Z.z()
 
-                class module.I()
+                interface module.I()
 
-                   Interface documentation
-
-                   *interface*
+                   Documentation for the interface I
 
                    *exported from* "module"
                 """
@@ -422,4 +418,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         assert classes.find(class_="summary").get_text() == "This is a summary."
 
         classes = soup.find(class_="interfaces")
-        assert classes.find(class_="summary").get_text() == "Interface documentation"
+        assert (
+            classes.find(class_="summary").get_text()
+            == "Documentation for the interface I"
+        )

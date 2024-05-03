@@ -1,6 +1,10 @@
 {% import 'common.rst' as common %}
 
+{% if is_interface -%}
+.. js:interface:: {{ name }}{{ params }}
+{%- else -%}
 .. js:class:: {{ name }}{{ params }}
+{%- endif %}
 
    {{ common.deprecated(deprecated)|indent(3) }}
 
@@ -10,10 +14,6 @@
 
    {% if is_abstract -%}
      *abstract*
-   {%- endif %}
-
-   {% if is_interface -%}
-     *interface*
    {%- endif %}
 
    {{ common.exported_from(exported_from)|indent(3) }}
