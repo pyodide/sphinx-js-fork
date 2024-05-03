@@ -524,7 +524,11 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         assert join_type(obj.params[0].type) == "{new () => T}"
 
     def test_utility_types(self):
-        """Test that a representative one of TS's utility types renders."""
+        """Test that a representative one of TS's utility types renders.
+
+        Partial should generate a SymbolReference that we turn into a
+        TypeXRefExternal
+        """
         obj = self.analyzer.get_object(["partial"])
         t = deepcopy(obj.type)
         t[0].sourcefilename = "xxx"
@@ -533,6 +537,16 @@ class TestTypeName(TypeDocAnalyzerTestCase):
             "<",
             TypeXRefIntrinsic("string"),
             ">",
+        ]
+
+    def test_internal_symbol_reference(self):
+        """
+        Blah should generate a SymbolReference that we turn into a
+        TypeXRefInternal
+        """
+        obj = self.analyzer.get_object(["internalSymbolReference"])
+        assert obj.type == [
+            TypeXRefInternal(name="Blah", path=["./", "exports"], type="internal")
         ]
 
     def test_constrained_by_property(self):

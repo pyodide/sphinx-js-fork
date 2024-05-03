@@ -33,6 +33,7 @@ import {
   TypeXRefInternal,
   intrinsicType,
 } from "./ir.ts";
+import { parseFilePath } from "./convertTopLevel.ts";
 
 /**
  * Render types into a list of strings and XRefs.
@@ -151,33 +152,43 @@ class TypeRenderer implements TypeVisitor<Type> {
       // parameter.
       return this.addTypeParams(type, [type.name]);
     }
-    // TODO: should we pass down app.serializer? app?
-    const fakeSerializer = { projectRoot: this.basePath } as Serializer;
-    // Calling toObject resolves the file names with respect to projectRoot.
-    // qualifiedName and sourcefilename  are supposed to be absolute.
-    const fileInfo = type.symbolId?.toObject(fakeSerializer);
-    // If it has a package field, it's external otherwise it's internal.
-    if (type.package) {
-      const res: TypeXRefExternal = {
+    if (type.reflection) {
+      const path = this.reflToPath.get(
+        type.reflection as DeclarationReflection,
+      );
+      if (!path) {
+        throw new Error(
+          `Broken internal xref to ${type.reflection?.toStringHierarchy()}`,
+        );
+      }
+      const res: TypeXRefInternal = {
         name: type.name,
-        package: type.package,
-        qualifiedName: fileInfo?.qualifiedName || null,
-        sourcefilename: fileInfo?.sourceFileName || null,
-        type: "external",
+        path,
+        type: "internal",
       };
       return this.addTypeParams(type, [res]);
     }
-    const path = this.reflToPath.get(type.reflection as DeclarationReflection);
-    if (!path) {
-      throw new Error(
-        `Broken internal xref to ${type.reflection?.toStringHierarchy()}`,
-      );
+    if (!type.symbolId) {
+      throw new Error("This should not happen");
     }
-    const res: TypeXRefInternal = {
-      name: type.name,
-      path,
-      type: "internal",
-    };
+    const path = parseFilePath(type.symbolId.fileName, this.basePath);
+    let res: TypeXRefExternal | TypeXRefInternal;
+    if (path.includes("node_modules/")) {
+      // External reference
+      res = {
+        name: type.name,
+        package: type.package!,
+        qualifiedName: type.symbolId.qualifiedName || null,
+        sourcefilename: type.symbolId.fileName || null,
+        type: "external",
+      };
+    } else {
+      res = {
+        name: type.name,
+        path,
+        type: "internal",
+      };
+    }
     return this.addTypeParams(type, [res]);
   }
   reflection(type: ReflectionType): Type {

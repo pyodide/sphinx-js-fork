@@ -1,5 +1,7 @@
 // Basic types: https://www.typescriptlang.org/docs/handbook/basic-types.html
 
+import { Blah } from "./exports";
+
 export enum Color {
   Red = 1,
   Green = 2,
@@ -115,7 +117,16 @@ export class ParamClass<S extends number[]> {
 
 // Utility types (https://www.typescriptlang.org/docs/handbook/utility-types.html)
 
+// Most type references in here have ResolvedReferences. These test cases are
+// for "SymbolReference". See typedoc/src/lib/models/types.ts
+
+// Partial should generate a SymbolReference that we turn into a
+// TypeXRefExternal
 export let partial: Partial<string>;
+
+// Blah should generate a SymbolReference that we turn into a
+// TypeXRefInternal
+export let internalSymbolReference: Blah;
 
 // Complex: nested nightmares that show our ability to handle compound typing constructs
 
