@@ -358,7 +358,7 @@ export class Converter {
     this.typedocToIRMap = new Map();
   }
 
-  renderType(type: SomeType, context: TypeContext = TypeContext.none): Type {
+  convertType(type: SomeType, context: TypeContext = TypeContext.none): Type {
     return convertType(
       this.basePath,
       this.pathMap,
@@ -468,7 +468,7 @@ export class Converter {
     if (v.comment?.modifierTags.has("@hidetype")) {
       type = [];
     } else {
-      type = this.renderType(v.type);
+      type = this.convertType(v.type);
     }
     const result: Attribute = {
       ...this.memberProps(v),
@@ -542,7 +542,7 @@ export class Converter {
       // function type literal type...
       type = [];
     } else {
-      type = this.renderType(prop.type!);
+      type = this.convertType(prop.type!);
     }
     // TODO: add a readonly indicator if it's readonly
     const result: Attribute = {
@@ -585,7 +585,7 @@ export class Converter {
     }
     // TODO: add a readonly indicator if there's no setter.
     const result: Attribute = {
-      type: this.renderType(type),
+      type: this.convertType(type),
       ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
       kind: "attribute",
@@ -780,7 +780,7 @@ export class Converter {
   paramToIR(param: ParamReflSubset): Param {
     let type: Type = [];
     if (param.type) {
-      type = this.renderType(param.type);
+      type = this.convertType(param.type);
     }
     let description = renderCommentSummary(param.comment);
     if (description.length === 0 && param.type?.type === "reflection") {
@@ -838,7 +838,7 @@ export class Converter {
     const topLevel = this.topLevelProperties(first_sig);
     if (!voidReturnType && first_sig.type) {
       // Compute return comment and return annotation.
-      const returnType = this.renderType(first_sig.type);
+      const returnType = this.convertType(first_sig.type);
       const description = topLevel.block_tags.returns?.[0] || [];
       returns = [{ type: returnType, description }];
       // Put async in front of the function if it returns a Promise.
@@ -867,7 +867,7 @@ export class Converter {
 
   typeParamToIR(typeParam: TypeParameterReflection): TypeParam {
     const extends_ = typeParam.type
-      ? this.renderType(typeParam.type, TypeContext.referenceTypeArgument)
+      ? this.convertType(typeParam.type, TypeContext.referenceTypeArgument)
       : null;
     return {
       name: typeParam.name,
