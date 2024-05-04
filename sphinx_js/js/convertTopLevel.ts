@@ -436,7 +436,7 @@ export class Converter {
       // be too?
       return [undefined, (object as DeclarationReflection).children];
     }
-    const kind = ReflectionKind[object.kind];
+    const kind = ReflectionKind.singularString(object.kind);
     const convertFunc = `convert${kind}` as keyof this;
     if (!this[convertFunc]) {
       throw new Error(`No known converter for kind ${kind}`);

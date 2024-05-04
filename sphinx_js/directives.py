@@ -259,18 +259,35 @@ def auto_attribute_directive_bound_to_app(app: Sphinx) -> type[Directive]:
     return AutoAttributeDirective
 
 
-class desc_js_type_parameter_list(addnodes.desc_type_parameter_list):
-    """Node for a general type parameter list.
+class desc_js_type_parameter_list(nodes.Part, nodes.Inline, nodes.FixedTextElement):
+    """Node for a javascript type parameter list.
 
-    As default the type parameters list is written in line with the rest of the signature.
-    Set ``multi_line_parameter_list = True`` to describe a multi-line type parameters list.
-    In that case each type parameter will then be written on its own, indented line.
+    Unlike normal parameter lists, we use angle braces <> as the braces. Based
+    on sphinx.addnodes.desc_type_parameter_list
     """
 
     child_text_separator = ", "
 
     def astext(self) -> str:
         return f"<{nodes.FixedTextElement.astext(self)}>"
+
+
+def visit_desc_js_type_parameter_list(
+    self: HTML5Translator, node: nodes.Element
+) -> None:
+    """Define the html/text rendering for desc_js_type_parameter_list. Based on
+    sphinx.writers.html5.visit_desc_type_parameter_list
+    """
+    self._visit_sig_parameter_list(node, addnodes.desc_parameter, "<", ">")
+
+
+def depart_desc_js_type_parameter_list(
+    self: HTML5Translator, node: nodes.Element
+) -> None:
+    """Define the html/text rendering for desc_js_type_parameter_list. Based on
+    sphinx.writers.html5.depart_desc_type_parameter_list
+    """
+    self._depart_sig_parameter_list(node)
 
 
 def add_param_list_to_signode(signode: desc_signature, params: str) -> None:
@@ -280,9 +297,15 @@ def add_param_list_to_signode(signode: desc_signature, params: str) -> None:
     signode += paramlist
 
 
-def handle_signature(
+def handle_typeparams_for_signature(
     self: JSObject, sig: str, signode: desc_signature, *, keep_callsig: bool
 ) -> tuple[str, str]:
+    """Generic function to handle type params in the sig line for interfaces,
+    classes, and functions.
+
+    For interfaces and classes we don't prefer the look with parentheses so we
+    also remove them (by setting keep_callsig to False).
+    """
     typeparams = None
     if "<" in sig and ">" in sig:
         base, _, rest = sig.partition("<")
@@ -291,17 +314,21 @@ def handle_signature(
     res = JSCallable.handle_signature(cast(JSCallable, self), sig, signode)
     sig = sig.strip()
     lastchild = None
+    # Check for call signature, if present take it off
     if signode.children[-1].astext().endswith(")"):
         lastchild = signode.children[-1]
         signode.remove(lastchild)
     if typeparams:
         add_param_list_to_signode(signode, typeparams)
+    # if we took off a call signature and we want to keep it put it back.
     if keep_callsig and lastchild:
         signode += lastchild
     return res
 
 
 class JSFunction(JSCallable):
+    """Variant of JSCallable that can take static/async prefixes"""
+
     option_spec = {
         **JSCallable.option_spec,
         "static": flag,
@@ -323,11 +350,14 @@ class JSFunction(JSCallable):
         return result
 
     def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
-        return handle_signature(self, sig, signode, keep_callsig=True)
+        return handle_typeparams_for_signature(self, sig, signode, keep_callsig=True)
 
 
 class JSInterface(JSCallable):
-    """Like a callable but with a different prefix."""
+    """An interface directive.
+
+    Based on sphinx.domains.javascript.JSConstructor.
+    """
 
     allow_nesting = True
 
@@ -338,30 +368,17 @@ class JSInterface(JSCallable):
         ]
 
     def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
-        return handle_signature(self, sig, signode, keep_callsig=False)
-
-
-class JSTypeAlias(JSObject):
-    doc_field_types = [
-        JSGroupedField(
-            "typeparam",
-            label="Type parameters",
-            names=("typeparam",),
-            can_collapse=True,
-        )
-    ]
-
-    def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
-        return handle_signature(self, sig, signode, keep_callsig=False)
+        return handle_typeparams_for_signature(self, sig, signode, keep_callsig=False)
 
 
 class JSClass(JSConstructor):
     def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
-        return handle_signature(self, sig, signode, keep_callsig=True)
+        return handle_typeparams_for_signature(self, sig, signode, keep_callsig=True)
 
 
 @cache
 def patch_JsObject_get_index_text() -> None:
+    """Add our additional object types to the index"""
     orig_get_index_text = JSObject.get_index_text
 
     def patched_get_index_text(
@@ -370,8 +387,6 @@ def patch_JsObject_get_index_text() -> None:
         name, obj = name_obj
         if self.objtype == "interface":
             return _("%s() (interface)") % name
-        if self.objtype == "typealias":
-            return _("%s (type alias)") % name
         return orig_get_index_text(self, objectname, name_obj)
 
     JSObject.get_index_text = patched_get_index_text  # type:ignore[method-assign]
@@ -379,8 +394,6 @@ def patch_JsObject_get_index_text() -> None:
 
 def auto_module_directive_bound_to_app(app: Sphinx) -> type[Directive]:
     class AutoModuleDirective(JsDirectiveWithChildren):
-        """TODO: words here"""
-
         required_arguments = 1
 
         def run(self) -> list[Node]:
@@ -397,18 +410,6 @@ def auto_summary_directive_bound_to_app(app: Sphinx) -> type[Directive]:
             return self._run(AutoSummaryRenderer, app)
 
     return JsDocSummary
-
-
-def visit_desc_js_type_parameter_list(
-    self: HTML5Translator, node: nodes.Element
-) -> None:
-    self._visit_sig_parameter_list(node, addnodes.desc_parameter, "<", ">")
-
-
-def depart_desc_js_type_parameter_list(
-    self: HTML5Translator, node: nodes.Element
-) -> None:
-    self._depart_sig_parameter_list(node)
 
 
 def add_directives(app: Sphinx) -> None:
@@ -440,4 +441,5 @@ def add_directives(app: Sphinx) -> None:
     app.add_node(
         desc_js_type_parameter_list,
         html=(visit_desc_js_type_parameter_list, depart_desc_js_type_parameter_list),
+        text=(visit_desc_js_type_parameter_list, depart_desc_js_type_parameter_list),
     )
