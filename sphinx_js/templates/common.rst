@@ -31,3 +31,9 @@
     *exported from* :js:mod:`{{ pathname.dotted() }}`
 {%- endif %}
 {% endmacro %}
+
+{% macro fields(items) %}
+{% for heads, tail in items -%}
+   :{{ heads|join(' ') }}: {{ tail }}
+{% endfor %}
+{% endmacro %}

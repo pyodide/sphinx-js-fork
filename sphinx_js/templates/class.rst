@@ -1,9 +1,9 @@
 {% import 'common.rst' as common %}
 
 {% if is_interface -%}
-.. js:interface:: {{ name }}{{ params }}
+.. js:interface:: {{ name }}{{ type_params }}{{ params }}
 {%- else -%}
-.. js:class:: {{ name }}{{ params }}
+.. js:class:: {{ name }}{{ type_params }}{{ params }}
 {%- endif %}
 
    {{ common.deprecated(deprecated)|indent(3) }}
@@ -36,9 +36,7 @@
      {{ constructor_comment|indent(3) }}
    {%- endif %}
 
-   {% for heads, tail in fields -%}
-     :{{ heads|join(' ') }}: {{ tail }}
-   {% endfor %}
+   {{ common.fields(fields) | indent(3) }}
 
    {{ common.examples(examples)|indent(3) }}
 
