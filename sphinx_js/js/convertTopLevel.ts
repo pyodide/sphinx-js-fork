@@ -421,8 +421,6 @@ export class Converter {
       object.kindOf(
         ReflectionKind.Module |
           ReflectionKind.Namespace |
-          // TODO: document TypeAliases
-          ReflectionKind.TypeAlias |
           // TODO: document enums
           ReflectionKind.Enum |
           ReflectionKind.EnumMember |
@@ -436,7 +434,7 @@ export class Converter {
       // be too?
       return [undefined, (object as DeclarationReflection).children];
     }
-    const kind = ReflectionKind.singularString(object.kind);
+    const kind = ReflectionKind[object.kind];
     const convertFunc = `convert${kind}` as keyof this;
     if (!this[convertFunc]) {
       throw new Error(`No known converter for kind ${kind}`);
@@ -874,5 +872,15 @@ export class Converter {
       extends: extends_,
       description: renderCommentSummary(typeParam.comment),
     };
+  }
+
+  convertTypeAlias(ty: DeclarationReflection): ConvertResult {
+    const ir: TopLevelIR = {
+      ...this.topLevelProperties(ty),
+      kind: "typeAlias",
+      type: this.convertType(ty.type!),
+      type_params: this.typeParamsToIR(ty.typeParameters),
+    };
+    return [ir, ty.children];
   }
 }

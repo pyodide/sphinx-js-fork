@@ -146,4 +146,10 @@ export type Class = TopLevel &
     kind: "class";
   };
 
-export type TopLevelIR = Attribute | IRFunction | Class | Interface;
+export type TypeAlias = TopLevel & {
+  kind: "typeAlias";
+  type: Type;
+  type_params: TypeParam[];
+};
+
+export type TopLevelIR = Attribute | IRFunction | Class | Interface | TypeAlias;
