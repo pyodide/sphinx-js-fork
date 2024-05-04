@@ -21,9 +21,15 @@ from docutils.parsers.rst.directives import flag
 from docutils.utils import new_document
 from sphinx import addnodes
 from sphinx.application import Sphinx
-from sphinx.domains import ObjType
-from sphinx.domains.javascript import JavaScriptDomain, JSCallable, JSObject
+from sphinx.domains import ObjType, javascript
+from sphinx.domains.javascript import (
+    JavaScriptDomain,
+    JSCallable,
+    JSConstructor,
+    JSObject,
+)
 from sphinx.locale import _
+from sphinx.util.docfields import GroupedField, TypedField
 
 from .renderers import (
     AutoAttributeRenderer,
@@ -67,6 +73,97 @@ def sphinx_js_type_role(role, rawtext, text, lineno, inliner, options=None, cont
     n["classes"].append("sphinx_js-type")
     n += doc.children[0].children
     return [n], []
+
+
+class JSXrefMixin:
+    def make_xref(
+        self,
+        rolename: Any,
+        domain: Any,
+        target: Any,
+        innernode: Any = nodes.emphasis,
+        contnode: Any = None,
+        env: Any = None,
+        inliner: Any = None,
+        location: Any = None,
+    ) -> Any:
+        # Set inliner to None just like the PythonXrefMixin does so the
+        # xref doesn't get rendered as a function.
+        return super().make_xref(  # type:ignore[misc]
+            rolename,
+            domain,
+            target,
+            innernode,
+            contnode,
+            env,
+            inliner=None,
+            location=None,
+        )
+
+
+class JSTypedField(JSXrefMixin, TypedField):
+    pass
+
+
+class JSGroupedField(JSXrefMixin, GroupedField):
+    pass
+
+
+# Cache this to guarantee it only runs once.
+@cache
+def fix_js_make_xref() -> None:
+    """Monkeypatch to fix sphinx.domains.javascript TypedField and GroupedField
+
+    Fixes https://github.com/sphinx-doc/sphinx/issues/11021
+
+    """
+
+    # Replace javascript module
+    javascript.TypedField = JSTypedField  # type:ignore[attr-defined]
+    javascript.GroupedField = JSGroupedField  # type:ignore[attr-defined]
+
+    # Fix the one place TypedField and GroupedField are used in the javascript
+    # module
+    javascript.JSCallable.doc_field_types = [
+        JSTypedField(
+            "arguments",
+            label=_("Arguments"),
+            names=("argument", "arg", "parameter", "param"),
+            typerolename="func",
+            typenames=("paramtype", "type"),
+        ),
+        JSGroupedField(
+            "errors",
+            label=_("Throws"),
+            rolename="func",
+            names=("throws",),
+            can_collapse=True,
+        ),
+    ] + javascript.JSCallable.doc_field_types[2:]
+
+
+# Cache this to guarantee it only runs once.
+@cache
+def fix_staticfunction_objtype() -> None:
+    """Override js:function directive with one that understands static and async
+    prefixes
+    """
+
+    JavaScriptDomain.directives["function"] = JSFunction
+
+
+@cache
+def add_type_param_field_to_directives() -> None:
+    typeparam_field = JSGroupedField(
+        "typeparam",
+        label="Type parameters",
+        rolename="func",
+        names=("typeparam",),
+        can_collapse=True,
+    )
+
+    JSCallable.doc_field_types.insert(0, typeparam_field)
+    JSConstructor.doc_field_types.insert(0, typeparam_field)
 
 
 class JsDirective(Directive):
@@ -237,6 +334,10 @@ def auto_summary_directive_bound_to_app(app: Sphinx) -> type[Directive]:
 
 
 def add_directives(app: Sphinx) -> None:
+    fix_js_make_xref()
+    fix_staticfunction_objtype()
+    add_type_param_field_to_directives()
+    app.add_role("sphinx_js_type", sphinx_js_type_role)
     app.add_directive_to_domain(
         "js", "autofunction", auto_function_directive_bound_to_app(app)
     )

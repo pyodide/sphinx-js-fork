@@ -1,119 +1,16 @@
-from functools import cache
 from os.path import join, normpath
 from pathlib import Path
 from textwrap import dedent
 from typing import Any
 
 from sphinx.application import Sphinx
-from sphinx.domains.javascript import JavaScriptDomain
 from sphinx.errors import SphinxError
 
 from .directives import (
-    JSFunction,
     add_directives,
-    sphinx_js_type_role,
 )
 from .jsdoc import Analyzer as JsAnalyzer
 from .typedoc import Analyzer as TsAnalyzer
-
-
-# Cache this to guarantee it only runs once.
-@cache
-def fix_js_make_xref() -> None:
-    """Monkeypatch to fix sphinx.domains.javascript TypedField and GroupedField
-
-    Fixes https://github.com/sphinx-doc/sphinx/issues/11021
-
-    """
-    from docutils import nodes
-    from sphinx.domains import javascript
-    from sphinx.locale import _
-    from sphinx.util.docfields import GroupedField, TypedField
-
-    class JSXrefMixin:
-        def make_xref(
-            self,
-            rolename: Any,
-            domain: Any,
-            target: Any,
-            innernode: Any = nodes.emphasis,
-            contnode: Any = None,
-            env: Any = None,
-            inliner: Any = None,
-            location: Any = None,
-        ) -> Any:
-            # Set inliner to None just like the PythonXrefMixin does so the
-            # xref doesn't get rendered as a function.
-            return super().make_xref(  # type:ignore[misc]
-                rolename,
-                domain,
-                target,
-                innernode,
-                contnode,
-                env,
-                inliner=None,
-                location=None,
-            )
-
-    class JSTypedField(JSXrefMixin, TypedField):
-        pass
-
-    class JSGroupedField(JSXrefMixin, GroupedField):
-        pass
-
-    # Replace javascript module
-    javascript.TypedField = JSTypedField  # type:ignore[attr-defined]
-    javascript.GroupedField = JSGroupedField  # type:ignore[attr-defined]
-
-    # Fix the one place TypedField and GroupedField are used in the javascript
-    # module
-    javascript.JSCallable.doc_field_types = [
-        JSTypedField(
-            "arguments",
-            label=_("Arguments"),
-            names=("argument", "arg", "parameter", "param"),
-            typerolename="func",
-            typenames=("paramtype", "type"),
-        ),
-        JSGroupedField(
-            "errors",
-            label=_("Throws"),
-            rolename="func",
-            names=("throws",),
-            can_collapse=True,
-        ),
-    ] + javascript.JSCallable.doc_field_types[2:]
-
-
-# Cache this to guarantee it only runs once.
-@cache
-def fix_staticfunction_objtype() -> None:
-    """Override js:function directive with one that understands static and async
-    prefixes
-    """
-
-    JavaScriptDomain.directives["function"] = JSFunction
-
-
-@cache
-def add_type_param_field_to_directives() -> None:
-    from sphinx.domains.javascript import (  # type: ignore[attr-defined]
-        GroupedField,
-        JSCallable,
-        JSConstructor,
-    )
-
-    typeparam_field = GroupedField(
-        "typeparam",
-        label="Type parameters",
-        rolename="func",
-        names=("typeparam",),
-        can_collapse=True,
-    )
-
-    JSCallable.doc_field_types.insert(0, typeparam_field)
-    JSConstructor.doc_field_types.insert(0, typeparam_field)
-
 
 SPHINX_JS_CSS = "sphinx_js.css"
 
@@ -139,9 +36,6 @@ def on_build_finished(app: Sphinx, exc: Exception | None) -> None:
 
 
 def setup(app: Sphinx) -> None:
-    fix_js_make_xref()
-    fix_staticfunction_objtype()
-    add_type_param_field_to_directives()
     app.setup_extension("sphinx.ext.autosummary")
 
     # I believe this is the best place to run jsdoc. I was tempted to use
@@ -162,7 +56,6 @@ def setup(app: Sphinx) -> None:
     app.add_config_value("ts_type_xref_formatter", None, "env")
     app.add_config_value("ts_type_bold", False, "env")
     app.add_config_value("ts_sphinx_js_config", None, "env")
-    app.add_role("sphinx_js_type", sphinx_js_type_role)
     app.add_css_file(SPHINX_JS_CSS)
     app.connect("build-finished", on_build_finished)
 
