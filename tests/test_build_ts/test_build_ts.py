@@ -273,6 +273,14 @@ module.q
 
    Another thing.
 
+module.t
+
+   type: "TestTypeAlias"<"A">
+
+module.t2
+
+   type: "TestTypeAlias2"
+
 module.zInstance
 
    type: "Z"<"A">
@@ -353,6 +361,19 @@ interface module.I
    Documentation for the interface I
 
    *exported from* "module"
+
+module.TestTypeAlias<T>
+
+   type: { a: T; }
+
+   A super special type alias
+
+   Type parameters:
+      **T** -- The whatsit (extends "A")
+
+module.TestTypeAlias2
+
+   type: { a: number; }
                 """
             ),
         )
@@ -434,7 +455,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         soup = BeautifulSoup(self._file_contents("autosummary"), "html.parser")
         attrs = soup.find(class_="attributes")
         rows = list(attrs.find_all("tr"))
-        assert len(rows) == 5
+        assert len(rows) == 7
 
         href = rows[0].find("a")
         assert href.get_text() == "a"

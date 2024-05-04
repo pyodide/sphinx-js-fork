@@ -5,6 +5,7 @@ import pytest
 from sphinx_js.ir import (
     Attribute,
     Class,
+    Description,
     DescriptionCode,
     DescriptionText,
     Function,
@@ -12,6 +13,7 @@ from sphinx_js.ir import (
     Pathname,
     Return,
     Type,
+    TypeAlias,
     TypeParam,
     TypeXRef,
     TypeXRefExternal,
@@ -30,12 +32,12 @@ def join_type(t: Type) -> str:
     return "".join(e.name if isinstance(e, TypeXRef) else e for e in t)
 
 
-def join_descri(t: Type) -> str:
+def join_description(t: Description) -> str:
     if not t:
         return ""
     if isinstance(t, str):
         return t
-    return "".join(e.name if isinstance(e, TypeXRef) else e for e in t)
+    return "".join(e.code if isinstance(e, DescriptionCode) else e.text for e in t)
 
 
 class TestPathSegments(TypeDocTestCase):
@@ -355,6 +357,13 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
         setter = self.analyzer.get_object(["settable"])
         assert isinstance(setter, Attribute)
         assert setter.type == [TypeXRefIntrinsic("string")]
+
+    def test_type_alias(self):
+        alias = self.analyzer.get_object(["TestTypeAlias"])
+        assert isinstance(alias, TypeAlias)
+        assert join_description(alias.description) == "A super special type alias"
+        assert join_type(alias.type) == "1 | 2 | T"
+        assert alias.type_params == [TypeParam(name="T", extends=None, description=[])]
 
 
 class TestTypeName(TypeDocAnalyzerTestCase):

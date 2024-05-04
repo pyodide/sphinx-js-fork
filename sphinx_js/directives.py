@@ -373,7 +373,7 @@ class JSInterface(JSCallable):
 
 class JSTypeAlias(JSObject):
     doc_field_types = [
-        GroupedField(
+        JSGroupedField(
             "typeparam",
             label="Type parameters",
             names=("typeparam",),
