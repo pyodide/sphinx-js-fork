@@ -67,7 +67,9 @@ def typedoc_output(
     env = os.environ.copy()
     env["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[3].resolve())
     command = Command("npx")
-    command.add("tsx")
+    # tsx v4.9.1 seems to break us for some reason.
+    # TODO: figure out why
+    command.add("tsx@4.9.0")
     dir = Path(__file__).parent.resolve() / "js"
     command.add("--import", str(dir / "registerImportHook.mjs"))
     command.add(str(dir / "call_typedoc.ts"))
