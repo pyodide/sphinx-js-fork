@@ -467,10 +467,11 @@ class JsRenderer(Renderer):
 
     def _type_param_formatter(self, tparam: TypeParam) -> tuple[list[str], str] | None:
         v = tparam.name
+        descr = render_description(tparam.description)
         if tparam.extends:
-            v += " extends " + self.render_type(tparam.extends)
+            descr += " (extends " + self.render_type(tparam.extends) + ")"
         heads = ["typeparam", v]
-        return heads, render_description(tparam.description)
+        return heads, descr
 
     def _param_formatter(self, param: Param) -> tuple[list[str], str] | None:
         """Derive heads and tail from ``@param`` blocks."""

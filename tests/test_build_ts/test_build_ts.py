@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from conftest import TYPEDOC_VERSION
 
 from tests.testing import SphinxBuildTestCase
@@ -303,6 +303,9 @@ class TestTextBuilder(SphinxBuildTestCase):
 
                    *exported from* "module"
 
+                   Type parameters:
+                      **T** -- (extends "A()")
+
                    Arguments:
                       * **a** (number)
 
@@ -310,7 +313,7 @@ class TestTextBuilder(SphinxBuildTestCase):
 
                    Z.x
 
-                      type: number
+                      type: T
 
                    Z.z()
 
@@ -341,6 +344,21 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         assert 'href="index.html#Interface"' in self._file_contents(
             "autoclass_class_with_interface_and_supers"
         )
+
+    def test_extends_type_param_links(self):
+        """Make sure implemented interfaces link to their definitions."""
+        soup = BeautifulSoup(self._file_contents("automodule"), "html.parser")
+        z = soup.find(id="module.Z")
+        assert z
+        assert z.parent
+        t = z.parent.find_all(class_="sphinx_js-type")
+        s: Tag = t[0]
+        href: Tag = list(s.children)[0]
+        assert href.name == "a"
+        assert href.get_text() == "A()"
+        assert href.attrs["class"] == ["reference", "internal"]
+        assert href.attrs["title"] == "module.A"
+        assert href.attrs["href"] == "#module.A"
 
     def test_xrefs(self):
         soup = BeautifulSoup(self._file_contents("xrefs"), "html.parser")
