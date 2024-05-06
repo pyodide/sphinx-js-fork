@@ -49,7 +49,7 @@ class TestTextBuilder(SphinxBuildTestCase):
             "   A definition of a class\n\n" if TYPEDOC_VERSION >= (0, 23, 0) else ""
         )
 
-        # The quotes around ClassDefinition() must be some weird decision in
+        # The quotes around ClassDefinition must be some weird decision in
         # Sphinx's text output. I don't care if they go away in a future
         # version of Sphinx. It doesn't affect the HTML output.
         self._file_contents_eq(
@@ -60,7 +60,7 @@ class TestTextBuilder(SphinxBuildTestCase):
             '   *exported from* "class"\n'
             "\n"
             "   **Extends:**\n"
-            '      * "ClassDefinition()"\n'
+            '      * "ClassDefinition"\n'
             "\n"
             "   **Implements:**\n"
             '      * "Interface"\n'
@@ -183,7 +183,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                       * **c** (any)
 
                    Returns:
-                      boolean (typeguard for "ConstructorlessClass()")
+                      boolean (typeguard for "ConstructorlessClass")
                 """
             ),
         )
@@ -235,7 +235,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                    *exported from* "class"
 
                    **Extends:**
-                      * "Base()"
+                      * "Base"
 
                    Extension.g()
 
@@ -304,7 +304,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                    *exported from* "module"
 
                    Type parameters:
-                      **T** -- Description of T (extends "A()")
+                      **T** -- Description of T (extends "A")
 
                    Arguments:
                       * **a** (number)
@@ -355,7 +355,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         s: Tag = t[0]
         href: Tag = list(s.children)[0]
         assert href.name == "a"
-        assert href.get_text() == "A()"
+        assert href.get_text() == "A"
         assert href.attrs["class"] == ["reference", "internal"]
         assert href.attrs["title"] == "module.A"
         assert href.attrs["href"] == "#module.A"
@@ -379,11 +379,11 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         assert (
             href.attrs["href"] == "autoclass_constructorless.html#ConstructorlessClass"
         )
-        assert href.get_text() == "ConstructorlessClass()"
+        assert href.get_text() == "ConstructorlessClass"
 
         thunk_links = get_links("thunk")
         assert thunk_links[1].get_text() == "OptionalThings"
-        assert thunk_links[2].get_text() == "ConstructorlessClass()"
+        assert thunk_links[2].get_text() == "ConstructorlessClass"
 
     def test_sphinx_link_in_description(self):
         soup = BeautifulSoup(

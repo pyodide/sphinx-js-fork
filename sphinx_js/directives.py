@@ -349,6 +349,7 @@ def add_directives(app: Sphinx) -> None:
     app.add_directive_to_domain(
         "js", "autosummary", auto_summary_directive_bound_to_app(app)
     )
+    app.add_role_to_domain("js", "class", JSXRefRole())
     JavaScriptDomain.object_types["interface"] = ObjType(_("interface"), "interface")
     app.add_directive_to_domain("js", "interface", JSInterface)
     app.add_role_to_domain("js", "interface", JSXRefRole())
