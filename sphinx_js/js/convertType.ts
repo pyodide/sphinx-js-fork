@@ -40,8 +40,6 @@ import { ReadonlySymbolToType } from "./redirectPrivateAliases.js";
  *
  * Most visitor nodes should be similar to the implementation of getTypeString
  * on the same type.
- *
- * TODO: implement the remaining not implemented cases and add test coverage.
  */
 class TypeConverter implements TypeVisitor<Type> {
   private readonly basePath: string;
@@ -98,11 +96,17 @@ class TypeConverter implements TypeVisitor<Type> {
   }
 
   conditional(type: ConditionalType): Type {
-    throw new Error("Not implemented");
+    return [
+      ...this.convert(type.checkType, TypeContext.conditionalCheck),
+      " extends ",
+      ...this.convert(type.extendsType, TypeContext.conditionalExtends),
+      " ? ",
+      ...this.convert(type.trueType, TypeContext.conditionalTrue),
+      " : ",
+      ...this.convert(type.falseType, TypeContext.conditionalFalse),
+    ];
   }
   indexedAccess(type: IndexedAccessType): Type {
-    // TODO: switch to correct impl
-    return ["<TODO: not implemented indexedAccess>"];
     return [
       ...this.convert(type.objectType, TypeContext.indexedObject),
       "[",
@@ -111,7 +115,13 @@ class TypeConverter implements TypeVisitor<Type> {
     ];
   }
   inferred(type: InferredType): Type {
-    throw new Error("Not implemented");
+    if (type.constraint) {
+      return [
+        `infer ${type.name} extends `,
+        ...this.convert(type.constraint, TypeContext.inferredConstraint),
+      ];
+    }
+    return [`infer ${type.name}`];
   }
   intersection(type: IntersectionType): Type {
     const result: Type = [];
@@ -132,10 +142,48 @@ class TypeConverter implements TypeVisitor<Type> {
     return [JSON.stringify(type.value)];
   }
   mapped(type: MappedType): Type {
-    throw new Error("Not implemented");
+    const read = {
+      "+": "readonly ",
+      "-": "-readonly ",
+      "": "",
+    }[type.readonlyModifier ?? ""];
+
+    const opt = {
+      "+": "?",
+      "-": "-?",
+      "": "",
+    }[type.optionalModifier ?? ""];
+
+    const parts: Type = [
+      "{ ",
+      read,
+      "[",
+      type.parameter,
+      " in ",
+      ...this.convert(type.parameterType, TypeContext.mappedParameter),
+    ];
+
+    if (type.nameType) {
+      parts.push(
+        " as ",
+        ...this.convert(type.nameType, TypeContext.mappedName),
+      );
+    }
+
+    parts.push(
+      "]",
+      opt,
+      ": ",
+      ...this.convert(type.templateType, TypeContext.mappedTemplate),
+      " }",
+    );
+    return parts;
   }
   optional(type: OptionalType): Type {
-    throw new Error("Not implemented");
+    return [
+      ...this.convert(type.elementType, TypeContext.optionalElement),
+      "?",
+    ];
   }
   predicate(type: PredicateType): Type {
     // Consider using typedoc's representation for this instead of this custom
@@ -281,10 +329,22 @@ class TypeConverter implements TypeVisitor<Type> {
     throw new Error("Not implemented");
   }
   rest(type: RestType): Type {
-    throw new Error("Not implemented");
+    return ["...", ...this.convert(type.elementType, TypeContext.restElement)];
   }
   templateLiteral(type: TemplateLiteralType): Type {
-    throw new Error("Not implemented");
+    return [
+      "`",
+      type.head,
+      ...type.tail.flatMap(([type, text]) => {
+        return [
+          "${",
+          ...this.convert(type, TypeContext.templateLiteralElement),
+          "}",
+          text,
+        ];
+      }),
+      "`",
+    ];
   }
   tuple(type: TupleType): Type {
     const result: Type = [];
