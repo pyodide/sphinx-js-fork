@@ -59,6 +59,7 @@ attribute_base = Attribute(
     is_optional=False,
     is_static=False,
     is_private=False,
+    readonly=False,
     type=[]
 )
 attr_dict = {k: v for k, v in getmembers(attribute_base) if not k.startswith("_")}

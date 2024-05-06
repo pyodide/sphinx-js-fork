@@ -193,21 +193,29 @@ class TestTextBuilder(SphinxBuildTestCase):
             "getset",
             dedent(
                 """\
-                class GetSetDocs()
+class GetSetDocs()
 
-                   *exported from* "class"
+   *exported from* "class"
 
-                   GetSetDocs.a
+   GetSetDocs.a
 
-                      type: number
+      type: readonly number
 
-                      Getter with comment
+      Getter with comment
 
-                   GetSetDocs.b
+   GetSetDocs.b
 
-                      type: any
+      type: number
 
-                      Setter with comment
+      Setter with comment
+
+   GetSetDocs.x
+
+      type: readonly number
+
+   GetSetDocs.y
+
+      type: number
                 """
             ),
         )
@@ -224,7 +232,7 @@ class TestTextBuilder(SphinxBuildTestCase):
 
                    Base.a
 
-                      type: number
+                      type: readonly number
 
                    Base.f()
 

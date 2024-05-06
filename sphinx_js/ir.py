@@ -274,6 +274,7 @@ class Attribute(TopLevel, _Member):
 
     #: The type this property's value can have
     type: Type
+    readonly: bool = False
     kind: Literal["attribute"] = "attribute"
 
 
