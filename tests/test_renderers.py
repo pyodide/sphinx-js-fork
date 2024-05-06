@@ -60,10 +60,10 @@ def test_render_description():
     )
 
 
-def ts_xref_formatter(config, xref, kind):
+def ts_xref_formatter(config, xref):
     if isinstance(xref, TypeXRefInternal):
         name = rst.escape(xref.name)
-        return f":js:{kind}:`{name}`"
+        return f":js:{xref.kind}:`{name}`"
     else:
         return xref.name
 
@@ -339,8 +339,12 @@ def test_render_xref(function_renderer: AutoFunctionRenderer):
     assert function_renderer.render_type([xref_external]) == "A"
     res = []
 
-    def xref_render(config, val, kind):
+    def xref_render(config, val):
         res.append([config, val])
+        kind = None
+        if isinstance(val, TypeXRefInternal):
+            kind = val.kind
+
         return f"{val.package}::{val.name}::{kind}"
 
     function_renderer._set_type_xref_formatter(xref_render)

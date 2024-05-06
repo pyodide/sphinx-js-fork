@@ -297,7 +297,6 @@ class TypeConverter implements TypeVisitor<Type> {
   }
 
   reference(type: ReferenceType): Type {
-    let res;
     if (type.isIntentionallyBroken()) {
       // If it's intentionally broken, don't add an xref. It's probably a type
       // parameter.
@@ -305,7 +304,7 @@ class TypeConverter implements TypeVisitor<Type> {
     } else {
       // if we got a reflection use that. It's not all that clear how to deal
       // with type arguments here though...
-      res = this.convertPrivateReferenceToReflection(type);
+      const res = this.convertPrivateReferenceToReflection(type);
       // else use convertReferenceToXRef
       if (res) {
         return res;

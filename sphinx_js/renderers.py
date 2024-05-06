@@ -175,7 +175,7 @@ class HasDepPath(Protocol):
 
 
 class Renderer:
-    _type_xref_formatter: Callable[[TypeXRef, str | None], str]
+    _type_xref_formatter: Callable[[TypeXRef], str]
     # We turn the <span class="sphinx_js-type"> in the analyzer tests because it
     # makes a big mess.
     _add_span: bool
@@ -235,13 +235,13 @@ class Renderer:
         )
 
     def _set_type_xref_formatter(
-        self, formatter: Callable[[Config, TypeXRef, str | None], str] | None
+        self, formatter: Callable[[Config, TypeXRef], str] | None
     ) -> None:
         if formatter:
             self._type_xref_formatter = partial(formatter, self._app.config)
             return
 
-        def default_type_xref_formatter(xref: TypeXRef, _: str | None) -> str:
+        def default_type_xref_formatter(xref: TypeXRef) -> str:
             return xref.name
 
         self._type_xref_formatter = default_type_xref_formatter
@@ -453,11 +453,13 @@ class JsRenderer(Renderer):
 
     def render_xref(self, s: TypeXRef, escape: bool = False) -> str:
         obj = None
-        kind = None
-        if isinstance(s, TypeXRefInternal | TypeXRefInternal):
+        if isinstance(s, TypeXRefInternal):
             obj = self.lookup_object(s.path)
-            kind = type(obj).__name__.lower()
-        result = self._type_xref_formatter(s, kind)
+            # Stick the kind on the xref so that the formatter will know what
+            # xref role to emit. I'm not sure how to compute this earlier. It's
+            # convenient to do it here.
+            s.kind = type(obj).__name__.lower()
+        result = self._type_xref_formatter(s)
         if escape:
             result = rst.escape(result)
         return result

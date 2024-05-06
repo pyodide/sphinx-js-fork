@@ -45,6 +45,7 @@ class TypeXRefInternal:
     name: str
     path: list[str]
     type: Literal["internal"] = "internal"
+    kind: str | None = None
 
 
 @define

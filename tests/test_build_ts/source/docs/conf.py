@@ -14,9 +14,9 @@ from sphinx.util import rst
 from sphinx_js.ir import TypeXRef, TypeXRefInternal
 
 
-def ts_type_xref_formatter(config, xref: TypeXRef, kind: str) -> str:
+def ts_type_xref_formatter(config, xref: TypeXRef) -> str:
     if isinstance(xref, TypeXRefInternal):
         name = rst.escape(xref.name)
-        return f":js:{kind}:`{name}`"
+        return f":js:{xref.kind}:`{name}`"
     else:
         return xref.name
