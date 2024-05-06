@@ -278,14 +278,14 @@ def test_func_render_type_params(function_render):
     assert function_render(
         params=[Param("a", type="T"), Param("b", type="S")],
         type_params=[
-            TypeParam("T", "", "a type param"),
+            TypeParam("T", "number", "a type param"),
             TypeParam("S", "", "second type param"),
         ],
     ) == dedent(
         """\
-        .. js:function:: blah(a, b)
+        .. js:function:: blah<T, S>(a, b)
 
-           :typeparam T: a type param
+           :typeparam T: a type param (extends **number**)
            :typeparam S: second type param
            :param a:
            :param b:

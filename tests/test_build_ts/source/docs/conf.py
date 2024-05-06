@@ -11,10 +11,10 @@ jsdoc_tsconfig_path = "../tsconfig.json"
 js_language = "typescript"
 from sphinx.util import rst
 
-from sphinx_js.ir import TypeXRefInternal
+from sphinx_js.ir import TypeXRef, TypeXRefInternal
 
 
-def ts_type_xref_formatter(config, xref, kind):
+def ts_type_xref_formatter(config, xref: TypeXRef, kind: str) -> str:
     if isinstance(xref, TypeXRefInternal):
         name = rst.escape(xref.name)
         return f":js:{kind}:`{name}`"

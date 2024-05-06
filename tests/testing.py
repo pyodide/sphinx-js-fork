@@ -100,9 +100,6 @@ class TypeDocAnalyzerTestCase(TypeDocTestCase):
         """Run the TS analyzer over the TypeDoc output."""
         super().setup_class()
 
-        def should_destructure(sig, p):
-            return p.name == "destructureThisPlease"
-
         cls.analyzer = TsAnalyzer(cls.json, cls.extra_data, cls._source_dir)
 
 

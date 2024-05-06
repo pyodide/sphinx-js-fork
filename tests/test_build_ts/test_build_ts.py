@@ -93,7 +93,7 @@ class TestTextBuilder(SphinxBuildTestCase):
         question marks sticking out of them."""
         self._file_contents_eq(
             "autoclass_interface_optionals",
-            "interface OptionalThings()\n"
+            "interface OptionalThings\n"
             "\n"
             '   *exported from* "class"\n'
             "\n"
@@ -249,79 +249,110 @@ class TestTextBuilder(SphinxBuildTestCase):
             "automodule",
             dedent(
                 """\
-                module.a
+module.a
 
-                   type: 7
+   type: 7
 
-                   The thing.
+   The thing.
 
-                module.q
+module.aInstance
 
-                   type: { a: string; b: number; }
+   type: "A"
 
-                   Another thing.
+   An instance of class A
 
-                async module.f()
+module.interfaceInstance
 
-                   Clutches the bundle
+   type: "I"
 
-                   Returns:
-                      Promise<void>
+   An instance of the interface
 
-                module.z(a, b)
+module.q
 
-                   Arguments:
-                      * **a** (number)
+   type: { a: string; b: number; }
 
-                      * **b** ({ a: string; b: number; })
+   Another thing.
 
-                   Returns:
-                      number
+module.zInstance
 
-                class module.A()
+   type: "Z"<"A">
 
-                   This is a summary. This is more info.
+async module.f()
 
-                   *exported from* "module"
+   Clutches the bundle
 
-                   A.[Symbol․iterator]()
+   Returns:
+      Promise<void>
 
-                   async A.f()
+module.functionWithTypeParam<T>(z)
 
-                      Returns:
-                         Promise<void>
+   A function with a type parameter!
 
-                   A.g(a)
+   We'll refer to ourselves: "functionWithTypeParam()"
 
-                      Arguments:
-                         * **a** (number)
+   Type parameters:
+      **T** -- The type parameter (extends "A")
 
-                      Returns:
-                         number
+   Arguments:
+      * **z** ("Z"<T>) -- A Z of T
 
-                class module.Z(a, b)
+   Returns:
+      T -- The x field of z
 
-                   *exported from* "module"
+module.z(a, b)
 
-                   Type parameters:
-                      **T** -- Description of T (extends "A")
+   Arguments:
+      * **a** (number)
 
-                   Arguments:
-                      * **a** (number)
+      * **b** ({ a: string; b: number; })
 
-                      * **b** (number)
+   Returns:
+      number
 
-                   Z.x
+class module.A()
 
-                      type: T
+   This is a summary. This is more info.
 
-                   Z.z()
+   *exported from* "module"
 
-                interface module.I()
+   A.[Symbol․iterator]()
 
-                   Documentation for the interface I
+   async A.f()
 
-                   *exported from* "module"
+      Returns:
+         Promise<void>
+
+   A.g(a)
+
+      Arguments:
+         * **a** (number)
+
+      Returns:
+         number
+
+class module.Z<T>(a, b)
+
+   *exported from* "module"
+
+   Type parameters:
+      **T** -- Description of T (extends "A")
+
+   Arguments:
+      * **a** (number)
+
+      * **b** (number)
+
+   Z.x
+
+      type: T
+
+   Z.z()
+
+interface module.I
+
+   Documentation for the interface I
+
+   *exported from* "module"
                 """
             ),
         )
@@ -403,7 +434,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         soup = BeautifulSoup(self._file_contents("autosummary"), "html.parser")
         attrs = soup.find(class_="attributes")
         rows = list(attrs.find_all("tr"))
-        assert len(rows) == 2
+        assert len(rows) == 5
 
         href = rows[0].find("a")
         assert href.get_text() == "a"
@@ -411,13 +442,13 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         assert rows[0].find(class_="summary").get_text() == "The thing."
 
         href = rows[1].find("a")
-        assert href.get_text() == "q"
-        assert href["href"] == "automodule.html#module.q"
-        assert rows[1].find(class_="summary").get_text() == "Another thing."
+        assert href.get_text() == "aInstance"
+        assert href["href"] == "automodule.html#module.aInstance"
+        assert rows[1].find(class_="summary").get_text() == "An instance of class A"
 
         funcs = soup.find(class_="functions")
         rows = list(funcs.find_all("tr"))
-        assert len(rows) == 2
+        assert len(rows) == 3
         row0 = list(rows[0].children)
         NBSP = "\xa0"
         assert row0[0].get_text() == f"async{NBSP}f()"
@@ -426,7 +457,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         assert href["href"] == "automodule.html#module.f"
         assert rows[0].find(class_="summary").get_text() == "Clutches the bundle"
 
-        row1 = list(rows[1].children)
+        row1 = list(rows[2].children)
         assert row1[0].get_text() == "z(a, b)"
         href = row1[0].find("a")
         assert href.get_text() == "z"

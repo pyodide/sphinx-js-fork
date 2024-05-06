@@ -11,7 +11,7 @@ import re
 from collections.abc import Iterable
 from functools import cache
 from os.path import join, relpath
-from typing import Any
+from typing import Any, cast
 
 from docutils import nodes
 from docutils.nodes import Node
@@ -20,6 +20,7 @@ from docutils.parsers.rst import Parser as RstParser
 from docutils.parsers.rst.directives import flag
 from docutils.utils import new_document
 from sphinx import addnodes
+from sphinx.addnodes import desc_signature
 from sphinx.application import Sphinx
 from sphinx.domains import ObjType, javascript
 from sphinx.domains.javascript import (
@@ -31,6 +32,7 @@ from sphinx.domains.javascript import (
 )
 from sphinx.locale import _
 from sphinx.util.docfields import GroupedField, TypedField
+from sphinx.writers.html5 import HTML5Translator
 
 from .renderers import (
     AutoAttributeRenderer,
@@ -257,7 +259,76 @@ def auto_attribute_directive_bound_to_app(app: Sphinx) -> type[Directive]:
     return AutoAttributeDirective
 
 
+class desc_js_type_parameter_list(nodes.Part, nodes.Inline, nodes.FixedTextElement):
+    """Node for a javascript type parameter list.
+
+    Unlike normal parameter lists, we use angle braces <> as the braces. Based
+    on sphinx.addnodes.desc_type_parameter_list
+    """
+
+    child_text_separator = ", "
+
+    def astext(self) -> str:
+        return f"<{nodes.FixedTextElement.astext(self)}>"
+
+
+def visit_desc_js_type_parameter_list(
+    self: HTML5Translator, node: nodes.Element
+) -> None:
+    """Define the html/text rendering for desc_js_type_parameter_list. Based on
+    sphinx.writers.html5.visit_desc_type_parameter_list
+    """
+    self._visit_sig_parameter_list(node, addnodes.desc_parameter, "<", ">")
+
+
+def depart_desc_js_type_parameter_list(
+    self: HTML5Translator, node: nodes.Element
+) -> None:
+    """Define the html/text rendering for desc_js_type_parameter_list. Based on
+    sphinx.writers.html5.depart_desc_type_parameter_list
+    """
+    self._depart_sig_parameter_list(node)
+
+
+def add_param_list_to_signode(signode: desc_signature, params: str) -> None:
+    paramlist = desc_js_type_parameter_list()
+    for arg in params.split(","):
+        paramlist += addnodes.desc_parameter("", "", addnodes.desc_sig_name(arg, arg))
+    signode += paramlist
+
+
+def handle_typeparams_for_signature(
+    self: JSObject, sig: str, signode: desc_signature, *, keep_callsig: bool
+) -> tuple[str, str]:
+    """Generic function to handle type params in the sig line for interfaces,
+    classes, and functions.
+
+    For interfaces and classes we don't prefer the look with parentheses so we
+    also remove them (by setting keep_callsig to False).
+    """
+    typeparams = None
+    if "<" in sig and ">" in sig:
+        base, _, rest = sig.partition("<")
+        typeparams, _, params = rest.partition(">")
+        sig = base + params
+    res = JSCallable.handle_signature(cast(JSCallable, self), sig, signode)
+    sig = sig.strip()
+    lastchild = None
+    # Check for call signature, if present take it off
+    if signode.children[-1].astext().endswith(")"):
+        lastchild = signode.children[-1]
+        signode.remove(lastchild)
+    if typeparams:
+        add_param_list_to_signode(signode, typeparams)
+    # if we took off a call signature and we want to keep it put it back.
+    if keep_callsig and lastchild:
+        signode += lastchild
+    return res
+
+
 class JSFunction(JSCallable):
+    """Variant of JSCallable that can take static/async prefixes"""
+
     option_spec = {
         **JSCallable.option_spec,
         "static": flag,
@@ -278,9 +349,15 @@ class JSFunction(JSCallable):
                 )
         return result
 
+    def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
+        return handle_typeparams_for_signature(self, sig, signode, keep_callsig=True)
+
 
 class JSInterface(JSCallable):
-    """Like a callable but with a different prefix."""
+    """An interface directive.
+
+    Based on sphinx.domains.javascript.JSConstructor.
+    """
 
     allow_nesting = True
 
@@ -290,9 +367,18 @@ class JSInterface(JSCallable):
             addnodes.desc_sig_space(),
         ]
 
+    def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
+        return handle_typeparams_for_signature(self, sig, signode, keep_callsig=False)
+
+
+class JSClass(JSConstructor):
+    def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
+        return handle_typeparams_for_signature(self, sig, signode, keep_callsig=True)
+
 
 @cache
 def patch_JsObject_get_index_text() -> None:
+    """Add our additional object types to the index"""
     orig_get_index_text = JSObject.get_index_text
 
     def patched_get_index_text(
@@ -308,8 +394,6 @@ def patch_JsObject_get_index_text() -> None:
 
 def auto_module_directive_bound_to_app(app: Sphinx) -> type[Directive]:
     class AutoModuleDirective(JsDirectiveWithChildren):
-        """TODO: words here"""
-
         required_arguments = 1
 
         def run(self) -> list[Node]:
@@ -349,7 +433,13 @@ def add_directives(app: Sphinx) -> None:
     app.add_directive_to_domain(
         "js", "autosummary", auto_summary_directive_bound_to_app(app)
     )
+    app.add_directive_to_domain("js", "class", JSClass)
     app.add_role_to_domain("js", "class", JSXRefRole())
     JavaScriptDomain.object_types["interface"] = ObjType(_("interface"), "interface")
     app.add_directive_to_domain("js", "interface", JSInterface)
     app.add_role_to_domain("js", "interface", JSXRefRole())
+    app.add_node(
+        desc_js_type_parameter_list,
+        html=(visit_desc_js_type_parameter_list, depart_desc_js_type_parameter_list),
+        text=(visit_desc_js_type_parameter_list, depart_desc_js_type_parameter_list),
+    )

@@ -26,6 +26,11 @@ export class A {
 }
 
 /**
+ * An instance of class A
+ */
+export let aInstance: A;
+
+/**
  * @typeParam T Description of T
  */
 export class Z<T extends A> {
@@ -34,6 +39,8 @@ export class Z<T extends A> {
 
   z() {}
 }
+
+export let zInstance: Z<A>;
 
 /**
  * Another thing.
@@ -44,3 +51,22 @@ export const q = { a: "z29", b: 76 };
  * Documentation for the interface I
  */
 export interface I {}
+
+/**
+ * An instance of the interface
+ */
+export let interfaceInstance: I = {};
+
+/**
+ * A function with a type parameter!
+ *
+ * We'll refer to ourselves: :js:func:`functionWithTypeParam`
+ *
+ * @typeParam T The type parameter
+ * @typeParam S Another type param
+ * @param z A Z of T
+ * @returns The x field of z
+ */
+export function functionWithTypeParam<T extends A>(z: Z<T>): T {
+  return z.x;
+}

@@ -14,6 +14,10 @@
      {{ description|indent(3) }}
    {%- endif %}
 
+   {% if is_type_alias -%}
+     {{ common.fields(fields) | indent(3) }}
+   {%- endif %}
+
    {{ common.examples(examples)|indent(3) }}
 
    {{ content|indent(3) }}

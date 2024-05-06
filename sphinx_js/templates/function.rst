@@ -1,6 +1,6 @@
 {% import 'common.rst' as common %}
 
-.. js:function:: {{ name }}{{ '?' if is_optional else '' }}{{ params }}
+.. js:function:: {{ name }}{{ '?' if is_optional else '' }}{{ type_params }}{{ params }}
    {% if is_static -%}
    :static:
    {% endif %}
@@ -14,9 +14,7 @@
      {{ description|indent(3) }}
    {%- endif %}
 
-   {% for heads, tail in fields -%}
-     :{{ heads|join(' ') }}: {{ tail }}
-   {% endfor %}
+   {{ common.fields(fields) | indent(3) }}
 
    {{ common.examples(examples)|indent(3) }}
 

@@ -374,6 +374,11 @@ class JsRenderer(Renderer):
         result = "\n".join(lines) + "\n"
         return result
 
+    def _type_params(self, obj: Function | Class | Interface) -> str:
+        if not obj.type_params:
+            return ""
+        return "<{}>".format(", ".join(tp.name for tp in obj.type_params))
+
     def _formal_params(self, obj: Function) -> str:
         """Return the JS function params, looking first to any explicit params
         written into the directive and falling back to those in comments or JS
@@ -543,6 +548,7 @@ class AutoFunctionRenderer(JsRenderer):
             deprecated = render_description(deprecated)
         return dict(
             name=name,
+            type_params=self._type_params(obj),
             params=self._formal_params(obj),
             fields=self._fields(obj),
             description=render_description(obj.description),
@@ -595,6 +601,7 @@ class AutoClassRenderer(JsRenderer):
         return dict(
             name=name,
             params=self._formal_params(constructor),
+            type_params=self._type_params(obj),
             fields=self._fields(constructor),
             examples=[render_description(ex) for ex in constructor.examples],
             deprecated=constructor.deprecated,
