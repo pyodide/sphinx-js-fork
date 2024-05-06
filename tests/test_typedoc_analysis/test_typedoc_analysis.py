@@ -663,3 +663,31 @@ class TestTypeName(TypeDocAnalyzerTestCase):
     def test_hidden_type_member(self):
         obj = self.analyzer.get_object(["HasHiddenTypeMember"])
         assert obj.members[0].type == []
+
+    def test_rest_type(self):
+        obj = self.analyzer.get_object(["restType"])
+        assert join_type(obj.type) == "[...number[]]"
+
+    def test_indexed_access_type(self):
+        obj = self.analyzer.get_object(["indexedAccessType"])
+        assert join_type(obj.type) == 'FunctionInterface["length"]'
+
+    def test_conditional_type(self):
+        obj = self.analyzer.get_object(["ConditionalType"])
+        assert join_type(obj.type) == "T extends A ? 1 : 2"
+
+    def test_inferred_type(self):
+        obj = self.analyzer.get_object(["InferredType"])
+        assert join_type(obj.type) == "T extends Promise<infer S> ? S : T"
+
+    def test_mapped_type(self):
+        obj = self.analyzer.get_object(["MappedType1"])
+        assert join_type(obj.type) == "{ [property in keys]: number }"
+        obj = self.analyzer.get_object(["MappedType2"])
+        assert join_type(obj.type) == "{ -readonly [property in keys]?: number }"
+        obj = self.analyzer.get_object(["MappedType3"])
+        assert join_type(obj.type) == "{ readonly [property in keys]-?: number }"
+
+    def test_template_literal(self):
+        obj = self.analyzer.get_object(["TemplateLiteral"])
+        assert join_type(obj.type) == "`${number}: ${string}`"

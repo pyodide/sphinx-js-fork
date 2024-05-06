@@ -228,3 +228,21 @@ export class HasHiddenTypeMember {
    */
   hasHiddenType: number;
 }
+
+export let restType: [...number[]];
+
+export let indexedAccessType: FunctionInterface["length"];
+
+export type ConditionalType<T> = T extends A ? 1 : 2;
+
+export type InferredType<T> = T extends Promise<infer S> ? S : T;
+
+export type keys = "A" | "B" | "C";
+
+export type MappedType1 = { [property in keys]: number };
+export type MappedType2 = { -readonly [property in keys]?: number };
+export type MappedType3 = { readonly [property in keys]-?: number };
+
+export type TemplateLiteral = `${number}: ${string}`;
+
+export type OptionalType = [number?];
