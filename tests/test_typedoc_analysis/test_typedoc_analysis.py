@@ -501,7 +501,8 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         rst = rst.replace("\\", "").replace("  ", " ")
         assert ":typeparam T: The type of the object" in rst
         assert (
-            ":typeparam K extends string | number | symbol: The type of the key" in rst
+            ":typeparam K: The type of the key (extends string | number | symbol)"
+            in rst
         )
 
     def test_class_constrained(self):
@@ -522,7 +523,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         a._options = {}
         rst = a.rst([obj.name], obj)
         rst = rst.replace("\\ ", "").replace("\\", "").replace("  ", " ")
-        assert ":typeparam S extends number[]: The type we contain" in rst
+        assert ":typeparam S: The type we contain (extends number[])" in rst
 
     def test_constrained_by_constructor(self):
         """Make sure ``new ()`` expressions and, more generally, per-property

@@ -25,8 +25,11 @@ export class A {
   }
 }
 
-export class Z {
-  x: number;
+/**
+ * @typeParam T Description of T
+ */
+export class Z<T extends A> {
+  x: T;
   constructor(a: number, b: number) {}
 
   z() {}
