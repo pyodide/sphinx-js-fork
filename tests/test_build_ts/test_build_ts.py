@@ -249,6 +249,19 @@ class TestTextBuilder(SphinxBuildTestCase):
             "automodule",
             dedent(
                 """\
+module.TestTypeAlias<T>
+
+   type: { a: T; }
+
+   A super special type alias
+
+   Type parameters:
+      **T** -- The whatsit (extends "A")
+
+module.TestTypeAlias2
+
+   type: { a: number; }
+
 module.a
 
    type: 7
@@ -317,6 +330,12 @@ module.z(a, b)
    Returns:
       number
 
+interface module.I
+
+   Documentation for the interface I
+
+   *exported from* "module"
+
 class module.A()
 
    This is a summary. This is more info.
@@ -355,25 +374,6 @@ class module.Z<T>(a, b)
       type: T
 
    Z.z()
-
-interface module.I
-
-   Documentation for the interface I
-
-   *exported from* "module"
-
-module.TestTypeAlias<T>
-
-   type: { a: T; }
-
-   A super special type alias
-
-   Type parameters:
-      **T** -- The whatsit (extends "A")
-
-module.TestTypeAlias2
-
-   type: { a: number; }
                 """
             ),
         )
@@ -492,3 +492,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
             classes.find(class_="summary").get_text()
             == "Documentation for the interface I"
         )
+
+        classes = soup.find(class_="type_aliases")
+        assert classes
+        assert classes.find(class_="summary").get_text() == "A super special type alias"

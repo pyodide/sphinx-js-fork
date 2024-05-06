@@ -736,9 +736,8 @@ class AutoSummaryRenderer(Renderer):
             group_objects = getattr(module, group_name)
             if not group_objects:
                 continue
-            group_name = group_name.replace("_", " ")
             n = nodes.container()
-            n += self.format_heading(group_name.title() + ":")
+            n += self.format_heading(group_name.replace("_", " ").title() + ":")
             table_items = self.get_summary_table(pkgname, group_objects)
             n += self.format_table(table_items)
             n["classes"] += ["jssummarytable", group_name]
