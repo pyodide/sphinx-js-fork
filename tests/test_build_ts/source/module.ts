@@ -58,6 +58,16 @@ export interface I {}
 export let interfaceInstance: I = {};
 
 /**
+ * A super special type alias
+ * @typeParam T The whatsit
+ */
+export type TestTypeAlias<T extends A> = { a: T };
+export type TestTypeAlias2 = { a: number };
+
+export let t: TestTypeAlias<A>;
+export let t2: TestTypeAlias2;
+
+/**
  * A function with a type parameter!
  *
  * We'll refer to ourselves: :js:func:`functionWithTypeParam`

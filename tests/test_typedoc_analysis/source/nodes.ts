@@ -54,3 +54,9 @@ export class Indexable {
 
 // Test that we don't fail on a reexport
 export { Blah } from "./exports";
+
+/**
+ * A super special type alias
+ * @typeparam T The whatsit
+ */
+export type TestTypeAlias<T> = 1 | 2 | T;

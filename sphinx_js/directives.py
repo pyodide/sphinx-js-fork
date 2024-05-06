@@ -371,6 +371,20 @@ class JSInterface(JSCallable):
         return handle_typeparams_for_signature(self, sig, signode, keep_callsig=False)
 
 
+class JSTypeAlias(JSObject):
+    doc_field_types = [
+        JSGroupedField(
+            "typeparam",
+            label="Type parameters",
+            names=("typeparam",),
+            can_collapse=True,
+        )
+    ]
+
+    def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
+        return handle_typeparams_for_signature(self, sig, signode, keep_callsig=False)
+
+
 class JSClass(JSConstructor):
     def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
         return handle_typeparams_for_signature(self, sig, signode, keep_callsig=True)
@@ -438,6 +452,9 @@ def add_directives(app: Sphinx) -> None:
     JavaScriptDomain.object_types["interface"] = ObjType(_("interface"), "interface")
     app.add_directive_to_domain("js", "interface", JSInterface)
     app.add_role_to_domain("js", "interface", JSXRefRole())
+    JavaScriptDomain.object_types["typealias"] = ObjType(_("type alias"), "typealias")
+    app.add_directive_to_domain("js", "typealias", JSTypeAlias)
+    app.add_role_to_domain("js", "typealias", JSXRefRole())
     app.add_node(
         desc_js_type_parameter_list,
         html=(visit_desc_js_type_parameter_list, depart_desc_js_type_parameter_list),

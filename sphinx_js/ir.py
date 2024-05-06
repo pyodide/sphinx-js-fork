@@ -203,6 +203,7 @@ class Module:
     functions: list["Function"] = Factory(list)
     classes: list["Class"] = Factory(list)
     interfaces: list["Interface"] = Factory(list)
+    type_aliases: list["TypeAlias"] = Factory(list)
 
 
 @define(slots=False)
@@ -327,7 +328,14 @@ class Class(TopLevel, _MembersAndSupers):
     kind: Literal["class"] = "class"
 
 
-TopLevelUnion = Class | Interface | Function | Attribute
+@define
+class TypeAlias(TopLevel):
+    type: Type
+    type_params: list[TypeParam] = Factory(list)
+    kind: Literal["typeAlias"] = "typeAlias"
+
+
+TopLevelUnion = Class | Interface | Function | Attribute | TypeAlias
 
 # Now make a serializer/deserializer.
 # TODO: Add tests to make sure that serialization and deserialization are a

@@ -1,6 +1,11 @@
 {% import 'common.rst' as common %}
 
+{% if is_type_alias -%}
+.. js:typealias:: {{ name }}{{ type_params }}
+{%- else -%}
 .. js:attribute:: {{ name }}{{ '?' if is_optional else '' }}
+{%- endif %}
+
 
    {{ common.deprecated(deprecated)|indent(3) }}
 

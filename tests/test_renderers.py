@@ -14,6 +14,7 @@ from sphinx_js.ir import (
     Interface,
     Param,
     Return,
+    TypeAlias,
     TypeParam,
     TypeXRefExternal,
     TypeXRefInternal,
@@ -133,6 +134,18 @@ def attribute_render(attribute_renderer) -> Any:
     return attribute_render
 
 
+@pytest.fixture()
+def type_alias_render(attribute_renderer) -> Any:
+    def type_alias_render(partial_path=None, use_short_name=False, **args):
+        if not partial_path:
+            partial_path = ["blah"]
+        return attribute_renderer.rst(
+            partial_path, make_type_alias(**args), use_short_name
+        )
+
+    return type_alias_render
+
+
 top_level_dict = dict(
     name="",
     path=[],
@@ -173,6 +186,7 @@ function_dict = (
     )
 )
 attribute_dict = top_level_dict | member_dict | dict(type="")
+type_alias_dict = top_level_dict | dict(type="", type_params=[])
 
 
 def make_class(**args):
@@ -189,6 +203,10 @@ def make_function(**args):
 
 def make_attribute(**args):
     return Attribute(**(attribute_dict | args))
+
+
+def make_type_alias(**args):
+    return TypeAlias(**(type_alias_dict | args))
 
 
 DEFAULT_RESULT = ".. js:function:: blah()\n"
@@ -301,6 +319,11 @@ def test_render_xref(function_renderer: AutoFunctionRenderer):
         function_renderer.render_type([TypeXRefInternal(name="A", path=["a.", "A"])])
         == ":js:class:`A`"
     )
+    function_renderer.objects["A"] = make_type_alias()
+    assert (
+        function_renderer.render_type([TypeXRefInternal(name="A", path=["a.", "A"])])
+        == ":js:typealias:`A`"
+    )
     function_renderer.objects["A"] = make_interface()
     assert (
         function_renderer.render_type([TypeXRefInternal(name="A", path=["a.", "A"])])
@@ -341,7 +364,7 @@ def test_func_render_param_type(function_render):
         """
     )
     assert function_render(
-        objects={"A": make_interface()},
+        objects={"A": make_type_alias()},
         params=[
             Param(
                 "a",
@@ -354,7 +377,7 @@ def test_func_render_param_type(function_render):
         .. js:function:: blah(a)
 
            :param a: a description
-           :type a: :js:interface:`A`
+           :type a: :js:typealias:`A`
         """
     )
 
@@ -499,5 +522,39 @@ def test_examples(function_render):
               .. code-block:: py
 
                   Something python
+        """
+    )
+
+
+def test_type_alias(type_alias_render):
+    assert type_alias_render() == ".. js:typealias:: blah\n"
+    assert type_alias_render(
+        type="number", description="my great type alias!"
+    ) == dedent(
+        """\
+        .. js:typealias:: blah
+
+           .. rst-class:: js attribute type
+
+                  type: **number**
+
+           my great type alias!
+        """
+    )
+    assert type_alias_render(
+        type="string | T",
+        type_params=[TypeParam("T", extends="number", description="ABC")],
+        description="With a type parameter",
+    ) == dedent(
+        """\
+        .. js:typealias:: blah<T>
+
+           .. rst-class:: js attribute type
+
+                  type: **string | T**
+
+           With a type parameter
+
+           :typeparam T: ABC (extends **number**)
         """
     )

@@ -36,6 +36,7 @@ from .ir import (
     Return,
     TopLevel,
     Type,
+    TypeAlias,
     TypeParam,
     TypeXRef,
     TypeXRefInternal,
@@ -337,7 +338,7 @@ class JsRenderer(Renderer):
     def rst_for(self, obj: TopLevel) -> str:
         renderer_class: type
         match obj:
-            case Attribute(_):
+            case Attribute(_) | TypeAlias(_):
                 renderer_class = AutoAttributeRenderer
             case Function(_):
                 renderer_class = AutoFunctionRenderer
@@ -374,7 +375,7 @@ class JsRenderer(Renderer):
         result = "\n".join(lines) + "\n"
         return result
 
-    def _type_params(self, obj: Function | Class | Interface) -> str:
+    def _type_params(self, obj: Function | Class | TypeAlias | Interface) -> str:
         if not obj.type_params:
             return ""
         return "<{}>".format(", ".join(tp.name for tp in obj.type_params))
@@ -654,17 +655,32 @@ class AutoAttributeRenderer(JsRenderer):
     _template = "attribute.rst"
     _renderer_type = "attribute"
 
-    def _template_vars(self, name: str, obj: Attribute) -> dict[str, Any]:  # type: ignore[override]
+    def _template_vars(self, name: str, obj: Attribute | TypeAlias) -> dict[str, Any]:  # type: ignore[override]
+        is_optional = False
+        if isinstance(obj, Attribute):
+            is_optional = obj.is_optional
+        type_params = ""
+        is_type_alias = isinstance(obj, TypeAlias)
+        fields: Iterator[tuple[list[str], str]] = iter([])
+        if isinstance(obj, TypeAlias):
+            type_params = self._type_params(obj)
+            fields = self._fields(obj)
         return dict(
             name=name,
+            is_type_alias=is_type_alias,
+            type_params=type_params,
+            fields=fields,
             description=render_description(obj.description),
             deprecated=obj.deprecated,
-            is_optional=obj.is_optional,
+            is_optional=is_optional,
             see_also=obj.see_alsos,
             examples=[render_description(ex) for ex in obj.examples],
             type=self.render_type(obj.type),
             content="\n".join(self._content),
         )
+
+
+_SECTION_ORDER = ["type_aliases", "attributes", "functions", "interfaces", "classes"]
 
 
 class AutoModuleRenderer(JsRenderer):
@@ -692,10 +708,8 @@ class AutoModuleRenderer(JsRenderer):
     ) -> str:
         rst: list[Sequence[str]] = []
         rst.append([f".. js:module:: {''.join(partial_path)}"])
-        rst.append(self.rst_for_group(obj.attributes))
-        rst.append(self.rst_for_group(obj.functions))
-        rst.append(self.rst_for_group(obj.classes))
-        rst.append(self.rst_for_group(obj.interfaces))
+        for group_name in _SECTION_ORDER:
+            rst.append(self.rst_for_group(getattr(obj, group_name)))
         return "\n\n".join(["\n\n".join(r) for r in rst])
 
 
@@ -715,20 +729,15 @@ class AutoSummaryRenderer(Renderer):
 
     def rst_nodes(self) -> list[Node]:
         module = self.get_object()
-        pairs: list[tuple[str, Iterable[TopLevel]]] = [
-            ("attributes", module.attributes),
-            ("functions", module.functions),
-            ("classes", module.classes),
-            ("interfaces", module.interfaces),
-        ]
         pkgname = "".join(self._partial_path)
 
         result: list[Node] = []
-        for group_name, group_objects in pairs:
-            n = nodes.container()
+        for group_name in _SECTION_ORDER:
+            group_objects = getattr(module, group_name)
             if not group_objects:
                 continue
-            n += self.format_heading(group_name.title() + ":")
+            n = nodes.container()
+            n += self.format_heading(group_name.replace("_", " ").title() + ":")
             table_items = self.get_summary_table(pkgname, group_objects)
             n += self.format_table(table_items)
             n["classes"] += ["jssummarytable", group_name]

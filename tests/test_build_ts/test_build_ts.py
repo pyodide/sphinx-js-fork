@@ -249,6 +249,19 @@ class TestTextBuilder(SphinxBuildTestCase):
             "automodule",
             dedent(
                 """\
+module.TestTypeAlias<T>
+
+   type: { a: T; }
+
+   A super special type alias
+
+   Type parameters:
+      **T** -- The whatsit (extends "A")
+
+module.TestTypeAlias2
+
+   type: { a: number; }
+
 module.a
 
    type: 7
@@ -272,6 +285,14 @@ module.q
    type: { a: string; b: number; }
 
    Another thing.
+
+module.t
+
+   type: "TestTypeAlias"<"A">
+
+module.t2
+
+   type: "TestTypeAlias2"
 
 module.zInstance
 
@@ -308,6 +329,12 @@ module.z(a, b)
 
    Returns:
       number
+
+interface module.I
+
+   Documentation for the interface I
+
+   *exported from* "module"
 
 class module.A()
 
@@ -347,12 +374,6 @@ class module.Z<T>(a, b)
       type: T
 
    Z.z()
-
-interface module.I
-
-   Documentation for the interface I
-
-   *exported from* "module"
                 """
             ),
         )
@@ -434,7 +455,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         soup = BeautifulSoup(self._file_contents("autosummary"), "html.parser")
         attrs = soup.find(class_="attributes")
         rows = list(attrs.find_all("tr"))
-        assert len(rows) == 5
+        assert len(rows) == 7
 
         href = rows[0].find("a")
         assert href.get_text() == "a"
@@ -471,3 +492,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
             classes.find(class_="summary").get_text()
             == "Documentation for the interface I"
         )
+
+        classes = soup.find(class_="type_aliases")
+        assert classes
+        assert classes.find(class_="summary").get_text() == "A super special type alias"

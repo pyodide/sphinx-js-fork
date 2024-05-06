@@ -55,6 +55,7 @@ class SphinxBuildTestCase(ThisDirTestCase):
 
     def _file_contents_eq(self, filename, contents):
         __tracebackhide__ = True
+        print(self._file_contents(filename))
         assert self._file_contents(filename) == contents
 
 
