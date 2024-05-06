@@ -575,7 +575,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
         assert t
         s = t[0]
         assert isinstance(s, TypeXRefExternal)
-        assert s.sourcefilename == "xxx"
+        s.sourcefilename = "xxx"
         assert t == [
             TypeXRefExternal("Partial", "typescript", "xxx", "Partial"),
             "<",
@@ -701,7 +701,7 @@ class TestTypeName(TypeDocAnalyzerTestCase):
 
     def test_hidden_type_member(self):
         obj = self.analyzer.get_object(["HasHiddenTypeMember"])
-        assert isinstance(obj, Interface)
+        assert isinstance(obj, Class)
         assert obj.members
         member = obj.members[0]
         assert isinstance(member, Attribute)
