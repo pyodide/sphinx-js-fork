@@ -5,5 +5,6 @@ include requirements_dev.txt
 include noxfile.py
 include sphinx_js/js/*.mjs
 include sphinx_js/js/*.ts
+include sphinx_js/js/*.json
 
 recursive-include tests *.py *.rst *.ts *.json *.js *.md
