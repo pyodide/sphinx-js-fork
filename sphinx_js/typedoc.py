@@ -71,6 +71,7 @@ def typedoc_output(
     # TODO: figure out why
     command.add("tsx@4.9.0")
     dir = Path(__file__).parent.resolve() / "js"
+    command.add("--tsconfig", str(dir / "tsconfig.json"))
     command.add("--import", str(dir / "registerImportHook.mjs"))
     command.add(str(dir / "call_typedoc.ts"))
     if ts_sphinx_js_config:
