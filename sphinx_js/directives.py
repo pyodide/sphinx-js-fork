@@ -27,6 +27,7 @@ from sphinx.domains.javascript import (
     JSCallable,
     JSConstructor,
     JSObject,
+    JSXRefRole,
 )
 from sphinx.locale import _
 from sphinx.util.docfields import GroupedField, TypedField
@@ -291,7 +292,7 @@ class JSInterface(JSCallable):
 
 
 @cache
-def patch_js_interface() -> None:
+def patch_JsObject_get_index_text() -> None:
     orig_get_index_text = JSObject.get_index_text
 
     def patched_get_index_text(
@@ -303,12 +304,6 @@ def patch_js_interface() -> None:
         return orig_get_index_text(self, objectname, name_obj)
 
     JSObject.get_index_text = patched_get_index_text  # type:ignore[method-assign]
-
-
-def add_js_interface(app: Sphinx) -> None:
-    patch_js_interface()
-    JavaScriptDomain.object_types["interface"] = ObjType(_("interface"), "interface")
-    app.add_directive_to_domain("js", "interface", JSInterface)
 
 
 def auto_module_directive_bound_to_app(app: Sphinx) -> type[Directive]:
@@ -337,6 +332,7 @@ def add_directives(app: Sphinx) -> None:
     fix_js_make_xref()
     fix_staticfunction_objtype()
     add_type_param_field_to_directives()
+    patch_JsObject_get_index_text()
     app.add_role("sphinx_js_type", sphinx_js_type_role)
     app.add_directive_to_domain(
         "js", "autofunction", auto_function_directive_bound_to_app(app)
@@ -353,4 +349,6 @@ def add_directives(app: Sphinx) -> None:
     app.add_directive_to_domain(
         "js", "autosummary", auto_summary_directive_bound_to_app(app)
     )
-    add_js_interface(app)
+    JavaScriptDomain.object_types["interface"] = ObjType(_("interface"), "interface")
+    app.add_directive_to_domain("js", "interface", JSInterface)
+    app.add_role_to_domain("js", "interface", JSXRefRole())

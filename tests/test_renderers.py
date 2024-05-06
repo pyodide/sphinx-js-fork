@@ -1,20 +1,28 @@
 from textwrap import dedent, indent
+from typing import Any
 
 import pytest
 from sphinx.util import rst
 
 from sphinx_js.ir import (
+    Attribute,
+    Class,
     DescriptionCode,
     DescriptionText,
     Exc,
     Function,
+    Interface,
     Param,
     Return,
     TypeParam,
     TypeXRefExternal,
     TypeXRefInternal,
 )
-from sphinx_js.renderers import AutoFunctionRenderer, render_description
+from sphinx_js.renderers import (
+    AutoAttributeRenderer,
+    AutoFunctionRenderer,
+    render_description,
+)
 
 
 def setindent(txt):
@@ -51,10 +59,10 @@ def test_render_description():
     )
 
 
-def ts_xref_formatter(config, xref):
+def ts_xref_formatter(config, xref, kind):
     if isinstance(xref, TypeXRefInternal):
         name = rst.escape(xref.name)
-        return f":js:class:`{name}`"
+        return f":js:{kind}:`{name}`"
     else:
         return xref.name
 
@@ -67,7 +75,29 @@ def function_renderer():
     class _app:
         config = _config
 
+    def lookup_object(self, partial_path: list[str]):
+        return self.objects[partial_path[-1]]
+
     renderer = AutoFunctionRenderer.__new__(AutoFunctionRenderer)
+    renderer._app = _app
+    renderer._explicit_formal_params = None
+    renderer._content = []
+    renderer._set_type_xref_formatter(ts_xref_formatter)
+    renderer._add_span = False
+    renderer.lookup_object = lookup_object.__get__(renderer)
+    renderer.objects = {}
+    return renderer
+
+
+@pytest.fixture()
+def attribute_renderer():
+    class _config:
+        pass
+
+    class _app:
+        config = _config
+
+    renderer = AutoAttributeRenderer.__new__(AutoAttributeRenderer)
     renderer._app = _app
     renderer._explicit_formal_params = None
     renderer._content = []
@@ -77,10 +107,13 @@ def function_renderer():
 
 
 @pytest.fixture()
-def function_render(function_renderer) -> AutoFunctionRenderer:
-    def function_render(partial_path=None, use_short_name=False, **args):
+def function_render(function_renderer) -> Any:
+    def function_render(partial_path=None, use_short_name=False, objects=None, **args):
+        if objects is None:
+            objects = {}
         if not partial_path:
             partial_path = ["blah"]
+        function_renderer.objects = objects
         return function_renderer.rst(
             partial_path, make_function(**args), use_short_name
         )
@@ -88,38 +121,74 @@ def function_render(function_renderer) -> AutoFunctionRenderer:
     return function_render
 
 
-def make_function(**args):
-    args = (
-        dict(
-            is_abstract=False,
-            is_optional=False,
-            is_static=False,
-            is_async=False,
-            is_private=False,
-            name="",
-            path=[],
-            filename="",
-            deppath="",
-            description="",
-            line="",
-            deprecated="",
-            examples=[],
-            see_alsos=[],
-            properties=[],
-            exported_from=None,
-            params=[],
-            exceptions=[],
-            returns=[],
+@pytest.fixture()
+def attribute_render(attribute_renderer) -> Any:
+    def attribute_render(partial_path=None, use_short_name=False, **args):
+        if not partial_path:
+            partial_path = ["blah"]
+        return attribute_renderer.rst(
+            partial_path, make_attribute(**args), use_short_name
         )
-        | args
+
+    return attribute_render
+
+
+top_level_dict = dict(
+    name="",
+    path=[],
+    filename="",
+    deppath="",
+    description="",
+    line=0,
+    deprecated="",
+    examples=[],
+    see_alsos=[],
+    properties=[],
+    exported_from=None,
+)
+
+member_dict = dict(
+    is_abstract=False,
+    is_optional=False,
+    is_static=False,
+    is_private=False,
+)
+
+members_and_supers_dict = dict(members=[], supers=[])
+
+class_dict = (
+    top_level_dict
+    | members_and_supers_dict
+    | dict(constructor_=None, is_abstract=False, interfaces=[], type_params=[])
+)
+interface_dict = top_level_dict | members_and_supers_dict | dict(type_params=[])
+function_dict = (
+    top_level_dict
+    | member_dict
+    | dict(
+        is_async=False,
+        params=[],
+        exceptions=[],
+        returns=[],
     )
-    return Function(**args)
+)
+attribute_dict = top_level_dict | member_dict | dict(type="")
 
 
-#  'is_abstract', 'is_optional', 'is_static', 'is_private', 'name', 'path',
-#  'filename', 'deppath', 'description', 'line', 'deprecated', 'examples',
-#  'see_alsos', 'properties', 'exported_from', 'params', 'exceptions', and
-#  'returns'
+def make_class(**args):
+    return Class(**(class_dict | args))
+
+
+def make_interface(**args):
+    return Interface(**(interface_dict | args))
+
+
+def make_function(**args):
+    return Function(**(function_dict | args))
+
+
+def make_attribute(**args):
+    return Attribute(**(attribute_dict | args))
 
 
 DEFAULT_RESULT = ".. js:function:: blah()\n"
@@ -227,26 +296,32 @@ def test_func_render_type_params(function_render):
 
 
 def test_render_xref(function_renderer: AutoFunctionRenderer):
+    function_renderer.objects["A"] = make_class()
     assert (
         function_renderer.render_type([TypeXRefInternal(name="A", path=["a.", "A"])])
         == ":js:class:`A`"
+    )
+    function_renderer.objects["A"] = make_interface()
+    assert (
+        function_renderer.render_type([TypeXRefInternal(name="A", path=["a.", "A"])])
+        == ":js:interface:`A`"
     )
     assert (
         function_renderer.render_type(
             [TypeXRefInternal(name="A", path=["a.", "A"]), "[]"]
         )
-        == r":js:class:`A`\ []"
+        == r":js:interface:`A`\ []"
     )
     xref_external = TypeXRefExternal("A", "blah", "a.ts", "a.A")
     assert function_renderer.render_type([xref_external]) == "A"
     res = []
 
-    def xref_render(config, val):
+    def xref_render(config, val, kind):
         res.append([config, val])
-        return val.package + "::" + val.name
+        return f"{val.package}::{val.name}::{kind}"
 
     function_renderer._set_type_xref_formatter(xref_render)
-    assert function_renderer.render_type([xref_external]) == "blah::A"
+    assert function_renderer.render_type([xref_external]) == "blah::A::None"
     assert res[0][0] == function_renderer._app.config
     assert res[0][1] == xref_external
 
@@ -266,6 +341,7 @@ def test_func_render_param_type(function_render):
         """
     )
     assert function_render(
+        objects={"A": make_interface()},
         params=[
             Param(
                 "a",
@@ -278,7 +354,7 @@ def test_func_render_param_type(function_render):
         .. js:function:: blah(a)
 
            :param a: a description
-           :type a: :js:class:`A`
+           :type a: :js:interface:`A`
         """
     )
 

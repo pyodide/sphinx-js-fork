@@ -38,6 +38,7 @@ from .ir import (
     Type,
     TypeParam,
     TypeXRef,
+    TypeXRefInternal,
 )
 from .jsdoc import Analyzer as JsAnalyzer
 from .parsers import PathVisitor
@@ -173,7 +174,7 @@ class HasDepPath(Protocol):
 
 
 class Renderer:
-    _type_xref_formatter: Callable[[TypeXRef], str]
+    _type_xref_formatter: Callable[[TypeXRef, str | None], str]
     # We turn the <span class="sphinx_js-type"> in the analyzer tests because it
     # makes a big mess.
     _add_span: bool
@@ -233,13 +234,13 @@ class Renderer:
         )
 
     def _set_type_xref_formatter(
-        self, formatter: Callable[[Config, TypeXRef], str] | None
+        self, formatter: Callable[[Config, TypeXRef, str | None], str] | None
     ) -> None:
         if formatter:
             self._type_xref_formatter = partial(formatter, self._app.config)
             return
 
-        def default_type_xref_formatter(xref: TypeXRef) -> str:
+        def default_type_xref_formatter(xref: TypeXRef, _: str | None) -> str:
             return xref.name
 
         self._type_xref_formatter = default_type_xref_formatter
@@ -282,13 +283,16 @@ class JsRenderer(Renderer):
     def _template_vars(self, name: str, obj: TopLevel) -> dict[str, Any]:
         raise NotImplementedError
 
-    def get_object(self) -> TopLevel:
-        """Return the IR object rendered by this renderer."""
+    def lookup_object(
+        self,
+        partial_path: list[str],
+        renderer_type: Literal["function", "class", "attribute"] = "attribute",
+    ) -> TopLevel:
         try:
             analyzer: Analyzer = (
                 self._app._sphinxjs_analyzer  # type:ignore[attr-defined]
             )
-            obj = analyzer.get_object(self._partial_path, self._renderer_type)
+            obj = analyzer.get_object(partial_path, renderer_type)
             return obj
         except SuffixNotFound as exc:
             raise SphinxError(
@@ -301,6 +305,10 @@ class JsRenderer(Renderer):
                     "".join(exc.segments), exc.next_possible_keys
                 )
             )
+
+    def get_object(self) -> TopLevel:
+        """Return the IR object rendered by this renderer."""
+        return self.lookup_object(self._partial_path, self._renderer_type)
 
     def rst_nodes(self) -> list[Node]:
         """Render into RST nodes a thing shaped like a function, having a name
@@ -438,7 +446,12 @@ class JsRenderer(Renderer):
         return joined
 
     def render_xref(self, s: TypeXRef, escape: bool = False) -> str:
-        result = self._type_xref_formatter(s)
+        obj = None
+        kind = None
+        if isinstance(s, TypeXRefInternal | TypeXRefInternal):
+            obj = self.lookup_object(s.path)
+            kind = type(obj).__name__.lower()
+        result = self._type_xref_formatter(s, kind)
         if escape:
             result = rst.escape(result)
         return result
