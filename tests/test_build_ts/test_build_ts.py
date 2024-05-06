@@ -304,7 +304,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                    *exported from* "module"
 
                    Type parameters:
-                      **T** -- (extends "A()")
+                      **T** -- Description of T (extends "A()")
 
                    Arguments:
                       * **a** (number)
