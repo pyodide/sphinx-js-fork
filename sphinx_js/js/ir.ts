@@ -113,6 +113,7 @@ export type TopLevel = {
 export type Attribute = TopLevel &
   Member & {
     type: Type;
+    readonly: boolean;
     kind: "attribute";
   };
 

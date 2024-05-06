@@ -657,8 +657,11 @@ class AutoAttributeRenderer(JsRenderer):
 
     def _template_vars(self, name: str, obj: Attribute | TypeAlias) -> dict[str, Any]:  # type: ignore[override]
         is_optional = False
+        ty = self.render_type(obj.type)
         if isinstance(obj, Attribute):
             is_optional = obj.is_optional
+            if obj.readonly:
+                ty = "readonly " + ty
         type_params = ""
         is_type_alias = isinstance(obj, TypeAlias)
         fields: Iterator[tuple[list[str], str]] = iter([])
@@ -675,7 +678,7 @@ class AutoAttributeRenderer(JsRenderer):
             is_optional=is_optional,
             see_also=obj.see_alsos,
             examples=[render_description(ex) for ex in obj.examples],
-            type=self.render_type(obj.type),
+            type=ty,
             content="\n".join(self._content),
         )
 

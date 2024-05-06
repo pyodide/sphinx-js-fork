@@ -471,6 +471,7 @@ export class Converter {
     const result: Attribute = {
       ...this.memberProps(v),
       ...this.topLevelProperties(v),
+      readonly: false,
       kind: "attribute",
       type,
     };
@@ -542,12 +543,12 @@ export class Converter {
     } else {
       type = this.convertType(prop.type!);
     }
-    // TODO: add a readonly indicator if it's readonly
     const result: Attribute = {
       type,
       ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
       description: renderCommentSummary(prop.comment),
+      readonly: prop.flags.isReadonly,
       kind: "attribute",
     };
     return [result, prop.children];
@@ -581,9 +582,11 @@ export class Converter {
       sig = prop.setSignature;
       type = sig.parameters![0].type!;
     }
-    // TODO: add a readonly indicator if there's no setter.
+    // If there's no setter say it's readonly
+    const readonly = !prop.setSignature;
     const result: Attribute = {
       type: this.convertType(type),
+      readonly,
       ...this.memberProps(prop),
       ...this.topLevelProperties(prop),
       kind: "attribute",

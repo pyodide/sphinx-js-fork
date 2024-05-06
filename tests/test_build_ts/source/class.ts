@@ -109,6 +109,9 @@ export function weirdCodeInDescription() {}
 export function spinxLinkInDescription() {}
 
 export class GetSetDocs {
+  readonly x: number;
+  y: number;
+
   /**
    * Getter with comment
    */
@@ -119,7 +122,7 @@ export class GetSetDocs {
   /**
    * Setter with comment
    */
-  set b(x) {}
+  set b(x: number) {}
 }
 
 export class Base {
