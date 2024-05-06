@@ -43,7 +43,6 @@ class SphinxBuildTestCase(ThisDirTestCase):
 
     @classmethod
     def teardown_class(cls):
-        return
         rmtree(join(cls.docs_dir, "_build"))
 
     def _file_contents(self, filename):
