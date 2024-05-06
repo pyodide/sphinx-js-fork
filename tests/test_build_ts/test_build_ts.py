@@ -63,7 +63,7 @@ class TestTextBuilder(SphinxBuildTestCase):
             '      * "ClassDefinition()"\n'
             "\n"
             "   **Implements:**\n"
-            '      * "Interface()"\n'
+            '      * "Interface"\n'
             "\n"
             "   I construct.\n",
         )
@@ -354,7 +354,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         assert href.attrs["href"] == "autoclass_interface_optionals.html#OptionalThings"
         assert href.attrs["title"] == "OptionalThings"
         assert next(href.children).name == "code"
-        assert href.get_text() == "OptionalThings()"
+        assert href.get_text() == "OptionalThings"
 
         href = links[2]
         assert href.attrs["class"] == ["reference", "internal"]
@@ -364,7 +364,7 @@ class TestHtmlBuilder(SphinxBuildTestCase):
         assert href.get_text() == "ConstructorlessClass()"
 
         thunk_links = get_links("thunk")
-        assert thunk_links[1].get_text() == "OptionalThings()"
+        assert thunk_links[1].get_text() == "OptionalThings"
         assert thunk_links[2].get_text() == "ConstructorlessClass()"
 
     def test_sphinx_link_in_description(self):
