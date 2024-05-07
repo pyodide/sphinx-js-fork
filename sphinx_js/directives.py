@@ -33,6 +33,7 @@ from sphinx.domains.javascript import (
 from sphinx.locale import _
 from sphinx.util.docfields import GroupedField, TypedField
 from sphinx.writers.html5 import HTML5Translator
+from sphinx.writers.text import TextTranslator
 
 from .renderers import (
     AutoAttributeRenderer,
@@ -272,22 +273,58 @@ class desc_js_type_parameter_list(nodes.Part, nodes.Inline, nodes.FixedTextEleme
         return f"<{nodes.FixedTextElement.astext(self)}>"
 
 
-def visit_desc_js_type_parameter_list(
+def html5_visit_desc_js_type_parameter_list(
     self: HTML5Translator, node: nodes.Element
 ) -> None:
     """Define the html/text rendering for desc_js_type_parameter_list. Based on
     sphinx.writers.html5.visit_desc_type_parameter_list
     """
-    self._visit_sig_parameter_list(node, addnodes.desc_parameter, "<", ">")
+    if hasattr(self, "_visit_sig_parameter_list"):
+        # Sphinx 7
+        return self._visit_sig_parameter_list(node, addnodes.desc_parameter, "<", ">")
+    # Sphinx <7
+    self.body.append('<span class="sig-paren">&lt;</span>')
+    self.first_param = 1
+    self.optional_param_level = 0
+    # How many required parameters are left.
+    self.required_params_left = sum(
+        [isinstance(c, addnodes.desc_parameter) for c in node.children]
+    )
+    self.param_separator = node.child_text_separator
 
 
-def depart_desc_js_type_parameter_list(
+def html5_depart_desc_js_type_parameter_list(
     self: HTML5Translator, node: nodes.Element
 ) -> None:
     """Define the html/text rendering for desc_js_type_parameter_list. Based on
     sphinx.writers.html5.depart_desc_type_parameter_list
     """
-    self._depart_sig_parameter_list(node)
+    if hasattr(self, "_depart_sig_parameter_list"):
+        # Sphinx 7
+        return self._depart_sig_parameter_list(node)
+    # Sphinx <7
+    self.body.append('<span class="sig-paren">&gt;</span>')
+
+
+def text_visit_desc_js_type_parameter_list(
+    self: TextTranslator, node: nodes.Element
+) -> None:
+    if hasattr(self, "_visit_sig_parameter_list"):
+        # Sphinx 7
+        return self._visit_sig_parameter_list(node, addnodes.desc_parameter, "<", ">")
+    # Sphinx <7
+    self.add_text("<")
+    self.first_param = 1  # type:ignore[attr-defined]
+
+
+def text_depart_desc_js_type_parameter_list(
+    self: TextTranslator, node: nodes.Element
+) -> None:
+    if hasattr(self, "_depart_sig_parameter_list"):
+        # Sphinx 7
+        return self._depart_sig_parameter_list(node)
+    # Sphinx <7
+    self.add_text(">")
 
 
 def add_param_list_to_signode(signode: desc_signature, params: str) -> None:
@@ -457,6 +494,12 @@ def add_directives(app: Sphinx) -> None:
     app.add_role_to_domain("js", "typealias", JSXRefRole())
     app.add_node(
         desc_js_type_parameter_list,
-        html=(visit_desc_js_type_parameter_list, depart_desc_js_type_parameter_list),
-        text=(visit_desc_js_type_parameter_list, depart_desc_js_type_parameter_list),
+        html=(
+            html5_visit_desc_js_type_parameter_list,
+            html5_depart_desc_js_type_parameter_list,
+        ),
+        text=(
+            text_visit_desc_js_type_parameter_list,
+            text_depart_desc_js_type_parameter_list,
+        ),
     )

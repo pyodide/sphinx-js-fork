@@ -53,10 +53,12 @@ class SphinxBuildTestCase(ThisDirTestCase):
         ) as file:
             return file.read()
 
-    def _file_contents_eq(self, filename, contents):
+    def _file_contents_eq(self, filename, expected_contents):
         __tracebackhide__ = True
-        print(self._file_contents(filename))
-        assert self._file_contents(filename) == contents
+        contents = self._file_contents(filename)
+        # Fix a difference between sphinx v6 and v7
+        contents = contents.replace(" --\n", "\n")
+        assert contents == expected_contents
 
 
 class JsDocTestCase(ThisDirTestCase):
