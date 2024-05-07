@@ -454,11 +454,18 @@ class JsRenderer(Renderer):
     def render_xref(self, s: TypeXRef, escape: bool = False) -> str:
         obj = None
         if isinstance(s, TypeXRefInternal):
-            obj = self.lookup_object(s.path)
-            # Stick the kind on the xref so that the formatter will know what
-            # xref role to emit. I'm not sure how to compute this earlier. It's
-            # convenient to do it here.
-            s.kind = type(obj).__name__.lower()
+            try:
+                obj = self.lookup_object(s.path)
+                # Stick the kind on the xref so that the formatter will know what
+                # xref role to emit. I'm not sure how to compute this earlier. It's
+                # convenient to do it here.
+                s.kind = type(obj).__name__.lower()
+            except SphinxError:
+                # This sometimes happens on the code path in
+                # convertReferenceToXRef when we generate an xref internal from
+                # a symbolId. That code path is probably entirely wrong.
+                # TODO: fix and add test coverage.
+                pass
         result = self._type_xref_formatter(s)
         if escape:
             result = rst.escape(result)
