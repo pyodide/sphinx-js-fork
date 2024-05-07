@@ -49,4 +49,3 @@ jobs:
           name: Test report - Sphinx 6
           path: test-results.xml
           reporter: java-junit
-
