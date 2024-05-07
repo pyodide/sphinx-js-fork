@@ -33,3 +33,16 @@ def test_typedoc(session: Session, typedoc: str) -> None:
             "npm", "i", "--no-save", "jsdoc@4.0.0", f"typedoc@{typedoc}", external=True
         )
     session.run("pytest", "--junitxml=test-results.xml", "-k", "not js")
+
+
+@nox.session(python=["3.12"])
+def test_sphinx_6(session: Session) -> None:
+    session.install("sphinx<7")
+    session.install("-r", "requirements_dev.txt")
+    venvroot = Path(session.bin).parent
+    (venvroot / "node_modules").mkdir()
+    with session.chdir(venvroot):
+        session.run(
+            "npm", "i", "--no-save", "jsdoc@4.0.0", f"typedoc@0.25", external=True
+        )
+    session.run("pytest", "--junitxml=test-results.xml", "-k", "not js")
