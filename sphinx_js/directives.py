@@ -279,6 +279,10 @@ def html5_visit_desc_js_type_parameter_list(
     """Define the html/text rendering for desc_js_type_parameter_list. Based on
     sphinx.writers.html5.visit_desc_type_parameter_list
     """
+    if hasattr(self, "_visit_sig_parameter_list"):
+        # Sphinx 7
+        return self._visit_sig_parameter_list(node, addnodes.desc_parameter, "<", ">")
+    # Sphinx <7
     self.body.append('<span class="sig-paren">&lt;</span>')
     self.first_param = 1
     self.optional_param_level = 0
@@ -295,12 +299,20 @@ def html5_depart_desc_js_type_parameter_list(
     """Define the html/text rendering for desc_js_type_parameter_list. Based on
     sphinx.writers.html5.depart_desc_type_parameter_list
     """
+    if hasattr(self, "_depart_sig_parameter_list"):
+        # Sphinx 7
+        return self._depart_sig_parameter_list(node)
+    # Sphinx <7
     self.body.append('<span class="sig-paren">&gt;</span>')
 
 
 def text_visit_desc_js_type_parameter_list(
     self: TextTranslator, node: nodes.Element
 ) -> None:
+    if hasattr(self, "_visit_sig_parameter_list"):
+        # Sphinx 7
+        return self._visit_sig_parameter_list(node, addnodes.desc_parameter, "<", ">")
+    # Sphinx <7
     self.add_text("<")
     self.first_param = 1  # type:ignore[attr-defined]
 
@@ -308,6 +320,10 @@ def text_visit_desc_js_type_parameter_list(
 def text_depart_desc_js_type_parameter_list(
     self: TextTranslator, node: nodes.Element
 ) -> None:
+    if hasattr(self, "_depart_sig_parameter_list"):
+        # Sphinx 7
+        return self._depart_sig_parameter_list(node)
+    # Sphinx <7
     self.add_text(">")
 
 
