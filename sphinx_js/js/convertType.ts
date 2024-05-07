@@ -287,6 +287,8 @@ class TypeConverter implements TypeVisitor<Type> {
       };
       return this.addTypeArguments(type, [xref]);
     } else {
+      // TODO: I'm not sure that it's right to generate an internal xref here.
+      // We need better test coverage for this code path.
       const xref: TypeXRefInternal = {
         name: type.name,
         path,
