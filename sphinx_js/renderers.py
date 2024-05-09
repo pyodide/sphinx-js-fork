@@ -556,6 +556,9 @@ class AutoFunctionRenderer(JsRenderer):
         deprecated = obj.deprecated
         if not isinstance(deprecated, bool):
             deprecated = render_description(deprecated)
+        experimental = obj.experimental
+        if not isinstance(experimental, bool):
+            experimental = render_description(experimental)
         return dict(
             name=name,
             type_params=self._type_params(obj),
@@ -564,6 +567,7 @@ class AutoFunctionRenderer(JsRenderer):
             description=render_description(obj.description),
             examples=[render_description(x) for x in obj.examples],
             deprecated=deprecated,
+            experimental=experimental,
             is_optional=obj.is_optional,
             is_static=obj.is_static,
             is_async=obj.is_async,
@@ -592,6 +596,7 @@ class AutoClassRenderer(JsRenderer):
                 description="",
                 line=0,
                 deprecated=False,
+                experimental=False,
                 examples=[],
                 see_alsos=[],
                 properties=[],
@@ -615,6 +620,7 @@ class AutoClassRenderer(JsRenderer):
             fields=self._fields(constructor),
             examples=[render_description(ex) for ex in constructor.examples],
             deprecated=constructor.deprecated,
+            experimental=constructor.experimental,
             see_also=constructor.see_alsos,
             exported_from=obj.exported_from,
             class_comment=render_description(obj.description),
@@ -672,6 +678,12 @@ class AutoAttributeRenderer(JsRenderer):
             if obj.readonly:
                 ty = "readonly " + ty
         type_params = ""
+        deprecated = obj.deprecated
+        if not isinstance(deprecated, bool):
+            deprecated = render_description(deprecated)
+        experimental = obj.experimental
+        if not isinstance(experimental, bool):
+            experimental = render_description(experimental)
         is_type_alias = isinstance(obj, TypeAlias)
         fields: Iterator[tuple[list[str], str]] = iter([])
         if isinstance(obj, TypeAlias):
@@ -683,7 +695,8 @@ class AutoAttributeRenderer(JsRenderer):
             type_params=type_params,
             fields=fields,
             description=render_description(obj.description),
-            deprecated=obj.deprecated,
+            deprecated=deprecated,
+            experimental=experimental,
             is_optional=is_optional,
             see_also=obj.see_alsos,
             examples=[render_description(ex) for ex in obj.examples],

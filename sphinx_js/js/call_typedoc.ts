@@ -56,7 +56,15 @@ async function main() {
     return ExitCodes.Ok;
   }
   app.extraData = {};
-  app.options.getValue("modifierTags").push("@hidetype");
+  const modifierTags = app.options.getValue("modifierTags");
+  modifierTags.push("@hidetype");
+  // We want to use @experimental as a block tag so take it out of modifierTags
+  // and stick it in blockTags
+  const experimentalIndex = modifierTags.indexOf("@experimental");
+  if (experimentalIndex !== -1) {
+    modifierTags.splice(experimentalIndex, 1);
+  }
+  app.options.getValue("blockTags").push("@experimental");
   const userConfigPath = app.options.getValue("sphinxJsConfig");
   const config = await loadConfig(userConfigPath);
   app.logger.info(`Loaded user config from ${userConfigPath}`);

@@ -8,6 +8,7 @@
 
 
    {{ common.deprecated(deprecated)|indent(3) }}
+   {{ common.experimental(experimental)|indent(3) }}
 
    {% if type -%}
       .. rst-class:: js attribute type

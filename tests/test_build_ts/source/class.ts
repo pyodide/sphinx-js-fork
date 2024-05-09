@@ -75,6 +75,16 @@ export function deprecatedFunction1() {}
 export function deprecatedFunction2() {}
 
 /**
+ * @experimental Not ready yet.
+ */
+export function experimentalFunction1() {}
+
+/**
+ * @experimental
+ */
+export function experimentalFunction2() {}
+
+/**
  * @example This is an example.
  * @example This is another example.
  * ```py
