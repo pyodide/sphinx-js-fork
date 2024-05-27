@@ -34,6 +34,7 @@ from sphinx.locale import _
 from sphinx.util.docfields import GroupedField, TypedField
 from sphinx.writers.html5 import HTML5Translator
 from sphinx.writers.text import TextTranslator
+from sphinx.writers.latex import LaTeXTranslator
 
 from .renderers import (
     AutoAttributeRenderer,
@@ -327,6 +328,14 @@ def text_depart_desc_js_type_parameter_list(
     self.add_text(">")
 
 
+def latex_visit_desc_type_parameter_list(self: LaTeXTranslator, node: nodes.Element) -> None:
+    pass
+
+
+def latex_depart_desc_type_parameter_list(self: LaTeXTranslator, node: nodes.Element) -> None:
+    pass
+
+
 def add_param_list_to_signode(signode: desc_signature, params: str) -> None:
     paramlist = desc_js_type_parameter_list()
     for arg in params.split(","):
@@ -501,5 +510,9 @@ def add_directives(app: Sphinx) -> None:
         text=(
             text_visit_desc_js_type_parameter_list,
             text_depart_desc_js_type_parameter_list,
+        ),
+        latex=(
+            latex_visit_desc_type_parameter_list,
+            latex_depart_desc_type_parameter_list,
         ),
     )
