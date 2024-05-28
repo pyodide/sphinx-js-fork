@@ -109,11 +109,9 @@ class Tests(SphinxBuildTestCase):
         self._file_contents_eq(
             "autofunction_deprecated",
             "deprecatedFunction()\n\n"
-            "   Note:\n\n"
-            "     Deprecated.\n\n"
+            "   Deprecated:\n\n"
             "deprecatedExplanatoryFunction()\n\n"
-            "   Note:\n\n"
-            "     Deprecated: don't use anymore\n",
+            "   Deprecated: don't use anymore\n",
         )
 
     def test_autofunction_see(self):
@@ -278,11 +276,9 @@ class Tests(SphinxBuildTestCase):
         self._file_contents_eq(
             "autoclass_deprecated",
             "class DeprecatedClass()\n\n"
-            "   Note:\n\n"
-            "     Deprecated.\n\n"
+            "   Deprecated:\n\n"
             "class DeprecatedExplanatoryClass()\n\n"
-            "   Note:\n\n"
-            "     Deprecated: don't use anymore\n",
+            "   Deprecated: don't use anymore\n",
         )
 
     def test_autoclass_see(self):
@@ -316,11 +312,9 @@ class Tests(SphinxBuildTestCase):
         self._file_contents_eq(
             "autoattribute_deprecated",
             "DeprecatedAttribute\n\n"
-            "   Note:\n\n"
-            "     Deprecated.\n\n"
+            "   Deprecated:\n\n"
             "DeprecatedExplanatoryAttribute\n\n"
-            "   Note:\n\n"
-            "     Deprecated: don't use anymore\n",
+            "   Deprecated: don't use anymore\n",
         )
 
     def test_autoattribute_see(self):

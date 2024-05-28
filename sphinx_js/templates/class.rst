@@ -7,6 +7,7 @@
 {%- endif %}
 
    {{ common.deprecated(deprecated)|indent(3) }}
+   {{ common.experimental(experimental)|indent(3) }}
 
    {% if class_comment -%}
      {{ class_comment|indent(3) }}
