@@ -197,11 +197,11 @@ class PathComputer implements ReflectionVisitor {
   project(project: ProjectReflection) {
     // Compute the set of documentation roots.
     // This consists of all children of the Project and all children of Modules.
-    for (const child of project.children!) {
+    for (const child of project.children || []) {
       this.documentationRoots.add(child);
     }
     for (const module of project.getChildrenByKind(ReflectionKind.Module)) {
-      for (const child of module.children!) {
+      for (const child of module.children || []) {
         this.documentationRoots.add(child);
       }
     }
