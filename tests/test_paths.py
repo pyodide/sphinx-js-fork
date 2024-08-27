@@ -94,7 +94,7 @@ def test_global_install(tmp_path_factory, monkeypatch):
     tmpdir2 = tmp_path_factory.mktemp("blah")
     monkeypatch.setenv("npm_config_prefix", str(tmpdir))
     monkeypatch.setenv("PATH", str(tmpdir / "bin"), prepend=":")
-    subprocess.run(["npm", "i", "-g", "typedoc", "typescript"])
+    subprocess.run(["npm", "i", "-g", "typedoc@0.25", "typescript", "tsx@4.15.8"])
     typedoc = search_node_modules("typedoc", "typedoc/bin/typedoc", str(tmpdir2))
     monkeypatch.setenv("TYPEDOC_NODE_MODULES", str(Path(typedoc).parents[3]))
     dir = Path(__file__).parents[1].resolve() / "sphinx_js/js"
@@ -102,7 +102,7 @@ def test_global_install(tmp_path_factory, monkeypatch):
     res = subprocess.run(
         [
             "npx",
-            "tsx",
+            "tsx@4.15.8",
             "--import",
             dir / "registerImportHook.mjs",
             dir / "call_typedoc.ts",
