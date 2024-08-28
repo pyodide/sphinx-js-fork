@@ -67,7 +67,7 @@ def typedoc_output(
     env = os.environ.copy()
     env["TYPEDOC_NODE_MODULES"] = str(Path(typedoc).parents[3].resolve())
     command = Command("npx")
-    command.add("tsx")
+    command.add("tsx@4.15.8")
     dir = Path(__file__).parent.resolve() / "js"
     command.add("--tsconfig", str(dir / "tsconfig.json"))
     command.add("--import", str(dir / "registerImportHook.mjs"))
