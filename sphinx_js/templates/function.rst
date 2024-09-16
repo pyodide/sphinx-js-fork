@@ -9,6 +9,7 @@
    {% endif %}
 
    {{ common.deprecated(deprecated)|indent(3) }}
+   {{ common.experimental(experimental)|indent(3) }}
 
    {% if description -%}
      {{ description|indent(3) }}

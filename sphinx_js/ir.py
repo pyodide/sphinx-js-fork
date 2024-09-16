@@ -248,6 +248,7 @@ class TopLevel:
     line: int | None
     #: Explanation of the deprecation (which implies True) or True or False
     deprecated: Description | bool
+    experimental: Description | bool = field(kw_only=True, default=False)
     #: List of preformatted textual examples
     examples: Sequence[Description]
     #: List of paths to also refer the reader to

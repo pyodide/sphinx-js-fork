@@ -673,6 +673,11 @@ export class Converter {
     if (deprecated && deprecated.length === 0) {
       deprecated = true;
     }
+    let experimental: Description | boolean =
+      block_tags["experimental"]?.[0] || false;
+    if (experimental && experimental.length === 0) {
+      experimental = true;
+    }
     return {
       name: refl.name,
       path,
@@ -682,6 +687,7 @@ export class Converter {
       modifier_tags: Array.from(refl.comment?.modifierTags || []),
       block_tags,
       deprecated,
+      experimental,
       examples: block_tags["example"] || [],
       properties: [],
       see_alsos: [],

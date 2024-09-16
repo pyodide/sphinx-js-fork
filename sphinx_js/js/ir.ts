@@ -103,6 +103,7 @@ export type TopLevel = {
   block_tags: { [key: string]: Description[] };
   line: number | null;
   deprecated: Description | boolean;
+  experimental: Description | boolean;
   examples: Description[];
   see_alsos: string[];
   properties: Attribute[];

@@ -111,15 +111,27 @@ class TestTextBuilder(SphinxBuildTestCase):
                 """\
                 deprecatedFunction1()
 
-                   Note:
-
-                     Deprecated: since v20!
+                   Deprecated: since v20!
 
                 deprecatedFunction2()
 
-                   Note:
+                   Deprecated:
+                """
+            ),
+        )
 
-                     Deprecated.
+    def test_experimental(self):
+        self._file_contents_eq(
+            "experimental",
+            dedent(
+                """\
+                experimentalFunction1()
+
+                   Experimental: Not ready yet.
+
+                experimentalFunction2()
+
+                   Experimental:
                 """
             ),
         )
