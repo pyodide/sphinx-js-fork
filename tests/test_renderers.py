@@ -426,16 +426,18 @@ def test_func_render_param_exceptions(function_render):
 def test_func_render_callouts(function_render):
     assert function_render(deprecated=True) == DEFAULT_RESULT + setindent(
         """
-        .. note::
+        .. admonition:: Deprecated
+           :class: warning
 
-           Deprecated.
+           .. Not empty
         """,
     )
     assert function_render(deprecated="v0.24") == DEFAULT_RESULT + setindent(
         """
-        .. note::
+        .. admonition:: Deprecated
+           :class: warning
 
-           Deprecated: v0.24
+           v0.24
         """,
     )
     assert function_render(see_alsos=["see", "this too"]) == DEFAULT_RESULT + setindent(
@@ -460,9 +462,10 @@ def test_all(function_render):
         """\
         .. js:function:: blah(a)
 
-           .. note::
+           .. admonition:: Deprecated
+              :class: warning
 
-              Deprecated.
+              .. Not empty
 
            description
 
@@ -561,4 +564,70 @@ def test_type_alias(type_alias_render):
 
            :typeparam T: ABC (extends **number**)
         """
+    )
+
+
+def admonition_test_content(first_line, admonition, extra=""):
+    return (
+        dedent(
+            f"""\
+            {first_line}
+
+               .. admonition:: {admonition}
+                  :class: warning
+
+                  {extra}
+            """
+        ).strip()
+        + "\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "deprecated,expected",
+    [
+        (True, ".. Not empty"),
+        ("Blah", "Blah"),
+        (
+            [DescriptionText("This is "), DescriptionCode("`some code`")],
+            "This is ``some code``",
+        ),
+    ],
+)
+def test_deprecated(
+    function_render, attribute_render, type_alias_render, deprecated, expected
+):
+    assert function_render(deprecated=deprecated) == admonition_test_content(
+        ".. js:function:: blah()", "Deprecated", expected
+    )
+    assert attribute_render(deprecated=deprecated) == admonition_test_content(
+        ".. js:attribute:: blah", "Deprecated", expected
+    )
+    assert type_alias_render(deprecated=deprecated) == admonition_test_content(
+        ".. js:typealias:: blah", "Deprecated", expected
+    )
+
+
+@pytest.mark.parametrize(
+    "experimental,expected",
+    [
+        (True, ".. Not empty"),
+        ("Blah", "Blah"),
+        (
+            [DescriptionText("This is "), DescriptionCode("`some code`")],
+            "This is ``some code``",
+        ),
+    ],
+)
+def test_experimental(
+    function_render, attribute_render, type_alias_render, experimental, expected
+):
+    assert function_render(experimental=experimental) == admonition_test_content(
+        ".. js:function:: blah()", "Experimental", expected
+    )
+    assert attribute_render(experimental=experimental) == admonition_test_content(
+        ".. js:attribute:: blah", "Experimental", expected
+    )
+    assert type_alias_render(experimental=experimental) == admonition_test_content(
+        ".. js:typealias:: blah", "Experimental", expected
     )

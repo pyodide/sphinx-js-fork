@@ -1,9 +1,18 @@
 {% macro deprecated(message) %}
 {% if message -%}
-.. note::
+.. admonition:: Deprecated
+   :class: warning
 
-   Deprecated
-   {%- if message is string -%}: {{ message }}{% else %}.{% endif -%}
+   {% if message is string -%} {{ message }} {%- else -%} .. Not empty {%- endif -%}
+{%- endif %}
+{% endmacro %}
+
+{% macro experimental(message) %}
+{% if message -%}
+.. admonition:: Experimental
+   :class: warning
+
+   {% if message is string -%} {{ message }} {%- else -%} .. Not empty {%- endif -%}
 {%- endif %}
 {% endmacro %}
 
