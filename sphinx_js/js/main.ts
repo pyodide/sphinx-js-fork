@@ -7,7 +7,7 @@ async function main() {
   let app, result;
   try {
     [app, result] = await run(args);
-  } catch(e) {
+  } catch (e) {
     if (e instanceof ExitError) {
       return e.code;
     }

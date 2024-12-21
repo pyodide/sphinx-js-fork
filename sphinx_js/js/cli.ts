@@ -54,7 +54,9 @@ async function loadConfig(
   return configModule.config;
 }
 
-export async function run(args: string[]): Promise<[Application, TopLevelIR[]]> {
+export async function run(
+  args: string[],
+): Promise<[Application, TopLevelIR[]]> {
   // Most of this stuff is copied from typedoc/src/lib/cli.ts
   let app = await bootstrapAppTypedoc0_25(args);
   if (app.options.getValue("version")) {
