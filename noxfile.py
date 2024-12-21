@@ -25,15 +25,27 @@ def tests(session: Session) -> None:
 @nox.session(python=["3.12"])
 @nox.parametrize("typedoc", ["0.25", "0.26"])
 def test_typedoc(session: Session, typedoc: str) -> None:
+    # Install python dependencies
     session.install("-r", "requirements_dev.txt")
     venvroot = Path(session.bin).parent
     (venvroot / "node_modules").mkdir()
     with session.chdir(venvroot):
+        # Install node dependencies
         session.run(
-            "npm", "i", "--no-save", "jsdoc@4.0.0", f"typedoc@{typedoc}", external=True
+            "npm",
+            "i",
+            "--no-save",
+            "tsx",
+            "jsdoc@4.0.0",
+            f"typedoc@{typedoc}",
+            external=True,
         )
         session.run("npx", "tsc", "--version", external=True)
         session.run("npx", "typedoc", "--version", external=True)
+        # Run typescript tests
+        test_file = (Path(__file__).parent / "tests/test.ts").resolve()
+        session.run("npx", "--import", "tsx", "--test", test_file, external=True)
+    # Run Python tests
     session.run("pytest", "--junitxml=test-results.xml", "-k", "not js")
 
 
