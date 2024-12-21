@@ -18,6 +18,7 @@ export async function resolve(specifier, context, nextResolve) {
   for (const parentURL of [origURL, fallbackURL]) {
     context.parentURL = parentURL;
     const res = await tryResolve(specifier, context, nextResolve);
+    context.parentURL = origURL;
     if (res) {
       return res;
     }

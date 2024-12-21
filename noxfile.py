@@ -1,4 +1,5 @@
 from pathlib import Path
+from textwrap import dedent
 
 import nox
 from nox.sessions import Session
@@ -30,7 +31,8 @@ def test_typedoc(session: Session, typedoc: str) -> None:
     # Install python dependencies
     session.install("-r", "requirements_dev.txt")
     venvroot = Path(session.bin).parent
-    (venvroot / "node_modules").mkdir()
+    node_modules = (venvroot / "node_modules").resolve()
+    node_modules.mkdir()
     with session.chdir(venvroot):
         # Install node dependencies
         session.run(
@@ -47,16 +49,19 @@ def test_typedoc(session: Session, typedoc: str) -> None:
         # Run typescript tests
         test_file = (PROJECT_ROOT / "tests/test.ts").resolve()
         register_import_hook = PROJECT_ROOT / "sphinx_js/js/registerImportHook.mjs"
-        session.run(
-            "npx",
-            "--import",
-            register_import_hook,
-            "--import",
-            "tsx",
-            "--test",
-            test_file,
-            external=True,
+        ts_tests = Path(venvroot / "ts_tests")
+        # Write script to a file so that it is easy to rerun without reinstalling dependencies.
+        ts_tests.write_text(
+            dedent(
+                f"""\
+                #!/bin/sh
+                TYPEDOC_NODE_MODULES={venvroot} node --import {register_import_hook} --import {node_modules/"tsx/dist/loader.mjs"} --test {test_file}
+                """
+            )
         )
+        ts_tests.chmod(0o777)
+        session.run(ts_tests, external=True)
+
     # Run Python tests
     session.run("pytest", "--junitxml=test-results.xml", "-k", "not js")
 
