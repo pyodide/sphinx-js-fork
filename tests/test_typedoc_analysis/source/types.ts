@@ -5,7 +5,7 @@ import { Blah } from "./exports";
 export enum Color {
   Red = 1,
   Green = 2,
-};
+}
 
 export let bool: boolean;
 export let num: number;
