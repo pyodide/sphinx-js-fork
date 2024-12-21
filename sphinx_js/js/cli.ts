@@ -5,11 +5,11 @@ import {
   PackageJsonReader,
   TSConfigReader,
 } from "typedoc";
-import { writeFile } from "fs/promises";
 import { Converter } from "./convertTopLevel.ts";
 import { SphinxJsConfig } from "./sphinxJsConfig.ts";
 import { fileURLToPath } from "url";
 import { redirectPrivateTypes } from "./redirectPrivateAliases.ts";
+import { TopLevelIR } from "./ir.ts";
 
 const ExitCodes = {
   Ok: 0,
@@ -36,6 +36,14 @@ async function bootstrapAppTypedoc0_25(args: string[]): Promise<Application> {
   );
 }
 
+export class ExitError extends Error {
+  code: number;
+  constructor(code: number) {
+    super();
+    this.code = code;
+  }
+}
+
 async function loadConfig(
   configPath: string | undefined,
 ): Promise<SphinxJsConfig> {
@@ -46,17 +54,18 @@ async function loadConfig(
   return configModule.config;
 }
 
-async function main() {
+export async function run(
+  args: string[],
+): Promise<[Application, TopLevelIR[]]> {
   // Most of this stuff is copied from typedoc/src/lib/cli.ts
-  const start = Date.now();
-  const args = process.argv.slice(2);
   let app = await bootstrapAppTypedoc0_25(args);
   if (app.options.getValue("version")) {
     console.log(app.toString());
-    return ExitCodes.Ok;
+    throw new ExitError(ExitCodes.Ok);
   }
   app.extraData = {};
   app.options.getValue("modifierTags").push("@hidetype");
+  app.options.getValue("blockTags").push("@destructure");
   const userConfigPath = app.options.getValue("sphinxJsConfig");
   const config = await loadConfig(userConfigPath);
   app.logger.info(`Loaded user config from ${userConfigPath}`);
@@ -65,34 +74,27 @@ async function main() {
 
   const project = await app.convert();
   if (!project) {
-    return ExitCodes.CompileError;
+    throw new ExitError(ExitCodes.CompileError);
   }
   const preValidationWarnCount = app.logger.warningCount;
   app.validate(project);
   const hadValidationWarnings =
     app.logger.warningCount !== preValidationWarnCount;
   if (app.logger.hasErrors()) {
-    return ExitCodes.ValidationError;
+    throw new ExitError(ExitCodes.ValidationError);
   }
   if (
     hadValidationWarnings &&
     (app.options.getValue("treatWarningsAsErrors") ||
       app.options.getValue("treatValidationWarningsAsErrors"))
   ) {
-    return ExitCodes.ValidationError;
+    throw new ExitError(ExitCodes.ValidationError);
   }
 
   const basePath = app.options.getValue("basePath");
   const converter = new Converter(project, basePath, config, symbolToType);
   converter.computePaths();
-  const space = app.options.getValue("pretty") ? "\t" : "";
   const result = converter.convertAll();
   await config.postConvert?.(app, project, converter.typedocToIRMap);
-  const res = JSON.stringify([result, app.extraData], null, space);
-  const json = app.options.getValue("json");
-  await writeFile(json, res);
-  app.logger.info(`JSON written to ${json}`);
-  app.logger.verbose(`JSON rendering took ${Date.now() - start}ms`);
+  return [app, result];
 }
-
-process.exit(await main());

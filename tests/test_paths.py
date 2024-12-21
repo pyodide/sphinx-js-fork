@@ -108,7 +108,7 @@ def test_global_install(tmp_path_factory, monkeypatch):
             "tsx@4.15.8",
             "--import",
             dir / "registerImportHook.mjs",
-            dir / "call_typedoc.ts",
+            dir / "main.ts",
             "--version",
         ],
         capture_output=True,
