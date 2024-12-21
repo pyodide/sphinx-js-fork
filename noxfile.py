@@ -3,6 +3,8 @@ from pathlib import Path
 import nox
 from nox.sessions import Session
 
+PROJECT_ROOT = Path(__file__).parent
+
 
 @nox.session(python=["3.10", "3.11", "3.12", "3.13"])
 def tests(session: Session) -> None:
@@ -43,8 +45,18 @@ def test_typedoc(session: Session, typedoc: str) -> None:
         session.run("npx", "tsc", "--version", external=True)
         session.run("npx", "typedoc", "--version", external=True)
         # Run typescript tests
-        test_file = (Path(__file__).parent / "tests/test.ts").resolve()
-        session.run("npx", "--import", "tsx", "--test", test_file, external=True)
+        test_file = (PROJECT_ROOT / "tests/test.ts").resolve()
+        register_import_hook = PROJECT_ROOT / "sphinx_js/js/registerImportHook.mjs"
+        session.run(
+            "npx",
+            "--import",
+            register_import_hook,
+            "--import",
+            "tsx",
+            "--test",
+            test_file,
+            external=True,
+        )
     # Run Python tests
     session.run("pytest", "--junitxml=test-results.xml", "-k", "not js")
 
