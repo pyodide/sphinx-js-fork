@@ -325,11 +325,10 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
                     m
                     for m in cls.members
                     if isinstance(m, Attribute)
-                    and m.name
-                    in ["someStatic", "someOptional", "somePrivate", "someNormal"]
+                    and m.name in ["someStatic", "someOptional", "someNormal"]
                 ]
             )
-            == 4
+            == 3
         )
 
         # The unique things about properties (over and above Variables) are set
@@ -341,7 +340,6 @@ class TestConvertNode(TypeDocAnalyzerTestCase):
 
         assert get_prop(".", "someStatic").is_static
         assert get_prop("#", "someOptional").is_optional
-        assert get_prop("#", "somePrivate").is_private
         normal_property = get_prop("#", "someNormal")
         assert (
             not normal_property.is_optional

@@ -414,7 +414,8 @@ class TypeConverter implements TypeVisitor<Type> {
       return this.convertSignature(lit.signatures[0]);
     }
     const result: Type = ["{ "];
-    const index_sig = lit.indexSignature;
+    // lit.indexSignature for 0.25.x, lit.indexSignatures for 0.26.0 and later.
+    const index_sig = lit.indexSignature ?? lit.indexSignatures?.[0];
     if (index_sig) {
       if (index_sig.parameters?.length !== 1) {
         throw new Error("oops");
