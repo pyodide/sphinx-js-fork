@@ -63,10 +63,15 @@ export function redirectPrivateTypes(app: Application): ReadonlySymbolToType {
   const referencedSymbols = new Map<Reflection, Set<ts.Symbol>>();
   const knownPrograms = new Map<Reflection, ts.Program>();
   const symbolToType: SymbolToType = new Map<`${string}:${number}`, SomeType>();
-
   app.converter.on(
     Converter.EVENT_CREATE_DECLARATION,
     (context: Context, refl: Reflection) => {
+      // TypeDoc 0.26 doesn't fire EVENT_CREATE_DECLARATION for project
+      // We need to ensure the project has a program attached to it, so
+      // do that when the first declaration is created.
+      if (knownPrograms.size === 0) {
+        knownPrograms.set(refl.project, context.program);
+      }
       if (refl.kindOf(ModuleLike)) {
         knownPrograms.set(refl, context.program);
       }
@@ -136,7 +141,9 @@ export function redirectPrivateTypes(app: Application): ReadonlySymbolToType {
         if (ts.isTypeAliasDeclaration(decl)) {
           const sf = decl.getSourceFile();
           const fileName = sf.fileName;
-          const pos = decl.pos;
+          const pos = Application.VERSION.startsWith("0.25")
+            ? decl.pos
+            : decl.getStart();
           const converted = context.converter.convertType(context, decl.type);
           // Depending on whether we have a symbolId or a reflection in
           // renderType we'll use different keys to look this up.
