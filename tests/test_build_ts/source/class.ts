@@ -86,7 +86,7 @@ export function exampleFunction() {}
 export async function asyncFunction() {}
 
 export class Iterable {
-  *[Symbol.iterator](): Iterator<number> {
+  *[Symbol.iterator](): Iterator<number, any, undefined> {
     yield 1;
     yield 2;
     yield 3;
