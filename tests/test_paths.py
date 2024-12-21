@@ -105,7 +105,7 @@ def test_global_install(tmp_path_factory, monkeypatch):
     res = subprocess.run(
         [
             "npx",
-            "tsx",
+            "tsx@4.15.8",
             "--import",
             dir / "registerImportHook.mjs",
             dir / "call_typedoc.ts",

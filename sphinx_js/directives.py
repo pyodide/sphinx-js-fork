@@ -33,8 +33,8 @@ from sphinx.domains.javascript import (
 from sphinx.locale import _
 from sphinx.util.docfields import GroupedField, TypedField
 from sphinx.writers.html5 import HTML5Translator
-from sphinx.writers.text import TextTranslator
 from sphinx.writers.latex import LaTeXTranslator
+from sphinx.writers.text import TextTranslator
 
 from .renderers import (
     AutoAttributeRenderer,
@@ -328,11 +328,15 @@ def text_depart_desc_js_type_parameter_list(
     self.add_text(">")
 
 
-def latex_visit_desc_type_parameter_list(self: LaTeXTranslator, node: nodes.Element) -> None:
+def latex_visit_desc_type_parameter_list(
+    self: LaTeXTranslator, node: nodes.Element
+) -> None:
     pass
 
 
-def latex_depart_desc_type_parameter_list(self: LaTeXTranslator, node: nodes.Element) -> None:
+def latex_depart_desc_type_parameter_list(
+    self: LaTeXTranslator, node: nodes.Element
+) -> None:
     pass
 
 

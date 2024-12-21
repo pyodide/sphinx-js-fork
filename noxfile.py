@@ -4,7 +4,7 @@ import nox
 from nox.sessions import Session
 
 
-@nox.session(python=["3.10", "3.11", "3.12"])
+@nox.session(python=["3.10", "3.11", "3.12", "3.13"])
 def tests(session: Session) -> None:
     session.install("-r", "requirements_dev.txt")
     venvroot = Path(session.bin).parent
