@@ -33,11 +33,11 @@ suite("types.ts", async () => {
   function getObject(name: string): TopLevelIR {
     const obj = map.get(name);
     assert(obj);
-    return obj;
+    return obj!;
   }
   suite("basic", async () => {
     for (const [obj_name, type_name] of [
-      ["bool", "boolean"],
+      ["bool", "boolean1"],
       ["num", "number"],
       ["str", "string"],
       ["array", "number[]"],
