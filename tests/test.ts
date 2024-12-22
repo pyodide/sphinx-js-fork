@@ -37,7 +37,7 @@ suite("types.ts", async () => {
   }
   suite("basic", async () => {
     for (const [obj_name, type_name] of [
-      ["bool", "boolean1"],
+      ["bool", "boolean"],
       ["num", "number"],
       ["str", "string"],
       ["array", "number[]"],
