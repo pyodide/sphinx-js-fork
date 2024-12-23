@@ -46,6 +46,7 @@ async function bootstrapAppTypedoc0_25(args: string[]): Promise<Application> {
 }
 
 async function makeApp(args: string[]): Promise<Application> {
+  // Most of this stuff is copied from typedoc/src/lib/cli.ts
   let app = await bootstrapAppTypedoc0_25(args);
   if (app.options.getValue("version")) {
     console.log(app.toString());
@@ -68,6 +69,7 @@ async function loadConfig(
 }
 
 async function typedocConvert(app: Application): Promise<ProjectReflection> {
+  // Most of this stuff is copied from typedoc/src/lib/cli.ts
   const project = await app.convert();
   if (!project) {
     throw new ExitError(ExitCodes.CompileError);
@@ -92,7 +94,6 @@ async function typedocConvert(app: Application): Promise<ProjectReflection> {
 export async function run(
   args: string[],
 ): Promise<[Application, TopLevelIR[]]> {
-  // Most of this stuff is copied from typedoc/src/lib/cli.ts
   let app = await makeApp(args);
   const userConfigPath = app.options.getValue("sphinxJsConfig");
   const config = await loadConfig(userConfigPath);
