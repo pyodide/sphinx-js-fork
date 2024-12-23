@@ -101,7 +101,11 @@ export function redirectPrivateTypes(app: Application): ReadonlySymbolToType {
     const referenced = getReferencedSymbols(owningModule);
     return Array.from(referenced).filter((s) => {
       const refl = context.project.getReflectionFromSymbol(s);
-      return !refl || refl.flags.isPrivate || refl?.comment?.modifierTags.has("@hidden");
+      return (
+        !refl ||
+        refl.flags.isPrivate ||
+        refl?.comment?.modifierTags.has("@hidden")
+      );
     });
   }
 
