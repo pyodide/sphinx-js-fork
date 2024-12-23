@@ -87,6 +87,7 @@ def typedoc_output(
         command.add("--tsconfig", tsconfig_path)
 
     command.add("--basePath", base_dir)
+    command.add("--excludePrivate", "false")
 
     with NamedTemporaryFile(mode="w+b", delete=False) as temp:
         command.add("--json", temp.name, *abs_source_paths)
