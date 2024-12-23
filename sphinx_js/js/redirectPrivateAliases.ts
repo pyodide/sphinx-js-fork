@@ -101,7 +101,7 @@ export function redirectPrivateTypes(app: Application): ReadonlySymbolToType {
     const referenced = getReferencedSymbols(owningModule);
     return Array.from(referenced).filter((s) => {
       const refl = context.project.getReflectionFromSymbol(s);
-      return !refl || refl.flags.isPrivate;
+      return !refl || refl.flags.isPrivate || refl?.comment?.modifierTags.has("@hidden");
     });
   }
 
@@ -141,15 +141,9 @@ export function redirectPrivateTypes(app: Application): ReadonlySymbolToType {
         if (ts.isTypeAliasDeclaration(decl)) {
           const sf = decl.getSourceFile();
           const fileName = sf.fileName;
-          const pos = Application.VERSION.startsWith("0.25")
-            ? decl.pos
-            : decl.getStart();
           const converted = context.converter.convertType(context, decl.type);
-          // Depending on whether we have a symbolId or a reflection in
-          // renderType we'll use different keys to look this up.
-          symbolToType.set(`${fileName}:${pos}`, converted);
           // Ideally we should be able to key on position rather than file and
-          // name when the reflection is present but I couldn't figure out how.
+          // name but I couldn't figure out how.
           symbolToType.set(`${fileName}:${decl.name.getText()}`, converted);
         }
       }
