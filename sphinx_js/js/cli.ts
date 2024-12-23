@@ -4,6 +4,7 @@ import {
   TypeDocReader,
   PackageJsonReader,
   TSConfigReader,
+  ProjectReflection,
 } from "typedoc";
 import { Converter } from "./convertTopLevel.ts";
 import { SphinxJsConfig } from "./sphinxJsConfig.ts";
@@ -21,6 +22,14 @@ const ExitCodes = {
   Watching: 7,
 };
 
+export class ExitError extends Error {
+  code: number;
+  constructor(code: number) {
+    super();
+    this.code = code;
+  }
+}
+
 async function bootstrapAppTypedoc0_25(args: string[]): Promise<Application> {
   return await Application.bootstrapWithPlugins(
     {
@@ -36,12 +45,17 @@ async function bootstrapAppTypedoc0_25(args: string[]): Promise<Application> {
   );
 }
 
-export class ExitError extends Error {
-  code: number;
-  constructor(code: number) {
-    super();
-    this.code = code;
+async function makeApp(args: string[]): Promise<Application> {
+  // Most of this stuff is copied from typedoc/src/lib/cli.ts
+  let app = await bootstrapAppTypedoc0_25(args);
+  if (app.options.getValue("version")) {
+    console.log(app.toString());
+    throw new ExitError(ExitCodes.Ok);
   }
+  app.extraData = {};
+  app.options.getValue("modifierTags").push("@hidetype");
+  app.options.getValue("blockTags").push("@destructure");
+  return app;
 }
 
 async function loadConfig(
@@ -54,24 +68,8 @@ async function loadConfig(
   return configModule.config;
 }
 
-export async function run(
-  args: string[],
-): Promise<[Application, TopLevelIR[]]> {
+async function typedocConvert(app: Application): Promise<ProjectReflection> {
   // Most of this stuff is copied from typedoc/src/lib/cli.ts
-  let app = await bootstrapAppTypedoc0_25(args);
-  if (app.options.getValue("version")) {
-    console.log(app.toString());
-    throw new ExitError(ExitCodes.Ok);
-  }
-  app.extraData = {};
-  app.options.getValue("modifierTags").push("@hidetype");
-  app.options.getValue("blockTags").push("@destructure");
-  const userConfigPath = app.options.getValue("sphinxJsConfig");
-  const config = await loadConfig(userConfigPath);
-  app.logger.info(`Loaded user config from ${userConfigPath}`);
-  const symbolToType = redirectPrivateTypes(app);
-  await config.preConvert?.(app);
-
   const project = await app.convert();
   if (!project) {
     throw new ExitError(ExitCodes.CompileError);
@@ -90,7 +88,19 @@ export async function run(
   ) {
     throw new ExitError(ExitCodes.ValidationError);
   }
+  return project;
+}
 
+export async function run(
+  args: string[],
+): Promise<[Application, TopLevelIR[]]> {
+  let app = await makeApp(args);
+  const userConfigPath = app.options.getValue("sphinxJsConfig");
+  const config = await loadConfig(userConfigPath);
+  app.logger.info(`Loaded user config from ${userConfigPath}`);
+  const symbolToType = redirectPrivateTypes(app);
+  await config.preConvert?.(app);
+  const project = await typedocConvert(app);
   const basePath = app.options.getValue("basePath");
   const converter = new Converter(project, basePath, config, symbolToType);
   converter.computePaths();
