@@ -215,7 +215,10 @@ class TypeConverter implements TypeVisitor<Type> {
       // up so in this case we index on file name and reference name.
 
       // Another place where we incorrectly handle merged declarations
-      const src = refl.sources![0];
+      const src = type.reflection?.sources?.[0];
+      if (!src) {
+        return undefined;
+      }
       const newTarget = this.symbolToType.get(
         `${src.fullFileName}:${refl.name}`,
       );
