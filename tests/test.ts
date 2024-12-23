@@ -33,7 +33,7 @@ suite("types.ts", async () => {
   function getObject(name: string): TopLevelIR {
     const obj = map.get(name);
     assert(obj);
-    return obj!;
+    return obj;
   }
   suite("basic", async () => {
     for (const [obj_name, type_name] of [
@@ -99,5 +99,15 @@ suite("types.ts", async () => {
         type: "internal",
       },
     ]);
+  });
+  await test("private_type_alias_1", () => {
+    const obj = getObject("typeIsPrivateTypeAlias1");
+    assert.strictEqual(obj.kind, "attribute");
+    assert.deepStrictEqual(joinType(obj.type), "{ a: number; b: string; }");
+  });
+  await test("private_type_alias_2", () => {
+    const obj = getObject("typeIsPrivateTypeAlias2");
+    assert.strictEqual(obj.kind, "attribute");
+    assert.deepStrictEqual(joinType(obj.type), "{ a: number; b: string; }");
   });
 });
