@@ -233,9 +233,12 @@ class TypeConverter implements TypeVisitor<Type> {
       throw new Error("This should not happen");
     }
     // See if this refers to a private type. In that case we should inline the
-    // type reflection rather than referring to the non-exported name.
+    // type reflection rather than referring to the non-exported name. Ideally
+    // we should key on position rather than name (the same file can have
+    // multiple private types with the same name potentially). But it doesn't
+    // seem to be working.
     const newTarget = this.symbolToType.get(
-      `${type.symbolId.fileName}:${type.symbolId.pos}`,
+      `${type.symbolId.fileName}:${type.name}`,
     );
     if (newTarget) {
       // TODO: this doesn't handle parentheses correctly.
