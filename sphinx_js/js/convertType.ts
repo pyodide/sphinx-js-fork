@@ -299,18 +299,17 @@ class TypeConverter implements TypeVisitor<Type> {
   }
 
   reference(type: ReferenceType): Type {
+    // if we got a reflection use that. It's not all that clear how to deal
+    // with type arguments here though...
+    const res = this.convertPrivateReferenceToReflection(type);
+    if (res) {
+      return res;
+    }
     if (type.isIntentionallyBroken()) {
       // If it's intentionally broken, don't add an xref. It's probably a type
       // parameter.
       return this.addTypeArguments(type, [type.name]);
     } else {
-      // if we got a reflection use that. It's not all that clear how to deal
-      // with type arguments here though...
-      const res = this.convertPrivateReferenceToReflection(type);
-      // else use convertReferenceToXRef
-      if (res) {
-        return res;
-      }
       return this.convertReferenceToXRef(type);
     }
   }
