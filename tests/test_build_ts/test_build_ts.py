@@ -162,7 +162,7 @@ class TestTextBuilder(SphinxBuildTestCase):
                Iterable.[Symbol․iterator]()
 
                   Returns:
-                     Iterator<number, any, undefined>
+                     Iterator<number, string, undefined>
             """
         )
         self._file_contents_eq("symbol", expected)
