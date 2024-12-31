@@ -710,7 +710,11 @@ class AutoModuleRenderer(JsRenderer):
         return analyzer._modules_by_path.get(self._partial_path)
 
     def rst_for_group(self, objects: Iterable[TopLevel]) -> list[str]:
-        return [self.rst_for(obj) for obj in objects if not "@omitFromAutoModule" in obj.modifier_tags]
+        return [
+            self.rst_for(obj)
+            for obj in objects
+            if "@omitFromAutoModule" not in obj.modifier_tags
+        ]
 
     def rst(  # type:ignore[override]
         self,
@@ -722,7 +726,7 @@ class AutoModuleRenderer(JsRenderer):
         rst.append([f".. js:module:: {''.join(partial_path)}"])
         for group_name in _SECTION_ORDER:
             rst.append(self.rst_for_group(getattr(obj, group_name)))
-        return "\n\n".join(["\n\n".join(r) for r in rst])
+        return "\n\n".join(["\n\n".join(r) for r in rst if r])
 
 
 class AutoSummaryRenderer(Renderer):
@@ -787,9 +791,7 @@ class AutoSummaryRenderer(Renderer):
         else:
             return ""
 
-    def get_summary_row(
-        self, pkgname: str, obj: TopLevel
-    ) -> tuple[str, str, str]:
+    def get_summary_row(self, pkgname: str, obj: TopLevel) -> tuple[str, str, str]:
         """Get the summary table row for obj.
 
         The output is designed to be input to format_table. The link name
@@ -821,9 +823,7 @@ class AutoSummaryRenderer(Renderer):
     # We have to change the value of one string: qualifier = 'obj   ==>
     # qualifier = 'any'
     # https://github.com/sphinx-doc/sphinx/blob/6.0.x/sphinx/ext/autosummary/__init__.py#L375
-    def format_table(
-        self, items: list[tuple[str, str, str]]
-    ) -> list[Node]:
+    def format_table(self, items: list[tuple[str, str, str]]) -> list[Node]:
         """Generate a proper list of table nodes for autosummary:: directive.
 
         *items* is a list produced by :meth:`get_items`.
