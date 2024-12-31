@@ -86,10 +86,11 @@ export function exampleFunction() {}
 export async function asyncFunction() {}
 
 export class Iterable {
-  *[Symbol.iterator](): Iterator<number, any, undefined> {
+  *[Symbol.iterator](): Iterator<number, string, undefined> {
     yield 1;
     yield 2;
     yield 3;
+    return "abc";
   }
 }
 
